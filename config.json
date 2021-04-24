@@ -1,0 +1,5 @@
+{
+  "port": 8443,
+  "https": true,
+  "origins": ["https://test.sportes.fr"]  
+}
