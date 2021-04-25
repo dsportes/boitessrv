@@ -1,5 +1,9 @@
 {
   "port": 8443,
   "https": true,
-  "origins": ["https://test.sportes.fr"]  
+  "origins": ["localhost", "https://test.sportes.fr"],
+  "orgs": {
+    "doda": { "code":"doda", "cle":"blabla"},
+    "super": { "code":"super", "cle":"blabla"}
+  }
 }

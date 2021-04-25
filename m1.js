@@ -22,17 +22,17 @@ exports.atStart = atStart
     Pour un POST :
         result : objet résultat
     En cas d'erreur :
-        result.error : objet erreur {c:99 , m:"...", s:" trace "}
+        result.error : objet erreur {c:99 , m:"...message...", d:"...detail..." s:" stack trace "}
 *****************************************************************/
 
-async function echo (org, args, isGet) {
+async function echo (cfgorg, args, isGet) {
     if (!args) args = { }
-    args.org = org
+    args.org = cfgorg.code
     return !isGet ? args : {type:"text/plain", bytes:Buffer.from(JSON.stringify(args), 'utf8')}
 }
 exports.echo = echo
 
-async function erreur (org, args) {
-    return { erreur: args, org:org }
+async function erreur (cfgorg, args) {
+    return { erreur: args, org:cfgorg.code }
 }
 exports.erreur = erreur

@@ -41,17 +41,24 @@ function setRes(res, status) {
     })
 }
 
-function er(c, m) {
+function er(c) {
     const l = [
         "Erreur non récupérée : ", // 0
         "Origine non autorisée", // 1
         "Module inconnu", // 2
-        "Fonction inconnue" // 3
+        "Fonction inconnue", // 3
+        "Organisation inconnue", // 4
     ]
-    return {c: c, m: l[c] + m || ''}
+    return {c: c, m: l[c]}
 }
 
-// traitement générique d'une opération
+/*
+Traitement générique d'une opération
+Status HTTP de retour :
+-200 : OK pas d'erreur, ni technique ni fonctionnelle
+-400 : erreur fonctionnelle
+-401 : exception non trappée, bug ou problème technique
+*/
 async function operation(req, res) {
     let pfx = new Date().toISOString() // prefix de log
     try {
@@ -74,6 +81,12 @@ async function operation(req, res) {
             setRes(res, 400).json(er(3))
             return
         }
+        // reconnaissance de l'organisation
+        const cfgorg = cfg.orgs[req.params.org]
+        if (!cfgorg) {
+            setRes(res, 400).json(er(4))
+            return
+        }
 
         /*  Appel de l'opération
             Retourne un objet result :
@@ -90,7 +103,7 @@ async function operation(req, res) {
         const args = isGet ? req.query : req.body
         pfx += ' func=' + req.params.mod + '/' + req.params.func + ' org=' + req.params.org
         if (dev) console.log(pfx)
-        const result = await func(req.params.org, args, isGet)
+        const result = await func(cfgorg, args, isGet)
 
         if (result.erreur) { // la réponse est une erreur fonctionnelle - descriptif dans erreur
             console.log(pfx + ' 400=' + JSON.stringify(result.erreur))
@@ -114,7 +127,7 @@ async function operation(req, res) {
         }
         if (!dev) console.log(pfx)
         console.log(pfx + ' 400=' + JSON.stringify(x))
-		setRes(res, 400).json(x)
+		setRes(res, 401).json(x)
 	}
 }
 
