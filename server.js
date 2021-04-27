@@ -131,6 +131,13 @@ async function operation(req, res) {
 	}
 }
 
+const mimetype = {
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "png": "image/png",
+    "svg": "image/image/svg+xml"
+}
+
 /*
 Récupération de la configuration
 Dans la configuration de chaque environnement, son code est inséré
@@ -139,12 +146,18 @@ const configjson = fs.readFileSync("./config.json")
 let cfg
 try {
     cfg = JSON.parse(configjson)
+    for(let org in cfg.orgs) {
+        const e = cfg.orgs[org]
+        const b = fs.readFileSync('./icons/' + org + '.' + e.typeicon, 'base64')
+        e.icon = 'data:' + mimetype[e.typeicon] + ';base64,' + b
+    }
 } catch(e) {
     throw new Error(" Erreur de parsing de config.json : " + e.message)
 }
 
 // Les sites appelent souvent favicon.ico
 const favicon = fs.readFileSync("./favicon.ico")
+// const deficon = 'data:image/png;base64,' + fs.readFileSync('./anonymous.png', 'base64')
 
 const app = express()
 app.use(express.json()) // parsing des application/json
@@ -165,6 +178,13 @@ app.get("/favicon.ico", (req, res) => {
 /**** ping du site ****/
 app.get("/ping", (req, res) => {
     setRes(res, 200).type("text/plain").send(new Date().toISOString())
+});
+
+/**** icon d'une organisation ****/
+app.get("/icon/:org", (req, res) => {
+    const e = cfg.orgs[req.params.org]
+    const ic = e ? e.icon : 'KO'
+    setRes(res, 200).type("text/plain").send(ic)
 });
 
 /**** appels des opérations ****/

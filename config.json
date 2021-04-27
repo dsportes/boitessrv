@@ -3,7 +3,7 @@
   "https": true,
   "origins": ["localhost", "https://test.sportes.fr"],
   "orgs": {
-    "doda": { "code":"doda", "cle":"blabla"},
-    "super": { "code":"super", "cle":"blabla"}
+    "doda": { "code":"doda", "typeicon":"png", "cle":"blabla"},
+    "super": { "code":"super", "typeicon":"png", "cle":"blabla"}
   }
 }
