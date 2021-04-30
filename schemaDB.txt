@@ -1,0 +1,144 @@
+CREATE TABLE "compte" (
+"id"	TEXT,
+"dhc"	INTEGER,
+"dma"	INTEGER,
+"dpbh"	TEXT UNIQUE,
+"data"	TEXT,
+"datax"	TEXT,
+PRIMARY KEY("id")
+);
+CREATE UNIQUE INDEX "dpbh" ON "compte" (
+"dpbh"
+);
+CREATE INDEX "dma" ON "compte" (
+"dma"
+);
+
+CREATE TABLE "avatar" (
+"id"	TEXT,
+"dhc"	INTEGER,
+"dma"	INTEGER,
+"datax"	TEXT,
+PRIMARY KEY("id")
+);
+CREATE INDEX "dmaa" ON "avatar" (
+"dma"
+);
+
+CREATE TABLE "contact" (
+"ida"	TEXT,
+"idc"	TEXT,
+"dhc"	INTEGER,
+"datax"	TEXT,
+PRIMARY KEY("ida","idc")
+);
+CREATE INDEX "dhcida" ON "contact" (
+"dhc",
+"ida"
+);
+
+CREATE TABLE "groupe" (
+"id"	TEXT,
+"dhc"	INTEGER,
+"dma"	INTEGER,
+"data"	TEXT,
+"datax"	TEXT,
+PRIMARY KEY("id")
+);
+CREATE INDEX "dhcidg" ON "groupe" (
+"dhc",
+"idg"
+);
+
+CREATE TABLE "membre" (
+"idm"	TEXT,
+"idg"	TEXT,
+"dhc"	INTEGER,
+"datag"	TEXT,
+"dataa"	TEXT,
+PRIMARY KEY("idm","idg")
+);
+CREATE INDEX "dhcidm" ON "membre" (
+"dhc",
+"idm"
+);
+CREATE INDEX "" ON "membre" (
+"dhc",
+"idg"
+);
+    
+CREATE TABLE "dct" (
+"ida"	TEXT,
+"idc"	TEXT,
+"dhc"	INTEGER,
+"dlv"	INTEGER,
+"datac"	TEXT,
+PRIMARY KEY("ida","idc")
+);
+CREATE INDEX "dhcidadct" ON "dct" (
+"dhc",
+"ida"
+);
+CREATE INDEX "dhcidcdct" ON "dct" (
+"dhc",
+"idc"
+);
+CREATE INDEX "idcdct" ON "dct" (
+"idc"
+);
+CREATE INDEX "dlvdct" ON "dct" (
+"dlv"
+);
+
+CREATE TABLE "invg" (
+"ida"	TEXT,
+"idc"	TEXT,
+"idg"	TEXT,
+"dhc"	INTEGER,
+"dlv"	INTEGER,
+"datac"	TEXT,
+PRIMARY KEY("ida","idc", "idg")
+);
+CREATE INDEX "dhcidainvg" ON "invg" (
+"dhc",
+"ida"
+);
+CREATE INDEX "dhcidcinvg" ON "invg" (
+"dhc",
+"idc"
+);
+CREATE INDEX "idcinvg" ON "invg" (
+"idc"
+);
+CREATE INDEX "dlvinvg" ON "invg" (
+"dlv"
+);
+
+CREATE TABLE "secret" (
+"ids"	TEXT,
+"idg"	TEXT,
+"bg"	TEXT,
+"suppr"	INTEGER,
+"dhc"	INTEGER,
+"cc"	TEXT,
+"mcg"	TEXT,
+"ida"	TEXT,
+"vs"	INTEGER,
+"vp"	INTEGER,
+"enta"	TEXT,
+"tcga"	BLOB,
+PRIMARY KEY("ids")
+);
+CREATE INDEX "gsecret" ON "secret" (
+"idg",
+"bg",
+"dhc",
+"suppr"
+);
+
+CREATE TABLE "secretcc" (
+"ida"	TEXT,
+"ids"	TEXT,
+"suppr"	INTEGER,
+PRIMARY KEY("ida","ids","suppr")
+);
