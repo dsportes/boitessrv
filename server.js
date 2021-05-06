@@ -1,7 +1,9 @@
-const fs = require("fs");
-const http = require("http");
-const https = require("https");
-const express = require('express');
+const fs = require("fs")
+const http = require("http")
+const https = require("https")
+const express = require('express')
+const WebSocket = require('ws')
+const Session = require("./session.js").Session
 
 const modules = {}
 modules.m1 = require("./m1.js")
@@ -239,6 +241,16 @@ try {
     server.on('error', (e) => { // les erreurs de création du server ne sont pas des exceptions
         console.error("server.js : HTTP error = " + e.message)
     })
+    const wss = new WebSocket.Server({ server })
+
+    wss.on('connection', (ws, request) => {
+        if (checkOrigin(request)) {
+            new Session (ws, request, wss)
+        } else {
+            ws.close()
+        }
+    })
+
 } catch(e) { // exception générale. Ne vrait jamais être levée
     console.error("server.js : catch global = " + e.message)
 }
