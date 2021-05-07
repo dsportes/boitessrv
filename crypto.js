@@ -10,7 +10,7 @@ function sha256 (buffer) {
 exports.sha256 = sha256
 
 function pbkfd (secret) {
-  return crypto.pbkdf2Sync(secret, CRYPTO_SALT, 10000, 32, 'sha256')
+  return crypto.pbkdf2Sync(secret, CRYPTO_SALT, 5000, 32, 'sha256')
 }
 exports.pbkfd = pbkfd
 
