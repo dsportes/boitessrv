@@ -40,12 +40,12 @@ function hash53 (str, seed = 0) {
 }
 exports.hash53 = hash53
 
-const c60 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
+const c64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
 function int2base64 (n) {
   let r = ''
   let x = n
   while (x) {
-    r += c60.charAt(x % 64)
+    r += c64.charAt(x % 64)
     x = Math.floor(x / 64)
   }
   return r

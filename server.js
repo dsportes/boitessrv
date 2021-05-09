@@ -147,11 +147,13 @@ Dans la configuration de chaque environnement, son code est inséré
 const configjson = fs.readFileSync("./config.json")
 let cfg
 try {
+    const options = { fileMustExist: true, verbose: console.log }
     cfg = JSON.parse(configjson)
     for(let org in cfg.orgs) {
         const e = cfg.orgs[org]
         const b = fs.readFileSync('./icons/' + org + '.' + e.typeicon, 'base64')
         e.icon = 'data:' + mimetype[e.typeicon] + ';base64,' + b
+        e.db = require('better-sqlite3')('./databases/' + org + '.db', options);
     }
 } catch(e) {
     throw new Error(" Erreur de parsing de config.json : " + e.message)
@@ -251,6 +253,6 @@ try {
         }
     })
 
-} catch(e) { // exception générale. Ne vrait jamais être levée
+} catch(e) { // exception générale. Ne devrait jamais être levée
     console.error("server.js : catch global = " + e.message)
 }
