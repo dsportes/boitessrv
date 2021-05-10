@@ -1,78 +1,78 @@
 CREATE TABLE IF NOT EXISTS "contact" (
-	"ida"	TEXT,
+	"id"	TEXT,
 	"idc"	TEXT,
 	"dhc"	INTEGER,
 	"datax"	TEXT,
-	PRIMARY KEY("ida","idc")
+	PRIMARY KEY("id","idc")
 );
-CREATE INDEX "dhcida" ON "contact" (
+CREATE INDEX "dhcidcontact" ON "contact" (
 	"dhc",
-	"ida"
+	"id"
 );
 CREATE TABLE IF NOT EXISTS "avatar" (
-	"ida"	TEXT,
+	"id"	TEXT,
 	"dhc"	INTEGER,
 	"dma"	INTEGER,
 	"datax"	TEXT,
-	PRIMARY KEY("ida")
+	PRIMARY KEY("id")
 );
-CREATE INDEX "dmaa" ON "avatar" (
+CREATE INDEX "dmaavatar" ON "avatar" (
 	"dma"
 );
 CREATE TABLE IF NOT EXISTS "compte" (
-	"idc"	TEXT,
+	"id"	TEXT,
 	"dhc"	INTEGER,
 	"dma"	INTEGER,
 	"dpbh"	TEXT UNIQUE,
 	"data"	TEXT,
 	"datax"	TEXT,
-	PRIMARY KEY("idc")
+	PRIMARY KEY("id")
 );
-CREATE UNIQUE INDEX "dpbh" ON "compte" (
+CREATE UNIQUE INDEX "dpbhcompte" ON "compte" (
 	"dpbh"
 );
-CREATE INDEX "dmac" ON "compte" (
+CREATE INDEX "dmacompte" ON "compte" (
 	"dma"
 );
 CREATE TABLE IF NOT EXISTS "groupe" (
-	"idg"	TEXT,
+	"id"	TEXT,
 	"dhc"	INTEGER,
 	"dma"	INTEGER,
 	"data"	TEXT,
 	"datax"	TEXT,
-	PRIMARY KEY("idg")
+	PRIMARY KEY("id")
 );
-CREATE INDEX "dhcidg" ON "groupe" (
+CREATE INDEX "dhcidgroupe" ON "groupe" (
 	"dhc",
-	"idg"
+	"id"
 );
 CREATE TABLE IF NOT EXISTS "membre" (
-	"idm"	TEXT,
+	"id"	TEXT,
 	"idg"	TEXT,
 	"dhc"	INTEGER,
-	"datag"	TEXT,
-	"datam"	TEXT,
-	PRIMARY KEY("idm","idg")
+	"datax"	TEXT,
+	"datay"	TEXT,
+	PRIMARY KEY("id","idg")
 );
-CREATE INDEX "dhcidm" ON "membre" (
+CREATE INDEX "dhcidmembre" ON "membre" (
 	"dhc",
-	"idm"
+	"id"
 );
-CREATE INDEX "dhcidgm" ON "membre" (
+CREATE INDEX "dhcidgmembre" ON "membre" (
 	"dhc",
 	"idg"
 );
 CREATE TABLE IF NOT EXISTS "dct" (
-	"ida"	TEXT,
+	"id"	TEXT,
 	"idc"	TEXT,
 	"dhc"	INTEGER,
 	"dlv"	INTEGER,
 	"datac"	TEXT,
-	PRIMARY KEY("ida","idc")
+	PRIMARY KEY("id","idc")
 );
 CREATE INDEX "dhcidadct" ON "dct" (
 	"dhc",
-	"ida"
+	"id"
 );
 CREATE INDEX "dhcidcdct" ON "dct" (
 	"dhc",
@@ -85,17 +85,17 @@ CREATE INDEX "dlvdct" ON "dct" (
 	"dlv"
 );
 CREATE TABLE IF NOT EXISTS "invg" (
-	"ida"	TEXT,
+	"id"	TEXT,
 	"idc"	TEXT,
 	"idg"	TEXT,
 	"dhc"	INTEGER,
 	"dlv"	INTEGER,
 	"datac"	TEXT,
-	PRIMARY KEY("ida","idc", "idg")
+	PRIMARY KEY("id","idc", "idg")
     );
-CREATE INDEX "dhcidainvg" ON "invg" (
+CREATE INDEX "dhcidinvg" ON "invg" (
 	"dhc",
-	"ida"
+	"id"
     );
 CREATE INDEX "dhcidcinvg" ON "invg" (
 	"dhc",
@@ -113,6 +113,6 @@ CREATE TABLE "cext" (
 	"datax"	TEXT,
 	PRIMARY KEY("dpbh")
 	);
-	CREATE INDEX "cext_id" ON "cext" (
+	CREATE INDEX "iddpbhcext" ON "cext" (
 	"id", "dpbh"
     );

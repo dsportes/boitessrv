@@ -1,6 +1,8 @@
 const crypt = require('./crypto.js')
+const Session = require('./session.js')
 
 const dev = process.env.NODE_ENV === "development"
+const MO = 1024 * 1024
 
 /*
 Initialisation du module APRES que le serveur ait été créé et soit opérationnel
@@ -13,7 +15,7 @@ function atStart(cfg) {
 exports.atStart = atStart
 
 /***************************************************************
-    org : code de l'organisation    
+    cfg : configuration relative au code de l'organisation    
     args : objet des arguments
     Retourne un objet result :
     Pour un GET :
@@ -25,15 +27,15 @@ exports.atStart = atStart
         result.erreur : objet erreur {c:99 , m:"...message...", d:"...detail..." s:" stack trace "}
 *****************************************************************/
 
-async function echo (cfgorg, args, isGet) {
+async function echo (cfg, args, isGet) {
     if (!args) args = { }
-    args.org = cfgorg.code
+    args.org = cfg.code
     return !isGet ? args : {type:"text/plain", bytes:Buffer.from(JSON.stringify(args), 'utf8')}
 }
 exports.echo = echo
 
-async function erreur (cfgorg, args) {
-    return { erreur: args, org:cfgorg.code }
+async function erreur (cfg, args) {
+    return { erreur: args, org:cfg.code }
 }
 exports.erreur = erreur
 
@@ -44,7 +46,8 @@ function decryptDatax(cle, datax) {
 }
 
 function cryptDatax(cle, datax) {
-    return base64url(crypt.decrypter(cle, Buffer.from(JSON.stringify(datax), 'utf8')))
+    const j = JSON.stringify(datax)
+    return [j, base64url(crypt.crypter(cle, Buffer.from(j, 'utf8')))]
 }
 
 function getdhc() {
@@ -59,7 +62,28 @@ function getdma () {
     return ( (an * 12) + mo)
 }
 
-const MO = 1024 * 1024
+/******************************************/
+const cachestmt = { }
+
+function stmt (cfg, sql) {
+    const c = cachestmt[cfg.code]
+    if (!c) { c = {}; cachestmt[cfg.code] = c }
+    if (!c[sql]) c[sql] = cfg.db.prepare(sql)
+    return c[sql]
+}
+/******************************************/
+const inscompte = 'INSERT INTO compte (id, dhc, dma, dpbh, data, datax) VALUES (@id, @dhc, @dma, @dbph, @data, @datax)',
+const insavatar = 'INSERT INTO avatar (id, dhccv, dma, data, datax) VALUES (@id, @dhcv, @dma, @data, @dataa)'
+const selidcompteid = 'SELECT id FROM compte WHERE id = @id'
+const selidcomptedpbh = 'SELECT id FROM compte WHERE dpbh = @dpbh'
+const selcomptedpbh = 'SELECT * FROM compte WHERE dpbh = @dpbh'
+const selcextdpbh = 'SELECT * FROM cext WHERE dpbh = @dpbh'
+
+function crcompteavatar (cfg, arg1, arg2) {
+    stmt(cfg, inscompte).run(arg1)
+    stmt(cfg, insavatar).run(arg2)
+}
+/*******************************************/
 
 /*
 Détermine si une connexion ou création est possible avec cette phrase secrète
@@ -75,7 +99,7 @@ async function testconnexion (cfgorg, args) {
         return { status: 2 }
     }
 
-    const row = cfgorg.db.prepare('SELECT id, dma, data, datax FROM compte WHERE dpbh = ?').get('args.dpbh');
+    let row = stmt(cfg, selcomptedpbh).get(args)
     if (row) {
         const data = JSON.parse(row.data)
         if (data.pbcs !== args.pcbs){
@@ -85,13 +109,13 @@ async function testconnexion (cfgorg, args) {
         return { status:1, id: row.id, k: datax.k, avatars: datax.avatars }
     }
 
-    const row2 = cfgorg.db.prepare('SELECT id, dlv, data, datax FROM cext WHERE dpbh = ?').get('args.dpbh');
-    if (row2) {
-        if (row2.pbcs !== args.pcbs){
+    row = stmt(cfg, selcextdpbh).get(args)
+    if (row) {
+        if (row.pbcs !== args.pcbs){
             return { status: 0 }
         }
-        const datax = decryptDatax(args.clex, row2.datax)
-        return { status:3, id: row2.id, dlv: row2.dlv, datax: datax }
+        const datax = decryptDatax(args.clex, row.datax)
+        return { status:3, id: row.id, dlv: row.dlv, datax: datax }
     }
 
     return { status: 0 }
@@ -103,37 +127,36 @@ nouveau compte privilégié
 mdp : SHA du BCRYPT de la phrase secrète de l'organisation
 id dpbh clex pcbs k nla (nom long du premier avatar)
 */
-function nouvcomptepriv (cfgorg, args) {
-    if (cfgorg.cle !== args.mdp) {
+function nouvcomptepriv (cfg, args) {
+    if (cfg.cle !== args.mdp) {
         return { c: 1 , m: 'Mot de passe l\'organisation non reconnu', d: 'Pour créer un compte privilégié, le mot de passe de l\'organisation est requis' }
     }
 
-    const row = cfgorg.db.prepare('SELECT id FROM compte WHERE id = ?').get('args.id');
+    let row = stmt(cfg, selidcompteid).get(args)
     if (row) {
         return { c: 2 , m: 'Compte déjà existant', d: 'Cet identifiant est déjà celui d\'un compte existant.' }
     }
-    const row = cfgorg.db.prepare('SELECT id FROM compte WHERE dpbh = ?').get('args.dpbh');
+    row = stmt(cfg, selidcomptedpbh).get(args);
     if (row) {
         return { c: 3 , m: 'Compte déjà enregistré avec la même première ligne de la phrase secrète', d: 'Ces doublons sont interdits par sécurité' }
     }
-    const data = { pcbs: args.pcbs, q1: 10 * MO, q2: 100 * MO, qm1: 10 * MO, qm2: 100 *MO, vdm1: 0, vdm2: 0 }
+
+    const q = cfg.quotas
+    const data = { pcbs: args.pcbs, q1: q[0] * MO, q2: q[1] * MO, qm1: q[2] * MO, qm2: q[3] * MO, vdm1: 0, vdm2: 0 }
     const cleav = sha256(Buffer.from(args.nla))
     const idav = hash(base64url(cleav))
-    const datax = cryptDatax(clex, { k: args.k, mc: [], avatars: [nla] })
+    const [datac, datax] = cryptDatax(clex, { k: args.k, mc: [], avatars: [nla] })
     const dhc = getdhc()
     const dma = getdma()
+    const arg1 = { table:'compte', id:args.id, dhc:dhc, dma:dma, dpbh:args.dpbh, data:data, datax:datax, datac: datac }
+
     const data2 = { v1: 0, v2:0, vm1: 0, vm2: 0, qr1: 0, qr2: 0 }
-    const dataa = cryptDatax(cleav, { photo: '', info: '' })
+    const [data2c, data2x] = cryptDatax(cleav, { photo: '', info: '' })   
+    const arg2 = { table:'avatar', id:idav, dhccv:dhc, dma:dma, data:data2, datax:data2x, datac:data2c }
 
-    const insert1 = cfgorg.db.prepare('INSERT INTO compte (id, dhc, dma, dpbh, data, datax) VALUES (@name, @age)')
-    const arg1 = { id:args.id, dhc:dhc, dma:dma, dpbh:args.dpbh, data:data, datax:datax }
-    const insert2 = cfgorg.db.prepare('INSERT INTO avatar (id, dhccv, dma, data, datax) VALUES (@name, @age)')
-    const arg2 = { id:idav, dhccv:dhc, dma:dma, data:data2, dataa:dataa }
-
-    const tr = cfgorg.db.transaction((arg1, arg2) => {
-        insert1.run(arg1)
-        insert2.run(arg2)
-    })
+    cfg.db.transaction(crcompteavatar)(cfg, arg1, arg2)
+    
+    Session.syncSessions([arg1, arg2], [])
 
     return { ok: true }
 

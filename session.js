@@ -43,6 +43,14 @@ class Session {
         console.log('Close : ' + this.sessionId)
     }
 
+    sync (rows, delobjs) {
+        /* 
+        liste d'envoi : liste des rows créés / modifiés, liste des objets supprimés
+        Uniquement ceux concerné par la session
+        */
+
+    }
+
     f1(args) {
         console.log('Session:' + this.sessionId + '\ndata:' + JSON.stringify(args))
     }
@@ -53,3 +61,14 @@ class Session {
 }
 
 exports.Session = Session
+
+function syncSessions(rows, delobjs) {
+    rows.forEach(row => {
+        delete row.datax
+        delete row.datay
+    })
+    for (const s of sessions) {
+        sessions[s].sync(rows, delobjs)
+    }
+}
+exports.syncSessions = syncSessions

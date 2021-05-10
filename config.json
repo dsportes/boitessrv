@@ -3,7 +3,17 @@
   "https": true,
   "origins": ["localhost", "https://test.sportes.fr"],
   "orgs": {
-    "doda": { "code":"doda", "typeicon":"png", "cle":"358md0CNfSsCj71NmEx1IDkEe0alHHb7nTj7Ohrb30I"},
-    "super": { "code":"super", "typeicon":"png", "cle":"358md0CNfSsCj71NmEx1IDkEe0alHHb7nTj7Ohrb30I"}
+    "doda": { 
+      "code":"doda",
+      "typeicon":"png",
+      "cle":"358md0CNfSsCj71NmEx1IDkEe0alHHb7nTj7Ohrb30I",
+      "quotas":[10, 100, 5, 50]
+    },
+    "super": { 
+      "code":"super",
+      "typeicon":"png",
+      "cle":"358md0CNfSsCj71NmEx1IDkEe0alHHb7nTj7Ohrb30I",
+      "quotas":[10, 100, 5, 50]
+    }
   }
 }
