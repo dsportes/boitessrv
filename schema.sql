@@ -1,118 +1,178 @@
-CREATE TABLE IF NOT EXISTS "contact" (
-	"ida"	TEXT,
-	"idc"	TEXT,
-	"dhc"	INTEGER,
-	"datax"	TEXT,
-	PRIMARY KEY("ida","idc")
-);
-CREATE INDEX "dhcida" ON "contact" (
-	"dhc",
-	"ida"
-);
-CREATE TABLE IF NOT EXISTS "avatar" (
-	"ida"	TEXT,
-	"dhc"	INTEGER,
-	"dma"	INTEGER,
-	"datax"	TEXT,
-	PRIMARY KEY("ida")
-);
-CREATE INDEX "dmaa" ON "avatar" (
-	"dma"
-);
 CREATE TABLE IF NOT EXISTS "compte" (
-	"idc"	TEXT,
+	"id"	INTEGER,
 	"dhc"	INTEGER,
-	"dma"	INTEGER,
-	"dpbh"	TEXT UNIQUE,
+	"dpbh"	INTEGER,
 	"data"	TEXT,
 	"datax"	TEXT,
-	PRIMARY KEY("idc")
+	PRIMARY KEY("id")
+) WITHOUT ROWID;
+CREATE UNIQUE INDEX "dhc_compte" ON "compte" (
+	"dhc"
 );
-CREATE UNIQUE INDEX "dpbh" ON "compte" (
+CREATE UNIQUE INDEX "dpbh_compte" ON "compte" (
 	"dpbh"
 );
-CREATE INDEX "dmac" ON "compte" (
-	"dma"
+CREATE TABLE IF NOT EXISTS "avatar" (
+	"id"	INTEGER,
+	"dhc"	INTEGER,
+	"lc"	TEXT,
+	"lg"	TEXT,
+	"data"	TEXT,
+	PRIMARY KEY("id")
+) WITHOUT ROWID;
+CREATE INDEX "dhc_avatar" ON "avatar" (
+	"dhc"
+);
+CREATE TABLE IF NOT EXISTS "carte" (
+	"id"	INTEGER,
+	"dhc"	INTEGER,
+	"datax"	TEXT,
+	PRIMARY KEY("id")
+) WITHOUT ROWID;
+CREATE INDEX "dhc_carte" ON "carte" (
+	"dhc"
+);
+CREATE TABLE IF NOT EXISTS "contact" (
+	"ida"	INTEGER,
+	"idb"	INTEGER,
+	"dhc"	INTEGER,
+	"data"	TEXT,
+	"dataa"	TEXT,
+	"datab"	TEXT
+);
+CREATE INDEX "ida_dhc_contact" ON "contact" (
+	"ida",
+	"dhc"
+);
+CREATE INDEX "idb_dhc_contact" ON "contact" (
+	"idb",
+	"dhc"
 );
 CREATE TABLE IF NOT EXISTS "groupe" (
-	"idg"	TEXT,
+	"id"	INTEGER,
 	"dhc"	INTEGER,
-	"dma"	INTEGER,
+	"lm"	TEXT,
 	"data"	TEXT,
 	"datax"	TEXT,
-	PRIMARY KEY("idg")
-);
-CREATE INDEX "dhcidg" ON "groupe" (
-	"dhc",
-	"idg"
+	PRIMARY KEY("id")
+) WITHOUT ROWID;
+CREATE INDEX "dhc_groupe" ON "groupe" (
+	"dhc"
 );
 CREATE TABLE IF NOT EXISTS "membre" (
-	"idm"	TEXT,
-	"idg"	TEXT,
+	"ida"	INTEGER,
+	"idg"	INTEGER,
 	"dhc"	INTEGER,
-	"datag"	TEXT,
-	"datam"	TEXT,
-	PRIMARY KEY("idm","idg")
+	"q1"	INTEGER,
+	"q2"	INTEGER,
+	"dataa"	TEXT,
+	"datag"	TEXT
 );
-CREATE INDEX "dhcidm" ON "membre" (
-	"dhc",
-	"idm"
-);
-CREATE INDEX "dhcidgm" ON "membre" (
+CREATE INDEX "ida_dhc_idg_membre" ON "membre" (
+	"ida",
 	"dhc",
 	"idg"
 );
-CREATE TABLE IF NOT EXISTS "dct" (
-	"ida"	TEXT,
-	"idc"	TEXT,
-	"dhc"	INTEGER,
-	"dlv"	INTEGER,
-	"datac"	TEXT,
-	PRIMARY KEY("ida","idc")
-);
-CREATE INDEX "dhcidadct" ON "dct" (
+CREATE INDEX "idg_dhc_ida_membre" ON "membre" (
+	"idg",
 	"dhc",
 	"ida"
 );
-CREATE INDEX "dhcidcdct" ON "dct" (
-	"dhc",
-	"idc"
+CREATE TABLE IF NOT EXISTS "dct" (
+	"ida"	INTEGER,
+	"idb"	INTEGER,
+	"dhc"	INTEGER,
+	"dlv"	INTEGER,
+	"datab"	TEXT
 );
-CREATE INDEX "idcdct" ON "dct" (
-	"idc"
+CREATE INDEX "ida_dhc_dct" ON "dct" (
+	"ida",
+	"dhc"
 );
-CREATE INDEX "dlvdct" ON "dct" (
+CREATE INDEX "idb_dhc_dct" ON "dct" (
+	"idb",
+	"dhc"
+);
+CREATE INDEX "dlv_dct" ON "dct" (
 	"dlv"
 );
 CREATE TABLE IF NOT EXISTS "invg" (
-	"ida"	TEXT,
-	"idc"	TEXT,
-	"idg"	TEXT,
+	"ida"	INTEGER,
+	"idb"	INTEGER,
+	"idg"	INTEGER,
 	"dhc"	INTEGER,
 	"dlv"	INTEGER,
-	"datac"	TEXT,
-	PRIMARY KEY("ida","idc", "idg")
-    );
-CREATE INDEX "dhcidainvg" ON "invg" (
-	"dhc",
-	"ida"
-    );
-CREATE INDEX "dhcidcinvg" ON "invg" (
-	"dhc",
-	"idc"
-    );
-CREATE INDEX "idcinvg" ON "invg" (
-	"idc"
-	);
-CREATE TABLE "cext" (
-	"dpbh"	TEXT,
-	"id"	TEXT,
+	"datab"	TEXT
+);
+CREATE INDEX "idg_dhc_invg" ON "invg" (
+	"idg",
+	"dhc"
+);
+CREATE INDEX "idb_dhc_invg" ON "invg" (
+	"idb",
+	"dhc"
+);
+CREATE INDEX "dlv_invg" ON "invg" (
+	"dlv"
+);
+CREATE TABLE IF NOT EXISTS "cext" (
+	"id"	INTEGER,
+	"dpbh"	INTEGER,
+	"ida"	INTEGER,
 	"dhc"	INTEGER,
 	"dlv"	INTEGER,
-	"pcbs"	TEXT,
+	"pbcs"	TEXT,
 	"datax"	TEXT,
-	PRIMARY KEY("dpbh")
-	);
-	CREATE INDEX "cext_id" ON "cext" (
-	"id", "dpbh"
-    );
+	PRIMARY KEY("id")
+) WITHOUT ROWID;
+CREATE INDEX "dpbh" ON "cext" (
+	"dpbh"
+);
+CREATE INDEX "ida_dhc_cext" ON "cext" (
+	"ida",
+	"dhc"
+);
+CREATE INDEX "dlv_cext" ON "cext" (
+	"dlv"
+);
+CREATE TABLE IF NOT EXISTS "secret" (
+	"id"	INTEGER,
+	"dhc"	INTEGER,
+	"vs"	INTEGER,
+	"vp"	INTEGER,
+	"dataa"	TEXT,
+	"texte"	TEXT,
+	PRIMARY KEY("id")
+) WITHOUT ROWID;
+CREATE INDEX "id_dhc_secret" ON "secret" (
+	"id",
+	"dhc"
+);
+CREATE TABLE IF NOT EXISTS "secref" (
+	"id"	INTEGER,
+	"idb"	INTEGER,
+	"dhc"	INTEGER,
+	"ncax"	TEXT,
+	"perm"	INTEGER,
+	"mc"	TEXT
+);
+CREATE INDEX "id_secref" ON "secref" (
+	"id"
+);
+CREATE INDEX "idb_dhc_id_secref" ON "secref" (
+	"idb",
+	"dhc",
+	"id"
+);
+CREATE INDEX "perm_id_secref" ON "secref" (
+	"perm",
+	"id"
+);
+CREATE TABLE IF NOT EXISTS "quotas" (
+	"id"	INTEGER,
+	"q1"	INTEGER,
+	"q2"	INTEGER,
+	"qm1"	INTEGER,
+	"qm2"	INTEGER,
+	PRIMARY KEY("id")
+) WITHOUT ROWID;
