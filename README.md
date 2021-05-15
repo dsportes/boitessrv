@@ -10,3 +10,4 @@ La distribution "full" ajoute au zip du simple le répertoire node_modules.
 
  Cloné P le 15 avril 2021
  
+ await new Promise((resolve) => setImmediate(() => resolve()))
