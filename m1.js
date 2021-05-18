@@ -72,7 +72,7 @@ function stmt (cfg, sql) {
     return c[sql]
 }
 /******************************************/
-const inscompte = 'INSERT INTO compte (id, dhc, dma, dpbh, data, datax) VALUES (@id, @dhc, @dma, @dbph, @data, @datax)',
+const inscompte = 'INSERT INTO compte (id, dhc, dma, dpbh, data, datax) VALUES (@id, @dhc, @dma, @dbph, @data, @datax)'
 const insavatar = 'INSERT INTO avatar (id, dhccv, dma, data, datax) VALUES (@id, @dhcv, @dma, @data, @dataa)'
 const selidcompteid = 'SELECT id FROM compte WHERE id = @id'
 const selidcomptedpbh = 'SELECT id FROM compte WHERE dpbh = @dpbh'
