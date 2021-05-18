@@ -46,34 +46,34 @@ function int2base64 (n) {
   let r = '', x = n, i
   const b = typeof n !== 'number'
   while (x) {
-      i = b ? Number(x % 64n) : x % 64
-      r += c64.charAt(i < 0 ? -i : i)
-      x = b ? x / 64n : Math.floor(x / 64)
+    i = b ? Number(x % 64n) : x % 64
+    r += c64.charAt(i < 0 ? -i : i)
+    x = b ? x / 64n : Math.floor(x / 64)
   }
   return r
 }
 exports.int2base64 = int2base64
 
-function int2u8(n) {
-  let hex = n.toString(16);
-  if (hex.length % 2) { hex = '0' + hex; }
-  const len = hex.length / 2;
-  const u8 = new Uint8Array(len);
+function int2u8 (n) {
+  let hex = n.toString(16)
+  if (hex.length % 2) { hex = '0' + hex }
+  const len = hex.length / 2
+  const u8 = new Uint8Array(len)
   let i = 0, j = 0
   while (i < len) {
-      u8[i] = parseInt(hex.slice(j, j + 2), 16)
-      i += 1
-      j += 2
+    u8[i] = parseInt(hex.slice(j, j + 2), 16)
+    i += 1
+    j += 2
   }
-  return u8;
+  return u8
 }
 exports.int2u8 = int2u8
 
-function u82int(u8, big = false) {
-  let hex = [];
-  u8.forEach( i => {
+function u82int (u8, big = false) {
+  const hex = []
+  u8.forEach(i => {
     let h = i.toString(16)
-    if (h.length % 2) { h = '0' + h; }
+    if (h.length % 2) { h = '0' + h }
     hex.push(h)
   })
   return big ? BigInt('0x' + hex.join('')) : parseInt(hex, 16)
