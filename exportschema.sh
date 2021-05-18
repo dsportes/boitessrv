@@ -1,2 +1,2 @@
 # /bin/sh
-sqlite3 test.db .schema > schema.sql
+sqlite3 template.db3 .schema > template.sql
