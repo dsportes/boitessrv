@@ -4,6 +4,7 @@ const https = require("https")
 const express = require('express')
 const WebSocket = require('ws')
 const Session = require("./session.js").Session
+const api = require('./api')
 
 const modules = {}
 modules.m1 = require("./m1.js")
@@ -35,12 +36,13 @@ function checkOrigin(req) {
 }
 
 // positionne les headers et le status d'une réponse. Permet d'accepter des requêtes cross origin des browsers
-function setRes(res, status) {
-    return res.status(status).set({
+function setRes(res, status, respType) {
+    res.status(status).set({
         "Access-Control-Allow-Origin" : "*",
         "Access-Control-Allow-Methods" : "GET,POST,PUT,DELETE,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With"
+        "Access-Control-Allow-Headers": "Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With, X-API-version"
     })
+    return res.type(respType ? respType : 'application/octet-stream')
 }
 
 function er(c) {
@@ -50,8 +52,9 @@ function er(c) {
         "Module inconnu", // 2
         "Fonction inconnue", // 3
         "Organisation inconnue", // 4
+        "Version d'API incompatble", // 5
     ]
-    return {c: c, m: l[c]}
+    return Buffer.from(JSON.stringify({ c: c, m: l[c] }, 'utf8'))
 }
 
 /*
@@ -67,26 +70,32 @@ async function operation(req, res) {
         let isGet = req.method === "GET"
         // vérification de l'origine de la requête
         if (!checkOrigin(req)) {
-            setRes(res, 400).json(er(1))
+            setRes(res, 400).send(er(1))
             return
         }
         // récupération du module traitant l'opération
         const mod = modules[req.params.mod]
         if (!mod) {
-            setRes(res, 400).json(er(2))
+            setRes(res, 400).send(er(2))
             return
         }
         // récupétration de la fonction de ce module traitant l'opération
         const f = req.params.func
         const func = mod[f]
         if (!func) {
-            setRes(res, 400).json(er(3))
+            setRes(res, 400).send(er(3))
             return
         }
         // reconnaissance de l'organisation
         const cfgorg = cfg.orgs[req.params.org]
         if (!cfgorg) {
-            setRes(res, 400).json(er(4))
+            setRes(res, 400).send(er(4))
+            return
+        }
+        // vérification de la version de l'API
+        const apiv = req.headers['x-api-version']
+        if (apiv && apiv !== api.version) {
+            setRes(res, 400).send(er(5))
             return
         }
 
@@ -99,23 +108,32 @@ async function operation(req, res) {
                 result : objet résultat
             En cas d'erreur :
                 result.error : objet erreur {c:99 , m:"...", s:" trace "}
-            Sur un POST, username password tirés de l'objet body sont passés en argument
         */
-       // récupère l'objet contenant les arguments et en extrait username et password
-        const args = isGet ? req.query : req.body
+        let args
+        if (isGet) {
+            args = req.query
+        } else {
+            const type = api.types[req.params.func]
+            args = type ? type.fromBuffer(req.body) : JSON.parse(Buffer.from(req.body).toString())
+        }
         pfx += ' func=' + req.params.mod + '/' + req.params.func + ' org=' + req.params.org
         if (dev) console.log(pfx)
         const result = await func(cfgorg, args, isGet)
 
         if (result.erreur) { // la réponse est une erreur fonctionnelle - descriptif dans erreur
-            console.log(pfx + ' 400=' + JSON.stringify(result.erreur))
-            setRes(res, 400).json(result.erreur)
+            const s = JSON.stringify(result.erreur)
+            if (dev) console.log(pfx + ' 400=' + s)
+            setRes(res, 400).send(Buffer.from(s))
         } else { // la réponse contient le résultat attendu
             if (dev) console.log(pfx + ' 200')
             if (isGet)
-                setRes(res, 200).type(result.type).send(result.bytes)
-            else
-                setRes(res, 200).json(result)
+                setRes(res, 200, result.type).send(result.bytes)
+            else {
+                const type = api.types[req.params.func + 'Resp']
+                const bytes = type ? type.toBuffer(result) : Buffer.from(JSON.stringify(result))
+                // const obj = type.fromBuffer(bytes)
+                setRes(res, 200).send(bytes)
+            }
         }            
 	} catch(e) {
         // exception non prévue ou prévue
@@ -127,9 +145,9 @@ async function operation(req, res) {
             if (e.message) x.apperror.d = e.message
             if (e.stack) x.apperror.s = e.stack
         }
-        if (!dev) console.log(pfx)
-        console.log(pfx + ' 400=' + JSON.stringify(x))
-		setRes(res, 401).json(x)
+        const s = JSON.stringify(x)
+        if (dev) console.log(pfx + ' 400=' + s)
+        setRes(res, 401).send(Buffer.from(s))
 	}
 }
 
@@ -169,31 +187,38 @@ app.use(express.json()) // parsing des application/json
 // OPTIONS est toujours envoyé pour tester les appels cross origin
 app.use("/", (req, res, next) => {
     if (req.method === 'OPTIONS')
-        setRes(res, 200).type("text/plain").send("");
+        setRes(res, 200, 'text/plain').send('')
     else
         next()
 })
 
 /**** favicon.ico du sites ****/
 app.get("/favicon.ico", (req, res) => {
-	setRes(res, 200).type("ico").send(favicon)
+	setRes(res, 200, 'image/x-icon').send(favicon)
 })
 
 /**** ping du site ****/
 app.get("/ping", (req, res) => {
-    setRes(res, 200).type("text/plain").send(new Date().toISOString())
+    setRes(res, 200, 'text/plain').send(new Date().toISOString())
 })
 
 /**** icon d'une organisation ****/
 app.get("/icon/:org", (req, res) => {
     const e = cfg.orgs[req.params.org]
     const ic = e ? e.icon : 'KO'
-    setRes(res, 200).type("text/plain").send(ic)
+    setRes(res, 200, 'text/plain').send(ic)
 })
 
 /**** appels des opérations ****/
-app.use("/:org/:mod/:func", async (req, res) => { 
-    await operation(req, res)
+app.use("/:org/:mod/:func", async (req, res) => {
+    // push the data to body
+    const body = [];
+    req.on('data', (chunk) => {
+        body.push(chunk);
+    }).on('end', async () => {
+        req.body = Buffer.concat(body)
+        await operation(req, res)
+    })
 })
 
 // fonction appelée juste après l'écoute. Initialise les modules sur leurs fonctiopns atStart

@@ -2,10 +2,12 @@
   "name": "boitessrv",
   "version": "0.0.1",
   "dependencies": {
+    "avsc": "^5.7.0",
     "base64url": "^3.0.1",
     "better-sqlite3": "^7.2.0",
     "collections": "^5.1.12",
     "express": "^4.17.1",
+    "json-bigint": "^1.0.0",
     "ws": "^7.4.5"
   }
 }
