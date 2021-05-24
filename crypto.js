@@ -28,7 +28,6 @@ exports.bytes2Int = bytes2Int
 
 function hash (str, big = false, b64 = false, seed = 0) {
   // https://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript
-  // https://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript
   let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed
   for (let i = 0, ch; i < str.length; i++) {
     ch = str.charCodeAt(i)
@@ -41,6 +40,21 @@ function hash (str, big = false, b64 = false, seed = 0) {
   return b64 ? int2base64(r) : r
 }
 exports.hash = hash
+
+function hashBin (str, big = false, b64 = false, seed = 0) {
+  // https://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript
+  let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed
+  for (let i = 0, ch; i < str.length; i++) {
+    ch = str[i]
+    h1 = Math.imul(h1 ^ ch, 2654435761)
+    h2 = Math.imul(h2 ^ ch, 1597334677)
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909)
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909)
+  const r = big ? 4294967296n * BigInt(h2) + BigInt(h1) : 4294967296 * (2097151 & h2) + (h1 >>> 0)
+  return b64 ? int2base64(r) : r
+}
+exports.hashBin = hashBin
 
 const c64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
 function int2base64 (n) {
@@ -187,14 +201,23 @@ function test2 () {
   }
   const t3 = new Date().getTime()
   console.log((t3 - t2) + 'ms')
+  console.log('u7 ' + hashBin(u7))
+  console.log('v7 ' + hashBin(v7))
+
   const u5 = intToU8(m5)
   const v5 = big2u8(m5b)
   const i5 = u8ToInt(u5)
   const j5 = u82big(v5)
+  console.log('u5 ' + hashBin(u5))
+  console.log('v5 ' + hashBin(v5))
+
   const u1 = intToU8(m1)
   const v1 = big2u8(10n)
   const i1 = u8ToInt(u1)
   const j1 = u82big(v1)
+  console.log('u1 ' + hashBin(u1))
+  console.log('v1 ' + hashBin(v1))
+
   console.log(m7 + ' ' + u7.toString('hex') + ' ' + v7.toString('hex') + ' ' + i7 + ' ' + j7)
   console.log(m5 + ' ' + u5.toString('hex') + ' ' + v5.toString('hex') + ' ' + i5 + ' ' + j5)
   console.log(m1 + ' ' + u1.toString('hex') + ' ' + v1.toString('hex') + ' ' + i1 + ' ' + j1)
