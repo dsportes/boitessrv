@@ -38,16 +38,131 @@ const idbCompte = avro.Type.forSchema({
   name: 'idbCompte',
   type: 'record',
   fields: [
-    { name: 'dhc', type: 'int' },
+    { name: 'id', type: 'int' },
+    { name: 'v', type: 'int' },
+    { name: 'dds', type: 'int' },
+    { name: 'dpbh', type: 'int' },
     { name: 'pcbs', type: 'bytes' },
     { name: 'k', type: 'bytes' },
-    { name: 'idx', type: bigint },
     { name: 'mcs', type: { type: 'map', values: 'string' } },
     { name: 'avatars', type: { type: 'array', items: 'string' } }
   ]
 })
 
-const types = { echo, echoResp, idbCompte }
+const sqlCompte = avro.Type.forSchema({
+  name: 'idbCompte',
+  type: 'record',
+  fields: [
+    { name: 'id', type: 'int' },
+    { name: 'v', type: 'int' },
+    { name: 'dds', type: 'int' },
+    { name: 'dpbh', type: 'int' },
+    { name: 'pcbsh', type: 'int' },
+    { name: 'kx', type: 'bytes' },
+    { name: 'datak', type: 'bytes' }
+  ]
+})
+
+const idbC = avro.Type.forSchema({
+  name: 'idbC',
+  type: 'record',
+  fields: [
+    { name: 'id', type: 'int' },
+    { name: 'v', type: 'int' },
+    { name: 'dds', type: 'int' },
+    { name: 'lck', type: 'bytes' },
+    { name: 'lmk', type: 'bytes' }
+  ]
+})
+
+const idbM = avro.Type.forSchema({ // à écrire
+  name: 'idbM',
+  type: 'record',
+  fields: [
+    { name: 'id', type: 'int' },
+    { name: 'v', type: 'int' },
+    { name: 'dds', type: 'int' },
+    { name: 'lck', type: 'bytes' },
+    { name: 'lmk', type: 'bytes' }
+  ]
+})
+
+const idbDctr = avro.Type.forSchema({
+  name: 'idbDctr',
+  type: 'record',
+  fields: [
+    { name: 'id', type: 'int' },
+    { name: 'dlv', type: 'int' },
+    { name: 'clepub', type: 'bytes' }
+  ]
+})
+
+const idbInvgr = avro.Type.forSchema({
+  name: 'idbInvgr',
+  type: 'record',
+  fields: [
+    { name: 'id', type: 'int' },
+    { name: 'idm', type: bigint },
+    { name: 'dlv', type: 'int' },
+    { name: 'cleidpub', type: 'bytes' }
+  ]
+})
+
+const sqlCext = avro.Type.forSchema({
+  name: 'sqlCext',
+  type: 'record',
+  fields: [
+    { name: 'dpbh', type: 'int' }
+    /* à compléter */
+  ]
+})
+
+const idbAvatar = avro.Type.forSchema({
+  name: 'idbAvatar',
+  type: 'record',
+  fields: [
+    { name: 'id', type: 'int' },
+    { name: 'v', type: 'int' },
+    { name: 'nc', type: 'string' },
+    { name: 'contacts', type: { type: 'map', values: idbC } },
+    { name: 'membres', type: { type: 'map', values: idbM } },
+    { name: 'dctr', type: { type: 'map', values: idbDctr } },
+    { name: 'invgr', type: { type: 'map', values: idbInvgr } },
+    { name: 'cext', type: { type: 'map', values: sqlCext } }
+  ]
+})
+
+const sqlAvatar = avro.Type.forSchema({
+  name: 'sqlAvatar',
+  type: 'record',
+  fields: [
+    { name: 'id', type: 'int' },
+    { name: 'v', type: 'int' },
+    { name: 'dds', type: 'int' },
+    { name: 'lck', type: 'bytes' },
+    { name: 'lmk', type: 'bytes' }
+  ]
+})
+
+const conn1Compte = avro.Type.forSchema({
+  name: 'conn1Compte',
+  type: 'record',
+  fields: [
+    { name: 'dpbh', type: 'int' },
+    { name: 'pcbs', type: 'bytes' }
+  ]
+})
+
+const conn1CompteResp = avro.Type.forSchema({
+  name: 'conn1CompteResp',
+  type: 'record',
+  fields: [
+    { name: 'status', type: 'int' },
+    { name: 'rows', type: { type: 'array', items: [sqlCompte, sqlAvatar] } }
+  ]
+})
+
+const types = { echo, echoResp, idbCompte, sqlCompte, conn1Compte, conn1CompteResp, idbAvatar, sqlAvatar }
 exports.types = types
 
 async function testdb () {

@@ -28,6 +28,7 @@ exports.bytes2Int = bytes2Int
 
 function hash (str, big = false, b64 = false, seed = 0) {
   // https://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript
+  // https://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript
   let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed
   for (let i = 0, ch; i < str.length; i++) {
     ch = str.charCodeAt(i)
@@ -54,31 +55,51 @@ function int2base64 (n) {
 }
 exports.int2base64 = int2base64
 
-function int2u8 (n) {
-  let hex = n.toString(16)
-  if (hex.length % 2) { hex = '0' + hex }
-  const len = hex.length / 2
-  const u8 = new Uint8Array(len)
-  let i = 0, j = 0
-  while (i < len) {
-    u8[i] = parseInt(hex.slice(j, j + 2), 16)
-    i += 1
-    j += 2
+const max32 = BigInt(2 ** 32)
+function big2u8 (n) {
+  if (typeof n === 'number') n = BigInt(n)
+  if (n < 0) n = -n
+  const buf = Buffer.alloc(8)
+  buf.writeUInt32LE(Number(n / max32), 4)
+  buf.writeUInt32LE(Number(n % max32), 0)
+  return buf
+}
+exports.big2u8 = big2u8
+
+function u82big (u8, number = false) {
+  const fort = BigInt(u8.readUInt32LE(4))
+  const faible = BigInt(u8.readUInt32LE(0))
+  const r = (fort * max32) + faible
+  return !number ? r : Number(r)
+}
+exports.u82big = u82big
+
+function u8ToInt (u8) {
+  if (!u8 || !u8.length || u8.length > 8) return 0
+  const bi = u8.length > 6
+  let r = bi ? 0n : 0
+  for (let i = u8.length - 1; i > 0; i--) {
+    r += bi ? BigInt(u8[i]) * (p2b[i - 1] + 1n) : u8[i] * (p2[i - 1] + 1)
+  }
+  return r + (bi ? BigInt(u8[0]) : u8[0])
+}
+exports.u8ToInt = u8ToInt
+
+const p2 = [255, (256 ** 2) - 1, (256 ** 3) - 1, (256 ** 4) - 1, (256 ** 5) - 1, (256 ** 6) - 1, (256 ** 7) - 1]
+const p2b = [255n, (256n ** 2n) - 1n, (256n ** 3n) - 1n, (256n ** 4n) - 1n, (256n ** 5n) - 1n, (256n ** 6n) - 1n, (256n ** 7n) - 1n]
+function intToU8 (n) {
+  const bi = typeof n === 'bigint'
+  if (n < 0) n = -n
+  const p2x = bi ? p2b : p2
+  let l = 8
+  for (let i = 6; i >= 0; i--, l--) if (n > p2x[i]) break
+  const u8 = Buffer.alloc(l)
+  for (let i = 0; i < 8; i++) {
+    u8[i] = bi ? Number(n % 256n) : n % 256
+    n = bi ? (n / 256n) : Math.floor(n / 256)
   }
   return u8
 }
-exports.int2u8 = int2u8
-
-function u82int (u8, big = false) {
-  const hex = []
-  u8.forEach(i => {
-    let h = i.toString(16)
-    if (h.length % 2) { h = '0' + h }
-    hex.push(h)
-  })
-  return big ? BigInt('0x' + hex.join('')) : parseInt(hex, 16)
-}
-exports.u82int = u82int
 
 function crypter (cle, buffer, ivfixe) {
   const k = typeof cle === 'string' ? Buffer.from(cle, 'base64') : cle
@@ -135,13 +156,47 @@ function test () {
   console.log(hash(xx, true, true))
   let z = hash(xx, false)
   console.log(z)
-  const b1 = int2u8(z)
+  const b1 = big2u8(z)
   console.log(base64url(b1))
-  console.log(u82int(b1))
+  console.log(u82big(b1))
   z = hash(xx, true)
-  const b2 = int2u8(z)
+  const b2 = big2u8(z)
   console.log(base64url(b2))
-  console.log(u82int(b2, true))
+  console.log(u82big(b2, true))
   console.log(b1.length + ' - ' + b2.length)
 }
 exports.test = test
+
+function test2 () {
+  // const m7 = p2b[6] + 10n
+  const m7 = (2n ** 64n) - 1n
+  const m5 = p2[4] + 10
+  const m5b = p2b[4] + 10n
+  const m1 = 10
+  let u7, v7, i7, j7
+  const t1 = new Date().getTime()
+  for (let i = 0; i < 1000; i++) {
+    u7 = intToU8(m7)
+    i7 = u8ToInt(u7)
+  }
+  const t2 = new Date().getTime()
+  console.log((t2 - t1) + 'ms')
+  for (let i = 0; i < 1000; i++) {
+    v7 = big2u8(m7)
+    j7 = u82big(v7)
+  }
+  const t3 = new Date().getTime()
+  console.log((t3 - t2) + 'ms')
+  const u5 = intToU8(m5)
+  const v5 = big2u8(m5b)
+  const i5 = u8ToInt(u5)
+  const j5 = u82big(v5)
+  const u1 = intToU8(m1)
+  const v1 = big2u8(10n)
+  const i1 = u8ToInt(u1)
+  const j1 = u82big(v1)
+  console.log(m7 + ' ' + u7.toString('hex') + ' ' + v7.toString('hex') + ' ' + i7 + ' ' + j7)
+  console.log(m5 + ' ' + u5.toString('hex') + ' ' + v5.toString('hex') + ' ' + i5 + ' ' + j5)
+  console.log(m1 + ' ' + u1.toString('hex') + ' ' + v1.toString('hex') + ' ' + i1 + ' ' + j1)
+}
+exports.test2 = test2
