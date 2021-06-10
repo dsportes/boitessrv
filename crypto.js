@@ -1,8 +1,15 @@
 const crypto = require('crypto')
 const base64url = require('base64url') // https://www.npmjs.com/package/base64url
 
-const CRYPTO_SALT = '$2b$12$WdYsWBPznbcWrICT2tefEO'
-const IV4 = new Uint8Array([101, 102, 103, 104])
+const SALTS = new Array(256)
+function setSalts (a) {
+  const b = Buffer.from(a)
+  for (let i = 0; i < 256; i++) {
+    SALTS[i] = Uint8Array.prototype.slice.call(b, i * 16, (i + 1) * 16)
+  }
+  return SALTS
+}
+exports.setSalts = setSalts
 
 function sha256 (buffer) {
   return crypto.createHash('sha256').update(buffer).digest()
@@ -10,7 +17,7 @@ function sha256 (buffer) {
 exports.sha256 = sha256
 
 function pbkfd (secret) {
-  return crypto.pbkdf2Sync(secret, CRYPTO_SALT, 5000, 32, 'sha256')
+  return crypto.pbkdf2Sync(secret, SALTS[0], 5000, 32, 'sha256')
 }
 exports.pbkfd = pbkfd
 
@@ -114,24 +121,22 @@ function intToU8 (n) {
   }
   return u8
 }
+exports.intToU8 = intToU8
 
-function crypter (cle, buffer, ivfixe) {
+function crypter (cle, buffer, idxIV) {
   const k = typeof cle === 'string' ? Buffer.from(cle, 'base64') : cle
-  const rnd = ivfixe ? Buffer.from(IV4) : crypto.randomBytes(4)
-  const iv = Buffer.concat([rnd, rnd, rnd, rnd])
-  const cipher = crypto.createCipheriv('aes-256-cbc', k, iv)
+  const n = !idxIV ? 0 : (idxIV < 0 ? Number(crypto.randomBytes(1)) : idxIV)
+  const cipher = crypto.createCipheriv('aes-256-cbc', k, SALTS[n])
   const x1 = cipher.update(buffer)
   const x2 = cipher.final()
-  return Buffer.concat([rnd, x1, x2])
+  return Buffer.concat([Buffer.from([n]), x1, x2])
 }
 exports.crypter = crypter
 
 function decrypter (cle, buffer) {
   const k = typeof cle === 'string' ? Buffer.from(cle, 'base64') : cle
-  const rnd = buffer.slice(0, 4)
-  const iv = Buffer.concat([rnd, rnd, rnd, rnd])
-  const decipher = crypto.createDecipheriv('aes-256-cbc', k, iv)
-  return Buffer.concat([decipher.update(buffer.slice(4)), decipher.final()])
+  const decipher = crypto.createDecipheriv('aes-256-cbc', k, SALTS[Number(buffer[0])])
+  return Buffer.concat([decipher.update(buffer.slice(1)), decipher.final()])
 }
 exports.decrypter = decrypter
 
@@ -153,11 +158,12 @@ function test () {
   console.log(e1.toString('hex'))
   const d1 = decrypter(clebin, e1)
   console.log(d1.toString('utf8'))
-  const e2 = crypter(cle64, x, true)
+  const n = Number(crypto.randomBytes(1)[0])
+  const e2 = crypter(cle64, x, n)
   console.log(e2.toString('hex'))
   const d2 = decrypter(clebin, e2)
   console.log(d2.toString('utf8'))
-  const e3 = crypter(cle64, x, true)
+  const e3 = crypter(cle64, x, n)
   console.log(e3.toString('hex'))
   const d3 = decrypter(clebin, e2)
   console.log(d3.toString('utf8'))

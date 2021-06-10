@@ -5,6 +5,7 @@ const express = require('express')
 const WebSocket = require('ws')
 const Session = require("./session.js").Session
 const api = require('./api')
+const crypt = require('./crypto.js')
 
 const modules = {}
 modules.m1 = require("./m1.js")
@@ -173,6 +174,8 @@ try {
         e.icon = 'data:' + mimetype[e.typeicon] + ';base64,' + b
         e.db = require('better-sqlite3')('./databases/' + org + '.db3', options);
     }
+    crypt.setSalts (fs.readFileSync('./salts'))
+    // crypt.test()
 } catch(e) {
     throw new Error(" Erreur de parsing de config.json : " + e.message)
 }
