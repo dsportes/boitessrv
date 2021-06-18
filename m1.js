@@ -87,7 +87,7 @@ function crcompteavatar (cfg, arg1, arg2) {
 
 /*
 Détermine si une connexion ou création est possible avec cette phrase secrète
-args = { dpbh, clex, pcbs: base64url(sha256(clex)) }
+args = { dpbh, pcbsh }
 Retours = status ...
 0: phrase secrète non reconnue
 1: compte identifié. { status:1, id:id du compte, k:clé k, avatars:[noms longs des avatars] }
@@ -95,10 +95,10 @@ Retours = status ...
 3: création de compte standard possible. { status:3, cext:cext du parrain }
 */
 async function testconnexion (cfgorg, args) {
-    if (cfgorg.cle === args.pcbs) {
-        return { status: 2 }
+    if (cfgorg.cle === args.pcbsh) {
+        return { status: 2, rows: []}
     }
-
+/*
     let row = stmt(cfg, selcomptedpbh).get(args)
     if (row) {
         const data = JSON.parse(row.data)
@@ -117,8 +117,8 @@ async function testconnexion (cfgorg, args) {
         const datax = decryptDatax(args.clex, row.datax)
         return { status:3, id: row.id, dlv: row.dlv, datax: datax }
     }
-
-    return { status: 0 }
+*/
+    return { status: 0, rows: [] }
 }
 exports.testconnexion = testconnexion
 

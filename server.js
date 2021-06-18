@@ -110,11 +110,12 @@ async function operation(req, res) {
             En cas d'erreur :
                 result.error : objet erreur {c:99 , m:"...", s:" trace "}
         */
+        const at = api.argTypes[req.params.func]
         let args
         if (isGet) {
             args = req.query
         } else {
-            const type = api.types[req.params.func]
+            const type = at ? at[0] : null
             args = type ? type.fromBuffer(req.body) : JSON.parse(Buffer.from(req.body).toString())
         }
         pfx += ' func=' + req.params.mod + '/' + req.params.func + ' org=' + req.params.org
@@ -130,7 +131,7 @@ async function operation(req, res) {
             if (isGet)
                 setRes(res, 200, result.type).send(result.bytes)
             else {
-                const type = api.types[req.params.func + 'Resp']
+                const type = at ? at[1] : null
                 const bytes = type ? type.toBuffer(result) : Buffer.from(JSON.stringify(result))
                 // const obj = type.fromBuffer(bytes)
                 setRes(res, 200).send(bytes)
