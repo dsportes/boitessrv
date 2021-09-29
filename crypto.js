@@ -11,12 +11,6 @@ function setSalts (a) {
 }
 exports.setSalts = setSalts
 
-const GENKEYPAIRFN = { f: null }
-function setGenKeyPairFn (f) {
-  GENKEYPAIRFN.f = f
-}
-exports.setGenKeyPairFn = setGenKeyPairFn
-
 function sha256 (buffer) {
   return crypto.createHash('sha256').update(buffer).digest()
 }
@@ -143,16 +137,36 @@ function decrypter (cle, buffer) {
 }
 exports.decrypter = decrypter
 
-/* The `generateKeyPairSync` method accepts two arguments:
+/* The `generateKeyPairSync` (node) method accepts two arguments:
   1. The type ok keys we want, which in this case is "rsa"
   2. An object with the properties of the key
   The standard secure default length for RSA keys is 2048 bits
   return : { publicKey, privateKey }
 */
+function abToPem (ab, pubpriv) { // ArrayBuffer
+  const s = Buffer.from(ab).toString('base64')
+  let i = 0
+  const a = ['-----BEGIN ' + pubpriv + ' KEY-----']
+  while (i < s.length) {
+    a.push(s.substring(i, i + 64))
+    i += 64
+  }
+  a.push('-----END ' + pubpriv + ' KEY-----')
+  return a.join('\n')
+}
+
+async function genkeypairBrowser () {
+  const rsaOpt = { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([0x01, 0x00, 0x01]), hash: { name: 'SHA-512' } }
+  const key = await window.crypto.subtle.generateKey(rsaOpt, true, ['encrypt', 'decrypt'])
+  const jpriv = await window.crypto.subtle.exportKey('pkcs8', key.privateKey)
+  const jpub = await window.crypto.subtle.exportKey('spki', key.publicKey)
+  return { publicKey: abToPem(jpub, 'PUBLIC'), privateKey: abToPem(jpriv, 'PRIVATE') }
+}
+
 async function genKeyPair () {
   let kp
-  if (GENKEYPAIRFN.f) {
-    kp = await GENKEYPAIRFN.f()
+  if (typeof window !== 'undefined') {
+    kp = await genkeypairBrowser()
   } else {
     kp = crypto.generateKeyPairSync('rsa',
       {

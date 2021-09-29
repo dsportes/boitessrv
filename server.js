@@ -206,12 +206,13 @@ app.get("/ping", (req, res) => {
     setRes(res, 200, 'text/plain').send(new Date().toISOString())
 })
 
-/**** ping du site ****/
+/**** generation de paire de clés RSA 
 app.get("/genkeypair", (req, res) => {
   const {publicKey, privateKey} = crypt.genKeyPair()
   const x = JSON.stringify([ publicKey, privateKey])
   setRes(res, 200, 'text/plain').send(x)
 })
+****/
 
 /**** icon d'une organisation ****/
 app.get("/icon/:org", (req, res) => {
