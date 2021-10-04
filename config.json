@@ -6,13 +6,13 @@
     "doda": { 
       "code":"doda",
       "typeicon":"png",
-      "cle":"358md0CNfSsCj71NmEx1IDkEe0alHHb7nTj7Ohrb30I",
+      "cle":"BVzv6s7vgPhm266SNp5Avr7MSxLw9epHDfIRvC9tj3w",
       "quotas":[10, 100, 5, 50]
     },
     "super": { 
       "code":"super",
       "typeicon":"png",
-      "cle":"358md0CNfSsCj71NmEx1IDkEe0alHHb7nTj7Ohrb30I",
+      "cle":"BVzv6s7vgPhm266SNp5Avr7MSxLw9epHDfIRvC9tj3w",
       "quotas":[10, 100, 5, 50]
     }
   }
