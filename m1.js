@@ -29,9 +29,9 @@ exports.atStart = atStart
 *****************************************************************/
 
 async function echo (cfg, args, isGet) {
-    if (!args) args = { }
+    if (!args) args = { a: 1, b: 'toto' }
     args.org = cfg.code || 'org'
-    return !isGet ? args : {type:"text/plain", bytes:Buffer.from(JSON.stringify(args), 'utf8')}
+    return !isGet ? args : { type:"text/plain", bytes:Buffer.from(JSON.stringify(args), 'utf8') }
 }
 exports.echo = echo
 
