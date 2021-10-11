@@ -106,6 +106,7 @@ const conn1Compte = avro.Type.forSchema({
   name: 'conn1Compte',
   type: 'record',
   fields: [
+    { name: 'sessionId', type: 'string' },
     { name: 'pcbsh', type: 'long' },
     { name: 'dpbh', type: 'long' }
   ]
@@ -116,7 +117,9 @@ const respBase1 = avro.Type.forSchema({
   type: 'record',
   fields: [
     { name: 'status', type: 'int' },
-    { name: 'rows', type: { type: 'array', items: [sqlCompte] } }
+    { name: 'sessionId', type: 'string' },
+    { name: 'dh', type: 'long' },
+    { name: 'rows', type: { type: 'array', items: ['bytes'] } }
   ]
 })
 

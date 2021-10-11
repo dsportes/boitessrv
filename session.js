@@ -3,44 +3,37 @@ const base64url = require('base64url')
 
 const sessions = new Map()
 
-let wss
+let wss // pour tester
 
+/* Appelé sur l'événement 'connection' reçu du Web Server
+- request : requête Http correspondante : on ne sait rien en faire a priori
+- wss1 : server web socket
+*/
 class Session {
     constructor (ws, request, wss1) {
         wss = wss1
         this.ws = ws
-        this.sessionId = base64url(crypto.random(5))
-        sessions.set(this.sessionId, this)
+        this.sessionId = null
         this.ws.onerror = (e) => {
             console.log(e)
-            this.onClose()
-            sessions.delete(this.sessionId)
+            if (this.sessionId)
+                sessions.delete(this.sessionId)
         }
         this.ws.onclose = (e) => {
-            this.onClose()
-            sessions.delete(this.sessionId)
+            if (this.sessionId)
+                sessions.delete(this.sessionId)
+            console.log('Fermeture de session détectée:' + this.sessionId)
         }
         this.ws.onmessage = (m) => {
-            try {
-                const x = JSON.parse(m.data)
-                const fn = this.constructor.prototype[x.fn]
-                if (fn) {
-                    fn.call(this, x)
-                } else {
-                    console.log('Session:' + this.sessionId + ' Fonction inconnue:' + x.fn)
-                }
-            } catch (e) {
-                console.log('Session:' + this.sessionId + ' Erreur de parse:' + e + '\ndata:' + m.data)
-            }
+            // seul message reçu : l'initialisation de session avec le sessionid
+            this.sessionId = m.data
+            sessions.set(this.sessionId, this)
+            console.log('Ouverture de session reçue:' + this.sessionId)
         }    
     }
 
-    send (m) {
-        this.ws.send(JSON.stringify(m))
-    }
-
-    onClose () {
-        console.log('Close : ' + this.sessionId)
+    send (data) {
+        this.ws.send(data)
     }
 
     sync (rows, delobjs) {
@@ -48,18 +41,9 @@ class Session {
         liste d'envoi : liste des rows créés / modifiés, liste des objets supprimés
         Uniquement ceux concerné par la session
         */
-
     }
 
-    f1(args) {
-        console.log('Session:' + this.sessionId + '\ndata:' + JSON.stringify(args))
-    }
-    
-    f2(args) {
-        console.log('Session:' + this.sessionId + '\ndata:' + JSON.stringify(args))        
-    }
 }
-
 exports.Session = Session
 
 function syncSessions(rows, delobjs) {

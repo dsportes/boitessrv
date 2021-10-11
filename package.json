@@ -8,6 +8,7 @@
     "collections": "^5.1.12",
     "express": "^4.17.1",
     "json-bigint": "^1.0.0",
+    "nano-time": "^1.0.0",
     "ws": "^7.4.5"
   }
 }

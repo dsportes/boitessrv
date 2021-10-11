@@ -1,5 +1,6 @@
 const crypt = require('./crypto.js')
 const Session = require('./session.js')
+const now = require('nano-time')
 
 const dev = process.env.NODE_ENV === "development"
 const MO = 1024 * 1024
@@ -20,7 +21,7 @@ exports.atStart = atStart
     Retourne un objet result :
     Pour un GET :
         result.type : type mime
-        result.bytes : si le résultat est du binaire (ume image ...)
+        result.bytes : si le résultat est du binaire
     Pour un POST :
         result : objet résultat
     En cas d'erreur :
@@ -51,8 +52,7 @@ function cryptDatax(cle, datax) {
 }
 
 function getdhc() {
-    const hrTime = process.hrtime()
-    return (hrTime[0] * 1000000) + (hrTime[1] / 1000)
+    return parseInt(now.micro(), 10)
 }
 
 function getdma () {
@@ -94,9 +94,11 @@ Retours = status ...
 2: création de compte privilégié possible. { status:2 }
 3: création de compte standard possible. { status:3, cext:cext du parrain }
 */
-async function testconnexion (cfgorg, args) {
-    if (cfgorg.cle === args.pcbsh) {
-        return { status: 2, rows: []}
+async function testconnexion (cfg, args) {
+    const dh = getdhc()
+    const sessionId = args.sessionId
+    if (cfg.cle === args.pcbsh) {
+        return { status: 2, dh: dh, sessionId: sessionId, rows: []}
     }
 /*
     let row = stmt(cfg, selcomptedpbh).get(args)
@@ -118,7 +120,7 @@ async function testconnexion (cfgorg, args) {
         return { status:3, id: row.id, dlv: row.dlv, datax: datax }
     }
 */
-    return { status: 0, rows: [] }
+    return { status: 0, dh: dh, sessionId: sessionId, rows: [] }
 }
 exports.testconnexion = testconnexion
 

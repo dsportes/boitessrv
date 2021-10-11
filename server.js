@@ -115,7 +115,7 @@ async function operation(req, res) {
         if (isGet) {
             args = req.query
         } else {
-            const type = at ? at[0] : null
+            const type = at && at.length > 0 ? at[0] : null
             args = type ? type.fromBuffer(req.body) : JSON.parse(Buffer.from(req.body).toString())
         }
         pfx += ' func=' + req.params.mod + '/' + req.params.func + ' org=' + req.params.org
@@ -131,7 +131,7 @@ async function operation(req, res) {
             if (isGet)
                 setRes(res, 200, result.type).send(result.bytes)
             else {
-                const type = at ? at[1] : null
+                const type = at && at.length > 1 ? at[1] : null
                 const bytes = type ? type.toBuffer(result) : Buffer.from(JSON.stringify(result))
                 // const obj = type.fromBuffer(bytes)
                 setRes(res, 200).send(bytes)
@@ -153,12 +153,14 @@ async function operation(req, res) {
 	}
 }
 
+/*
 const mimetype = {
     "jpg": "image/jpeg",
     "jpeg": "image/jpeg",
     "png": "image/png",
     "svg": "image/image/svg+xml"
 }
+*/
 
 /*
 Récupération de la configuration
@@ -171,9 +173,12 @@ try {
     cfg = JSON.parse(configjson)
     for(let org in cfg.orgs) {
         const e = cfg.orgs[org]
+        e.code = org
+        e.db = require('better-sqlite3')('./databases/' + org + '.db3', options);
+        /*
         const b = fs.readFileSync('./icons/' + org + '.' + e.typeicon, 'base64')
         e.icon = 'data:' + mimetype[e.typeicon] + ';base64,' + b
-        e.db = require('better-sqlite3')('./databases/' + org + '.db3', options);
+        */
     }
     crypt.setSalts (fs.readFileSync('./salts'))
     // crypt.test()
@@ -214,12 +219,13 @@ app.get("/genkeypair", (req, res) => {
 })
 ****/
 
-/**** icon d'une organisation ****/
+/**** icon d'une organisation
 app.get("/icon/:org", (req, res) => {
     const e = cfg.orgs[req.params.org]
     const ic = e ? e.icon : 'KO'
     setRes(res, 200, 'text/plain').send(ic)
 })
+****/
 
 /**** appels des opérations ****/
 app.use("/:org/:mod/:func", async (req, res) => {
@@ -280,8 +286,8 @@ try {
     server.on('error', (e) => { // les erreurs de création du server ne sont pas des exceptions
         console.error("server.js : HTTP error = " + e.message)
     })
-    const wss = new WebSocket.Server({ server })
 
+    const wss = new WebSocket.Server({ server })
     wss.on('connection', (ws, request) => {
         if (checkOrigin(request)) {
             new Session (ws, request, wss)
