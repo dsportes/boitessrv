@@ -1,205 +1,168 @@
-CREATE TABLE IF NOT EXISTS "carte" (
-	"id"	INTEGER,
-	"dhc"	INTEGER,
-	"datax"	TEXT,
-	PRIMARY KEY("id")
-) WITHOUT ROWID;
-CREATE TABLE IF NOT EXISTS "contact" (
-	"ida"	INTEGER,
-	"idb"	INTEGER,
-	"dhc"	INTEGER,
-	"data"	TEXT,
-	"dataa"	TEXT,
-	"datab"	TEXT
-);
-CREATE TABLE IF NOT EXISTS "membre" (
-	"ida"	INTEGER,
-	"idg"	INTEGER,
-	"dhc"	INTEGER,
-	"q1"	INTEGER,
-	"q2"	INTEGER,
-	"dataa"	TEXT,
-	"datag"	TEXT
-);
-CREATE TABLE IF NOT EXISTS "dct" (
-	"ida"	INTEGER,
-	"idb"	INTEGER,
-	"dhc"	INTEGER,
-	"dlv"	INTEGER,
-	"datab"	TEXT
-);
-CREATE TABLE IF NOT EXISTS "invg" (
-	"ida"	INTEGER,
-	"idb"	INTEGER,
-	"idg"	INTEGER,
-	"dhc"	INTEGER,
-	"dlv"	INTEGER,
-	"datab"	TEXT
-);
-CREATE TABLE IF NOT EXISTS "cext" (
-	"id"	INTEGER,
-	"dpbh"	INTEGER,
-	"ida"	INTEGER,
-	"dhc"	INTEGER,
-	"dlv"	INTEGER,
-	"pbcs"	TEXT,
-	"datax"	TEXT,
-	PRIMARY KEY("id")
-) WITHOUT ROWID;
-CREATE TABLE IF NOT EXISTS "quotas" (
-	"id"	INTEGER,
-	"q1"	INTEGER,
-	"q2"	INTEGER,
-	"qm1"	INTEGER,
-	"qm2"	INTEGER,
-	PRIMARY KEY("id")
-) WITHOUT ROWID;
-CREATE TABLE IF NOT EXISTS "etat" (
-	"id"	INTEGER,
-	"dhc"	INTEGER,
-	"data"	TEXT,
-	PRIMARY KEY("id")
-) WITHOUT ROWID;
-CREATE TABLE IF NOT EXISTS "cptvq" (
-	"id"	INTEGER,
-	"q1"	INTEGER,
-	"q2"	INTEGER,
-	"qm1"	INTEGER,
-	"qm2"	INTEGER,
-	"v1"	INTEGER,
-	"v2"	INTEGER,
-	"vm1"	INTEGER,
-	"vm2"	INTEGER,
-	PRIMARY KEY("id")
-	) WITHOUT ROWID;
-CREATE TABLE IF NOT EXISTS "compte" (
-	"id"	INTEGER,
-	"dhc"	INTEGER,
-	"dpbh"	INTEGER,
-	"pbcs"	TEXT,
-	"datax"	TEXT,
-	PRIMARY KEY("id")
-) WITHOUT ROWID;
-CREATE TABLE IF NOT EXISTS "avatar" (
-	"id"	INTEGER,
-	"dhc"	INTEGER,
-	"suppr"	INTEGER,
-	"lc"	TEXT,
-	"lg"	TEXT,
-	"data"	TEXT,
-	PRIMARY KEY("id")
-) WITHOUT ROWID;
-CREATE TABLE IF NOT EXISTS "groupe" (
-	"id"	INTEGER,
-	"dhc"	INTEGER,
-	"suppr"	INTEGER,
-	"lm"	TEXT,
-	"ferme"	INTEGER,
-	"arch"	INTEGER,
-	"datax"	TEXT,
-	PRIMARY KEY("id")
-) WITHOUT ROWID;
-CREATE TABLE IF NOT EXISTS "secret" (
-	"id"	INTEGER,
-	"dhc"	INTEGER,
-	"v1"	INTEGER,
-	"v2"	INTEGER,
-	"dataa"	TEXT,
-	"texte"	TEXT,
-	PRIMARY KEY("id")
-) WITHOUT ROWID;
-CREATE TABLE IF NOT EXISTS "secref" (
-	"id"	INTEGER,
-	"idb"	INTEGER,
-	"dhc"	INTEGER,
-	"suppr"	INTEGER,
-	"ncax"	TEXT,
-	"perm"	INTEGER,
-	"mc"	TEXT
-);
-CREATE INDEX "dhc_carte" ON "carte" (
-	"dhc"
-);
-CREATE INDEX "ida_dhc_contact" ON "contact" (
-	"ida",
-	"dhc"
-);
-CREATE INDEX "idb_dhc_contact" ON "contact" (
-	"idb",
-	"dhc"
-);
-CREATE INDEX "ida_dhc_idg_membre" ON "membre" (
-	"ida",
-	"dhc",
-	"idg"
-);
-CREATE INDEX "idg_dhc_ida_membre" ON "membre" (
-	"idg",
-	"dhc",
-	"ida"
-);
-CREATE INDEX "ida_dhc_dct" ON "dct" (
-	"ida",
-	"dhc"
-);
-CREATE INDEX "idb_dhc_dct" ON "dct" (
-	"idb",
-	"dhc"
-);
-CREATE INDEX "dlv_dct" ON "dct" (
-	"dlv"
-);
-CREATE INDEX "idg_dhc_invg" ON "invg" (
-	"idg",
-	"dhc"
-);
-CREATE INDEX "idb_dhc_invg" ON "invg" (
-	"idb",
-	"dhc"
-);
-CREATE INDEX "dlv_invg" ON "invg" (
-	"dlv"
-);
-CREATE INDEX "dpbh" ON "cext" (
-	"dpbh"
-);
-CREATE INDEX "ida_dhc_cext" ON "cext" (
-	"ida",
-	"dhc"
-);
-CREATE INDEX "dlv_cext" ON "cext" (
-	"dlv"
-);
-CREATE UNIQUE INDEX "dhc_compte" ON "compte" (
-	"dhc"
-);
-CREATE UNIQUE INDEX "dpbh_compte" ON "compte" (
-	"dpbh"
-);
-CREATE INDEX "dhc_suppr_avatar" ON "avatar" (
-	"dhc",
-	"suppr"
-);
-CREATE INDEX "dhc_suppr_groupe" ON "groupe" (
-	"dhc",
-	"suppr"
-);
-CREATE INDEX "id_dhc_secret" ON "secret" (
-	"id",
-	"dhc"
-);
-CREATE INDEX "id_suppr_secref" ON "secref" (
-	"id",
-	"suppr"
-);
-CREATE INDEX "idb_dhc_id_secref" ON "secref" (
-	"idb",
-	"dhc",
-	"suppr",
-	"id"
-);
-CREATE INDEX "perm_id_secref" ON "secref" (
-	"perm",
-	"suppr",
-	"id"
-);
+CREATE TABLE "avatar" (
+    "id"   INTEGER,
+    "v"  	INTEGER,
+    "st"  INTEGER,
+    "vcv" INTEGER,
+    "dds" INTEGER,
+    "cva"	BLOB,
+    "lctk" BLOB,
+    PRIMARY KEY("id")
+    ) WITHOUT ROWID;
+
+CREATE TABLE "avgrvq" (
+    "id"	INTEGER,
+    "q1"	INTEGER,
+    "q2"	INTEGER,
+    "qm1"	INTEGER,
+    "qm2"	INTEGER,
+    "v1"	INTEGER,
+    "v2"	INTEGER,
+    "vm1"	INTEGER,
+    "vm2"	INTEGER,
+    PRIMARY KEY("id")
+    ) WITHOUT ROWID;
+
+CREATE TABLE "avrsa" (
+    "id"	INTEGER,
+    "clepub"	BLOB,
+    PRIMARY KEY("id")
+    ) WITHOUT ROWID;
+
+CREATE TABLE "compte" (
+    "id"	INTEGER,
+    "v"		INTEGER,
+    "dds" INTEGER,
+    "dpbh"	INTEGER,
+    "pcbh"	INTEGER,
+    "kx"   BLOB,
+    "mack"  BLOB,
+    "mmck"	BLOB,
+    PRIMARY KEY("id")
+    ) WITHOUT ROWID;
+
+CREATE TABLE "contact" (
+    "id"   INTEGER,
+    "ic"	INTEGER,
+    "v"  	INTEGER,
+    "st" INTEGER,
+    "q1" INTEGER,
+    "q2" INTEGER,
+    "qm1" INTEGER,
+    "qm2" INTEGER,
+    "ardc"	BLOB,
+    "icbc"  BLOB
+    "datak"	BLOB,
+    PRIMARY KEY("id", "ic")
+    );
+
+CREATE TABLE "etat" ("data"	BLOB);
+
+CREATE TABLE "groupe" (
+    "id"  INTEGER,
+    "v"   INTEGER,
+    "dds" INTEGER,
+    "st"  INTEGER,
+    "cvg"  BLOB,
+    "mcg"   BLOB,
+    "lstmg" BLOB,
+    PRIMARY KEY("id")
+    ) WITHOUT ROWID;
+
+CREATE TABLE "invitct" (
+    "cch" INTEGER,
+    "id"  INTEGER,
+    "dlv"	INTEGER,
+    "st"  INTEGER,
+    "ccpub" BLOB,
+    "datac"  BLOB,
+    "ardc"  BLOB,
+    PRIMARY KEY ("cch"))
+    WITHOUT ROWID;
+
+CREATE TABLE "invitgr" (
+    "niv" INTEGER,
+    "id"  INTEGER,
+    "v"   INTEGER,
+    "dlv"	INTEGER,
+    "st"  INTEGER,
+    "datap" BLOB,
+    "datak" BLOB,
+    "clek"  BLOB,
+    PRIMARY KEY ("niv")
+    ) WITHOUT ROWID;
+
+CREATE TABLE "membre" (
+    "id"  INTEGER,
+    "im"	INTEGER,
+    "v"		INTEGER,
+    "st"	INTEGER,
+    "vote"  INTEGER,
+    "dlv"   INTEGER,
+    "datag"	BLOB,
+    "ardg"  BLOB,
+    PRIMARY KEY("id", "im"));
+
+CREATE TABLE "parrain" (
+    "pph"  INTEGER,
+    "id" INTEGER,
+    "nc" INTEGER,  
+    "dlv"  INTEGER,
+    "st"  INTEGER,
+    "q1" INTEGER,
+    "q2" INTEGER,
+    "qm1" INTEGER,
+    "qm2" INTEGER,
+    "datak"  BLOB,
+    "datax"  BLOB,
+    "ardc"  BLOB,
+    PRIMARY KEY("pph")
+    ) WITHOUT ROWID;
+
+CREATE TABLE "rencontre" (
+    "prh" INTEGER,
+    "id" INTEGER,
+    "v"   INTEGER,
+    "dlv" INTEGER,
+    "st"  INTEGER,
+    "datak" BLOB,
+    "nomcx" BLOB,
+    PRIMARY KEY("prh")
+    ) WITHOUT ROWID;
+
+CREATE TABLE "secret" (
+    "ids"  INTEGER,
+    "id"  INTEGER,
+    "ic"  INTEGER,
+    "v"		INTEGER,
+    "st"	INTEGER,
+    "txts"	BLOB,
+    "mcs"   BLOB,
+    "aps"	BLOB,
+    "dups"	BLOB,
+    PRIMARY KEY("ids")
+    ) WITHOUT ROWID;
+
+CREATE TABLE "versions" (
+    "id"  INTEGER,
+    "v"  BLOB,
+    PRIMARY KEY("id")
+    ) WITHOUT ROWID;
+
+CREATE INDEX "dds_avatar" ON "avatar" ( "dds" );
+CREATE INDEX "dlv_invitct" ON "invitct" ( "dlv" );
+CREATE INDEX "dlv_invitgr" ON "invitgr" ( "dlv" );
+CREATE INDEX "dlv_parrain" ON "parrain" ( "dlv" );
+CREATE INDEX "dlv_rencontre" ON "rencontre" ( "dlv" );
+CREATE UNIQUE INDEX "dpbh_compte" ON "compte" ( "dpbh" );
+CREATE INDEX "id_invitct" ON "invitct" ( "id" );
+CREATE INDEX "id_invitgr" ON "invitgr" ( "id" );
+CREATE INDEX "id_parrain" ON "parrain" ( "id" );
+CREATE INDEX "id_rencontre" ON "rencontre" ( "id" );
+CREATE INDEX "id_v_avatar" ON "avatar" ( "id", "v" );
+CREATE INDEX "id_v_contact" ON "contact" ( "id", "v" );
+CREATE INDEX "id_v_groupe" ON "groupe" ( "id", "v" );
+CREATE INDEX "id_v_membre" ON "membre" ( "id", "v" );
+CREATE INDEX "id_v_secret" ON "secret" ("id", "v");
+CREATE INDEX "id_vcv_avatar" ON "avatar" ( "id", "vcv");
+CREATE INDEX "st_secret" ON "secret" ( "st" );
+
