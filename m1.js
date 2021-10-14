@@ -1,9 +1,21 @@
 const crypt = require('./crypto.js')
 const Session = require('./session.js')
 const now = require('nano-time')
+const avro = require('avsc')
+
+const ETAT = 0
+const VERSIONS = 1
 
 const dev = process.env.NODE_ENV === "development"
 const MO = 1024 * 1024
+const nbVersions = 100
+const defautVersions = new Array(nbVersions)
+for (let i = 0; i < nbVersions; i++) { defautVersions[i] = 0 }
+
+const valueTypes = {
+  0: { type: avro.Type.forSchema({ type: 'array', items: 'string' }), defaut: '{}' },
+  1: { type: avro.Type.forSchema({ type: 'array', items: 'int' }), defaut: defautVersions }
+}
 
 /*
 Initialisation du module APRES que le serveur ait été créé et soit opérationnel
@@ -12,6 +24,14 @@ afin que les balances aient plus rapidement la réponse en cas de changement dan
 */
 function atStart(cfg) {
     console.log("m1 start")
+    const options = { fileMustExist: true, verbose: console.log }
+    for(let org in cfg.orgs) {
+        const e = cfg.orgs[org]
+        e.db = require('better-sqlite3')('./databases/' + org + '.db3', options);
+      for (const id in valueTypes) {
+        dbGetValue(e, parseInt(id, 10))
+      }
+    }
 }
 exports.atStart = atStart
 
@@ -60,6 +80,26 @@ function getdma () {
     const an = d.getUTCFullYear() % 100
     const mo = d.getUTCMonth()
     return ( (an * 12) + mo)
+}
+
+/******************************************/
+const selvalues = 'SELECT v FROM values WHERE id = @id'
+const insvalues = 'INSERT INTO (id, v) values (@id, @v)'
+const updvalues = 'UPDATE values SET v = @v WHERE id = @id'
+
+function dbGetValue (cfg, n) {
+  const t = valueTypes[n]
+  let bin = stmt(cfg, selvalues).run({ id: n })
+  if (bin) return t.type.fromBuffer(bin)
+  bin = t.type.toBuffer(t.defaut)
+  stmt(cfg, insvalues).run({ id: n, v: bin })
+  return t.type.defaut
+}
+
+function dbPutValue (cfg, n, value) {
+  const t = valueTypes[n]
+  const bin = t.type.toBuffer(value)
+  stmt(cfg, updvalues).run({ id: n, v: bin })
 }
 
 /******************************************/
