@@ -13,7 +13,7 @@ const defautVersions = new Array(nbVersions)
 for (let i = 0; i < nbVersions; i++) { defautVersions[i] = 0 }
 
 const valueTypes = {
-  0: { type: avro.Type.forSchema({ type: 'array', items: 'string' }), defaut: '{}' },
+  0: { type: 'json', defaut: '{}' },
   1: { type: avro.Type.forSchema({ type: 'array', items: 'int' }), defaut: defautVersions }
 }
 
@@ -24,14 +24,6 @@ afin que les balances aient plus rapidement la réponse en cas de changement dan
 */
 function atStart(cfg) {
     console.log("m1 start")
-    const options = { fileMustExist: true, verbose: console.log }
-    for(let org in cfg.orgs) {
-        const e = cfg.orgs[org]
-        e.db = require('better-sqlite3')('./databases/' + org + '.db3', options);
-      for (const id in valueTypes) {
-        dbGetValue(e, parseInt(id, 10))
-      }
-    }
 }
 exports.atStart = atStart
 
@@ -75,31 +67,42 @@ function getdhc() {
     return parseInt(now.micro(), 10)
 }
 
-function getdma () {
+class Dds {
+    constructor () {
+        this.j0 = Math.floor(new Date('2020-01-01T00:00:00').getTime() / 86400000)
+    }
+    
+    // jour courant (nombre de jours écoulés) depuis le 1/1/2020
+    jourJ () {
+        return Math.floor(new Date().getTime() / 86400000) - this.j0
+    }
+
+    /* 
+    Si la dds actuelle du compte n'a pas plus de 28 jours, elle convient encore.
+    Sinon il faut en réattribuer une qui ait entre 14 et 28 jours d'âge.
+    */
+    ddsc (dds) {
+        const j = this.jourJ()
+        return ((j - dds) > 28) ? j - 14 - Math.floor(Math.random() * 14) : dds
+    }
+
+    /* 
+    Si la dds actuelle de l'avatar ou du groupe n'a pas plus de 14 jours, elle convient encore.
+    Sinon il faut en réattribuer une qui ait entre 0 et 14 d'âge.
+    */
+    ddsag (dds) {
+        const j = this.jourJ()
+        return ((j - dds) > 14) ? j - Math.floor(Math.random() * 14) : dds
+    }
+}
+const dds = new Dds()
+
+/* Mois courant depuis janvier 2020 */
+function getMois () {
     const d = new Date()
-    const an = d.getUTCFullYear() % 100
+    const an = (d.getUTCFullYear() % 100) - 20
     const mo = d.getUTCMonth()
     return ( (an * 12) + mo)
-}
-
-/******************************************/
-const selvalues = 'SELECT v FROM values WHERE id = @id'
-const insvalues = 'INSERT INTO (id, v) values (@id, @v)'
-const updvalues = 'UPDATE values SET v = @v WHERE id = @id'
-
-function dbGetValue (cfg, n) {
-  const t = valueTypes[n]
-  let bin = stmt(cfg, selvalues).run({ id: n })
-  if (bin) return t.type.fromBuffer(bin)
-  bin = t.type.toBuffer(t.defaut)
-  stmt(cfg, insvalues).run({ id: n, v: bin })
-  return t.type.defaut
-}
-
-function dbPutValue (cfg, n, value) {
-  const t = valueTypes[n]
-  const bin = t.type.toBuffer(value)
-  stmt(cfg, updvalues).run({ id: n, v: bin })
 }
 
 /******************************************/
@@ -111,13 +114,48 @@ function stmt (cfg, sql) {
     if (!c[sql]) c[sql] = cfg.db.prepare(sql)
     return c[sql]
 }
+
 /******************************************/
-const inscompte = 'INSERT INTO compte (id, dhc, dma, dpbh, data, datax) VALUES (@id, @dhc, @dma, @dbph, @data, @datax)'
+const selvalues = 'SELECT v FROM values WHERE id = @id'
+const insvalues = 'INSERT INTO (id, v) values (@id, @v)'
+const updvalues = 'UPDATE values SET v = @v WHERE id = @id'
+
+const cacheValues = { }
+
+function getValue (cfg, n) {
+    let cache = this.caches[cfg.code]
+    if (!cache) {
+        cache = {}
+        this.caches[cfg.code] = cache
+    }
+    if (cache[n]) return cache[n]
+    const t = valueTypes[n]
+    let value
+    let bin = stmt(cfg, selvalues).run({ id: n })
+    if (bin) {
+        value = t === 'json' ? JSON.parse(Buffer.from(bin).toString()) : t.type.fromBuffer(bin)
+    } else {
+        value = t.defaut
+        bin = t === 'json' ? Buffer.from(value) : t.type.toBuffer(value)
+        stmt(cfg, insvalues).run({ id: n, v: bin })
+    }
+    cache[n] = value
+    return value
+}
+
+function setValue (cfg, n) {
+    const t = valueTypes[n]
+    const value = this.caches[cfg.code][n]
+    bin = t === 'json' ? Buffer.from(value) : t.type.toBuffer(value)
+    stmt(cfg, updvalues).run({ id: n, v: bin })
+}
+
+/******************************************/
+const inscompte = 'INSERT INTO compte (id, v, dds, dpbh, pcbh, kx, mack, mmck) VALUES (@id, @v, @dds, @dpbh, @pcbh, @kx, @mack, @mmck)'
 const insavatar = 'INSERT INTO avatar (id, dhccv, dma, data, datax) VALUES (@id, @dhcv, @dma, @data, @dataa)'
 const selidcompteid = 'SELECT id FROM compte WHERE id = @id'
 const selidcomptedpbh = 'SELECT id FROM compte WHERE dpbh = @dpbh'
 const selcomptedpbh = 'SELECT * FROM compte WHERE dpbh = @dpbh'
-const selcextdpbh = 'SELECT * FROM cext WHERE dpbh = @dpbh'
 
 function crcompteavatar (cfg, arg1, arg2) {
     stmt(cfg, inscompte).run(arg1)
