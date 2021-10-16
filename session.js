@@ -3,6 +3,9 @@ const base64url = require('base64url')
 
 const sessions = new Map()
 
+function getSession (id) { return sessions.get(id) }
+exports.getSession = getSession
+
 let wss // pour tester
 
 /* Appelé sur l'événement 'connection' reçu du Web Server
@@ -14,6 +17,10 @@ class Session {
         wss = wss1
         this.ws = ws
         this.sessionId = null
+        this.compteId = null
+        this.avatarsIds = []
+        this.groupesIds = []
+        this.cvsIds = []
         this.ws.onerror = (e) => {
             console.log(e)
             if (this.sessionId)
@@ -30,6 +37,22 @@ class Session {
             sessions.set(this.sessionId, this)
             console.log('Ouverture de session reçue:' + this.sessionId)
         }    
+    }
+
+    setCompteId (id) {
+        this.compteId = id
+    }
+
+    setAvatarId (id) {
+       if (this.avatarsIds.indexOf(id) === -1) this.avatarsIds.push(id)
+    }
+
+    setGroupeId (id) {
+        if (this.groupesIds.indexOf(id) === -1) this.groupeIds.push(id)
+    }
+
+    setCvId (id) {
+        if (this.cvsIds.indexOf(id) === -1) this.cvsIds.push(id)
     }
 
     send (data) {

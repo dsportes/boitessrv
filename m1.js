@@ -1,7 +1,9 @@
 const crypt = require('./crypto.js')
-const Session = require('./session.js')
+const getSession = require('./session.js').getSession
 const now = require('nano-time')
 const avro = require('avsc')
+const api = require('./api.js')
+const rowTypes = require('./rowTypes.js')
 
 const ETAT = 0
 const VERSIONS = 1
@@ -109,34 +111,44 @@ function getMois () {
 const cachestmt = { }
 
 function stmt (cfg, sql) {
-    const c = cachestmt[cfg.code]
+    let c = cachestmt[cfg.code]
     if (!c) { c = {}; cachestmt[cfg.code] = c }
-    if (!c[sql]) c[sql] = cfg.db.prepare(sql)
+    if (!c[sql])
+        try {
+            c[sql] = cfg.db.prepare(sql)
+        } catch (e) {
+            console.log(e.toString())
+        }
     return c[sql]
 }
 
 /******************************************/
-const selvalues = 'SELECT v FROM values WHERE id = @id'
-const insvalues = 'INSERT INTO (id, v) values (@id, @v)'
-const updvalues = 'UPDATE values SET v = @v WHERE id = @id'
+const selvalues = 'SELECT v FROM versions WHERE id = @id'
+const insvalues = 'INSERT INTO versions (id, v) VALUES (@id, @v)'
+const updvalues = 'UPDATE versions SET v = @v WHERE id = @id'
 
 const cacheValues = { }
 
 function getValue (cfg, n) {
-    let cache = this.caches[cfg.code]
+    let cache = cacheValues[cfg.code]
     if (!cache) {
         cache = {}
-        this.caches[cfg.code] = cache
+        cacheValues[cfg.code] = cache
     }
     if (cache[n]) return cache[n]
     const t = valueTypes[n]
     let value
-    let bin = stmt(cfg, selvalues).run({ id: n })
+    let res = stmt(cfg, selvalues).get({ id: n })
+    let bin = res ? res.v : null
     if (bin) {
-        value = t === 'json' ? JSON.parse(Buffer.from(bin).toString()) : t.type.fromBuffer(bin)
+        value = t.type === 'json' ? 
+            JSON.parse(Buffer.from(bin).toString()) : 
+            t.type.fromBuffer(bin)
     } else {
         value = t.defaut
-        bin = t === 'json' ? Buffer.from(value) : t.type.toBuffer(value)
+        bin = t.type === 'json' ? 
+            Buffer.from(value) : 
+            t.type.toBuffer(value)
         stmt(cfg, insvalues).run({ id: n, v: bin })
     }
     cache[n] = value
@@ -145,25 +157,111 @@ function getValue (cfg, n) {
 
 function setValue (cfg, n) {
     const t = valueTypes[n]
-    const value = this.caches[cfg.code][n]
-    bin = t === 'json' ? Buffer.from(value) : t.type.toBuffer(value)
+    const value = cacheValues[cfg.code][n]
+    bin = t.type === 'json' ? 
+        Buffer.from(value) : 
+        t.type.toBuffer(value)
     stmt(cfg, updvalues).run({ id: n, v: bin })
 }
 
 /******************************************/
 const inscompte = 'INSERT INTO compte (id, v, dds, dpbh, pcbh, kx, mack, mmck) VALUES (@id, @v, @dds, @dpbh, @pcbh, @kx, @mack, @mmck)'
-const insavatar = 'INSERT INTO avatar (id, dhccv, dma, data, datax) VALUES (@id, @dhcv, @dma, @data, @dataa)'
+const insavatar = 'INSERT INTO avatar (id, v, st, vcv, dds, cva, lctk) VALUES (@id, @v, @st, @vcv, @dds, @cva, @lctk)'
+const insavrsa = 'INSERT INTO avrsa (id, clepub) VALUES (@id, @clepub)'
+const insavgrvq = 'INSERT INTO avgrvq (id, q1, q2, qm1, qm2, v1, v2, vm1, vm2) VALUES (@id, @q1, @q2, @qm1, @qm2, @v1, @v2, @vm1, @vm2)'
 const selidcompteid = 'SELECT id FROM compte WHERE id = @id'
 const selidcomptedpbh = 'SELECT id FROM compte WHERE dpbh = @dpbh'
 const selcomptedpbh = 'SELECT * FROM compte WHERE dpbh = @dpbh'
 
+function idx (id) {
+    return (id % (nbVersions - 1)) + 1
+}
+/* Creation de compte sans parrain
+args: 
+  name: 'creationCompte',
+  type: 'record',
+  fields: [
+    { name: 'sessionId', type: 'string' },
+    { name: 'mdp64', type: 'string' },
+    { name: 'dpbh', type: 'long' },
+    { name: 'q1', type: 'int' },
+    { name: 'q2', type: 'int' },
+    { name: 'qm1', type: 'int' },
+    { name: 'qm2', type: 'int' },
+    { name: 'clePub', type: 'bytes' },
+    { name: 'rowCompte', type: 'bytes' },
+    { name: 'rowAvatar', type: 'bytes' }
+  ]
+Retour :
+  name: 'respBase1',
+  type: 'record',
+  fields: [
+    { name: 'status', type: 'int' },
+    { name: 'sessionId', type: 'string' },
+    { name: 'dh', type: 'long' },
+    { name: 'rows', type: { type: 'array', items: ['bytes'] } }
+  ]
+*/
+function creationCompte (cfg, args) {
+    const result = { status: 0, sessionId: args.sessionId, dh: getdhc() }
+    if (cfg.cle !== args.mdp64) {
+        return { erreur: { c: 1 , m: 'Mot de passe de l\'organisation non reconnu', d: 'Pour créer un compte privilégié, le mot de passe de l\'organisation est requis' } }
+    }
+    const session = getSession(args.sessionId)
+    const compte = rowTypes.rowSchemas.compte.fromBuffer(args.rowCompte)
+    const avatar = rowTypes.rowSchemas.avatar.fromBuffer(args.rowAvatar)
+
+    const versions = getValue(cfg, VERSIONS)
+    let j = idx(compte.id)
+    versions[j]++
+    compte.v = versions[j]
+    j = idx(avatar.id)
+    versions[j]++
+    avatar.v = versions[j]
+    setValue(cfg, VERSIONS)
+
+    compte.dds = dds.ddsc(compte.dds)
+    avatar.dds = dds.ddsag(avatar.dds)
+    const avrsa = { id: avatar.id, clepub: args.clePub }
+    const avgrvq = { id: avatar.id, q1: args.q1, q2: args.q2, qm1: args.qm1, qm2:args.qm2, v1: 0, v2:0, vm1:0, vm2: 0 }
+    result.rows = [compte, avatar]
+    try {
+        cfg.db.transaction(creationCompteTr)(cfg, session, compte, avatar, avrsa, avgrvq)
+        return result
+    } catch (e) {
+        return e
+    }
+}
+exports.creationCompte = creationCompte
+
+function creationCompteTr (cfg, session, compte, avatar, avrsa, avgrvq) {
+    const c = stmt(cfg, selcomptedpbh).get({ dpbh: compte.dpbh })
+    if (c) {
+        if (c.pcbh === compte.pcbh) {
+            throw { erreur: { f: true, c: 2, m: 'Phrase secrète probablement déjà utilisée', d: 'Vérifier que le compte n\'existe pas déjà en essayant de s\'y connecter avec la phrase secrète' } }
+        } else {
+            throw { erreur: { f: true, c: 3, m: 'Une phrase secrète semblable est déjà utilisée', d: 'Changer a minima la première ligne de la phrase secrète pour ce nouveau compte' } }
+        }
+    }
+    stmt(cfg, inscompte).run({ ...compte })
+    //const x = compte
+    // const y = { id:x.id, v:x.v, dds:x.dds, dpbh:x.dpbh, pcbh:x.pcbh, kx:x.kx, mack:x.mack, mmck:x.mmck}
+    //const y = { ...compte }
+    //st.run(y)
+    stmt(cfg, insavatar).run({ ...avatar })
+    stmt(cfg, insavrsa).run(avrsa)
+    stmt(cfg, insavgrvq).run(avgrvq)
+    session.setCompteId(compte.id)
+    session.setAvatarId(avatar.id)
+    session.setCvId(avatar.id)
+}
+
+/*
 function crcompteavatar (cfg, arg1, arg2) {
     stmt(cfg, inscompte).run(arg1)
     stmt(cfg, insavatar).run(arg2)
 }
-/*******************************************/
 
-/*
 Détermine si une connexion ou création est possible avec cette phrase secrète
 args = { dpbh, pcbsh }
 Retours = status ...
@@ -208,7 +306,7 @@ mdp : SHA du BCRYPT de la phrase secrète de l'organisation
 id dpbh clex pcbs k nla (nom long du premier avatar)
 */
 function nouvcomptepriv (cfg, args) {
-    if (cfg.cle !== args.mdp) {
+    if (cfg.cle !== args.mdp64) {
         return { c: 1 , m: 'Mot de passe l\'organisation non reconnu', d: 'Pour créer un compte privilégié, le mot de passe de l\'organisation est requis' }
     }
 

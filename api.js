@@ -3,13 +3,13 @@ const avro = require('avsc')
 const version = '1'
 exports.version = version
 
-const rowitem = avro.Type.forSchema({
+const rowItem = avro.Type.forSchema({
   name: 'rowitem',
   type: 'record',
   fields: [
     { name: 'table', type: 'string' },
-    { name: 'syncid', type: 'string' },
-    { name: 'row', type: ['null', 'bytes'], default: null }
+    { name: 'id', type: 'string' },
+    { name: 'serial', type: ['null', 'bytes'], default: null }
   ]
 })
 
@@ -20,7 +20,7 @@ const synclist = avro.Type.forSchema({
     { name: 'status', type: 'int' },
     { name: 'sessionId', type: 'string' },
     { name: 'dh', type: 'long' },
-    { name: 'rowitems', type: { type: 'array', items: [rowitem] } }
+    { name: 'rowItems', type: { type: 'array', items: [rowItem] } }
   ]
 })
 
@@ -44,6 +44,7 @@ const echoResp = avro.Type.forSchema({
   ]
 })
 
+/*
 const conn1Compte = avro.Type.forSchema({
   name: 'conn1Compte',
   type: 'record',
@@ -53,6 +54,7 @@ const conn1Compte = avro.Type.forSchema({
     { name: 'dpbh', type: 'long' }
   ]
 })
+*/
 
 const respBase1 = avro.Type.forSchema({
   name: 'respBase1',
@@ -65,9 +67,25 @@ const respBase1 = avro.Type.forSchema({
   ]
 })
 
+const creationCompte = avro.Type.forSchema({
+  name: 'creationCompte',
+  type: 'record',
+  fields: [
+    { name: 'sessionId', type: 'string' },
+    { name: 'mdp64', type: 'string' },
+    { name: 'q1', type: 'int' },
+    { name: 'q2', type: 'int' },
+    { name: 'qm1', type: 'int' },
+    { name: 'qm2', type: 'int' },
+    { name: 'clePub', type: 'string' },
+    { name: 'rowCompte', type: 'bytes' },
+    { name: 'rowAvatar', type: 'bytes' }
+  ]
+})
+
 const argTypes = {
-  testconnexion: [conn1Compte, respBase1],
-  echo: [echoArg, echoResp]
+  echo: [echoArg, echoResp],
+  creationCompte: [creationCompte, respBase1]
 }
 exports.argTypes = argTypes
 

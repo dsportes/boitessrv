@@ -49,7 +49,7 @@ const rowAvatar = avro.Type.forSchema({
 })
 
 const rowAvgrq = avro.Type.forSchema({
-  name: 'rowAvatar',
+  name: 'rowAvgrq',
   type: 'record',
   fields: [
     { name: 'id', type: 'long' }, // pk
@@ -57,7 +57,7 @@ const rowAvgrq = avro.Type.forSchema({
     { name: 'q2', type: 'long' },
     { name: 'qm1', type: 'long' },
     { name: 'qm2', type: 'long' },
-    { name: 'V1', type: 'long' },
+    { name: 'v1', type: 'long' },
     { name: 'v2', type: 'long' },
     { name: 'vm1', type: 'long' },
     { name: 'vm2', type: 'long' }

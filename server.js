@@ -125,7 +125,7 @@ async function operation(req, res) {
         if (result.erreur) { // la réponse est une erreur fonctionnelle - descriptif dans erreur
             const s = JSON.stringify(result.erreur)
             if (dev) console.log(pfx + ' 400=' + s)
-            setRes(res, 400).send(Buffer.from(s))
+            setRes(res, result.erreur.f ? 401 : 400).send(Buffer.from(s))
         } else { // la réponse contient le résultat attendu
             if (dev) console.log(pfx + ' 200')
             if (isGet)
