@@ -63,7 +63,7 @@ const respBase1 = avro.Type.forSchema({
     { name: 'status', type: 'int' },
     { name: 'sessionId', type: 'string' },
     { name: 'dh', type: 'long' },
-    { name: 'rows', type: { type: 'array', items: ['bytes'] } }
+    { name: 'rowItems', type: { type: 'array', items: [rowItem] } }
   ]
 })
 

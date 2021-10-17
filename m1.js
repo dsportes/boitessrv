@@ -208,8 +208,8 @@ function creationCompte (cfg, args) {
         return { erreur: { c: 1 , m: 'Mot de passe de l\'organisation non reconnu', d: 'Pour créer un compte privilégié, le mot de passe de l\'organisation est requis' } }
     }
     const session = getSession(args.sessionId)
-    const compte = rowTypes.rowSchemas.compte.fromBuffer(args.rowCompte)
-    const avatar = rowTypes.rowSchemas.avatar.fromBuffer(args.rowAvatar)
+    const compte = rowTypes.fromBuffer('compte', args.rowCompte)
+    const avatar = rowTypes.fromBuffer('avatar', args.rowAvatar)
 
     const versions = getValue(cfg, VERSIONS)
     let j = idx(compte.id)
@@ -224,9 +224,12 @@ function creationCompte (cfg, args) {
     avatar.dds = dds.ddsag(avatar.dds)
     const avrsa = { id: avatar.id, clepub: args.clePub }
     const avgrvq = { id: avatar.id, q1: args.q1, q2: args.q2, qm1: args.qm1, qm2:args.qm2, v1: 0, v2:0, vm1:0, vm2: 0 }
-    result.rows = [compte, avatar]
     try {
         cfg.db.transaction(creationCompteTr)(cfg, session, compte, avatar, avrsa, avgrvq)
+        result.rowItems = [ 
+            { table: 'compte', id: crypt.id2s(compte.id), serial: rowTypes.toBuffer('compte', compte) },
+            { table: 'avatar', id: crypt.id2s(avatar.id), serial: rowTypes.toBuffer('avatar', avatar) }
+        ]    
         return result
     } catch (e) {
         return e
@@ -244,10 +247,6 @@ function creationCompteTr (cfg, session, compte, avatar, avrsa, avgrvq) {
         }
     }
     stmt(cfg, inscompte).run({ ...compte })
-    //const x = compte
-    // const y = { id:x.id, v:x.v, dds:x.dds, dpbh:x.dpbh, pcbh:x.pcbh, kx:x.kx, mack:x.mack, mmck:x.mmck}
-    //const y = { ...compte }
-    //st.run(y)
     stmt(cfg, insavatar).run({ ...avatar })
     stmt(cfg, insavrsa).run(avrsa)
     stmt(cfg, insavgrvq).run(avgrvq)

@@ -221,6 +221,17 @@ const rowVersions = avro.Type.forSchema({
   ]
 })
 
+const rowCv = avro.Type.forSchema({
+  name: 'rowCv',
+  type: 'record',
+  fields: [
+    { name: 'id', type: 'long' },
+    { name: 'vcv', type: 'int' },
+    { name: 'st', type: 'int' }, // négatif, avatar supprimé / disparu, 0:OK, 1:alerte
+    { name: 'serial', type: ['null', 'bytes'], default: null }
+  ]
+})
+
 const rowSchemas = {
   avatar: rowAvatar,
   avgrq: rowAvgrq,
@@ -234,9 +245,20 @@ const rowSchemas = {
   parrain: rowParrain,
   rencontre: rowRencontre,
   secret: rowSecret,
-  versions: rowVersions
+  versions: rowVersions,
+  cv: rowCv
 }
 exports.rowSchemas = rowSchemas
+
+function toBuffer (table, obj) {
+  return rowSchemas[table].toBuffer(obj)
+}
+exports.toBuffer = toBuffer
+
+function fromBuffer (table, buf) {
+  return rowSchemas[table].fromBuffer(buf)
+}
+exports.fromBuffer = fromBuffer
 
 function serialItem (table, row) {
   const item = { table: table }
