@@ -44,17 +44,15 @@ const echoResp = avro.Type.forSchema({
   ]
 })
 
-/*
-const conn1Compte = avro.Type.forSchema({
-  name: 'conn1Compte',
+const connexionCompte = avro.Type.forSchema({
+  name: 'connexionCompte',
   type: 'record',
   fields: [
     { name: 'sessionId', type: 'string' },
-    { name: 'pcbsh', type: 'long' },
+    { name: 'pcbh', type: 'long' },
     { name: 'dpbh', type: 'long' }
   ]
 })
-*/
 
 const respBase1 = avro.Type.forSchema({
   name: 'respBase1',
@@ -85,7 +83,8 @@ const creationCompte = avro.Type.forSchema({
 
 const argTypes = {
   echo: [echoArg, echoResp],
-  creationCompte: [creationCompte, respBase1]
+  creationCompte: [creationCompte, respBase1],
+  connexionCompte: [connexionCompte, respBase1]
 }
 exports.argTypes = argTypes
 

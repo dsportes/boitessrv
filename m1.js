@@ -169,8 +169,6 @@ const inscompte = 'INSERT INTO compte (id, v, dds, dpbh, pcbh, kx, mack, mmck) V
 const insavatar = 'INSERT INTO avatar (id, v, st, vcv, dds, cva, lctk) VALUES (@id, @v, @st, @vcv, @dds, @cva, @lctk)'
 const insavrsa = 'INSERT INTO avrsa (id, clepub) VALUES (@id, @clepub)'
 const insavgrvq = 'INSERT INTO avgrvq (id, q1, q2, qm1, qm2, v1, v2, vm1, vm2) VALUES (@id, @q1, @q2, @qm1, @qm2, @v1, @v2, @vm1, @vm2)'
-const selidcompteid = 'SELECT id FROM compte WHERE id = @id'
-const selidcomptedpbh = 'SELECT id FROM compte WHERE dpbh = @dpbh'
 const selcomptedpbh = 'SELECT * FROM compte WHERE dpbh = @dpbh'
 
 function idx (id) {
@@ -253,86 +251,20 @@ function creationCompteTr (cfg, session, compte, avatar, avrsa, avgrvq) {
 }
 
 /*
-function crcompteavatar (cfg, arg1, arg2) {
-    stmt(cfg, inscompte).run(arg1)
-    stmt(cfg, insavatar).run(arg2)
-}
-
-Détermine si une connexion ou création est possible avec cette phrase secrète
-args = { dpbh, pcbsh }
-Retours = status ...
-0: phrase secrète non reconnue
-1: compte identifié. { status:1, id:id du compte, k:clé k, avatars:[noms longs des avatars] }
-2: création de compte privilégié possible. { status:2 }
-3: création de compte standard possible. { status:3, cext:cext du parrain }
+Détermine si les hash de la phrase secrète en argument correspond à un compte.
+args = { dpbh, pcbh }
+Retour = compte
 */
-async function testconnexion (cfg, args) {
-    const dh = getdhc()
-    const sessionId = args.sessionId
-    if (cfg.cle === args.pcbsh) {
-        return { status: 2, dh: dh, sessionId: sessionId, rows: []}
+async function connexionCompte (cfg, args) {
+    const result = { status: 0, sessionId: args.sessionId, dh: getdhc() }
+    const session = getSession(args.sessionId)
+    const c = stmt(cfg, selcomptedpbh).get({ dpbh: args.dpbh })
+    if (!c || (c.pcbh !== args.pcbh)) {
+        return { erreur: { f: true, c: 4, m: 'Compte non authentifié', d: 'Aucun compte n\est déclaré avec cette phrase secrète' } }
     }
-/*
-    let row = stmt(cfg, selcomptedpbh).get(args)
-    if (row) {
-        const data = JSON.parse(row.data)
-        if (data.pbcs !== args.pcbs){
-            return { status: 0 }
-        }
-        const datax = decryptDatax(args.clex, row.datax)
-        return { status:1, id: row.id, k: datax.k, avatars: datax.avatars }
-    }
-
-    row = stmt(cfg, selcextdpbh).get(args)
-    if (row) {
-        if (row.pbcs !== args.pcbs){
-            return { status: 0 }
-        }
-        const datax = decryptDatax(args.clex, row.datax)
-        return { status:3, id: row.id, dlv: row.dlv, datax: datax }
-    }
-*/
-    return { status: 0, dh: dh, sessionId: sessionId, rows: [] }
+    const it = rowTypes.newItem('compte', c)
+    // const it2 = rowTypes.deserialItem(it)
+    result.rowItems = [ it ]
+    return result
 }
-exports.testconnexion = testconnexion
-
-/*
-nouveau compte privilégié
-mdp : SHA du BCRYPT de la phrase secrète de l'organisation
-id dpbh clex pcbs k nla (nom long du premier avatar)
-*/
-function nouvcomptepriv (cfg, args) {
-    if (cfg.cle !== args.mdp64) {
-        return { c: 1 , m: 'Mot de passe l\'organisation non reconnu', d: 'Pour créer un compte privilégié, le mot de passe de l\'organisation est requis' }
-    }
-
-    let row = stmt(cfg, selidcompteid).get(args)
-    if (row) {
-        return { c: 2 , m: 'Compte déjà existant', d: 'Cet identifiant est déjà celui d\'un compte existant.' }
-    }
-    row = stmt(cfg, selidcomptedpbh).get(args);
-    if (row) {
-        return { c: 3 , m: 'Compte déjà enregistré avec la même première ligne de la phrase secrète', d: 'Ces doublons sont interdits par sécurité' }
-    }
-
-    const q = cfg.quotas
-    const data = { pcbs: args.pcbs, q1: q[0] * MO, q2: q[1] * MO, qm1: q[2] * MO, qm2: q[3] * MO, vdm1: 0, vdm2: 0 }
-    const cleav = sha256(Buffer.from(args.nla))
-    const idav = hash(base64url(cleav))
-    const [datac, datax] = cryptDatax(clex, { k: args.k, mc: [], avatars: [nla] })
-    const dhc = getdhc()
-    const dma = getdma()
-    const arg1 = { table:'compte', id:args.id, dhc:dhc, dma:dma, dpbh:args.dpbh, data:data, datax:datax, datac: datac }
-
-    const data2 = { v1: 0, v2:0, vm1: 0, vm2: 0, qr1: 0, qr2: 0 }
-    const [data2c, data2x] = cryptDatax(cleav, { photo: '', info: '' })   
-    const arg2 = { table:'avatar', id:idav, dhccv:dhc, dma:dma, data:data2, datax:data2x, datac:data2c }
-
-    cfg.db.transaction(crcompteavatar)(cfg, arg1, arg2)
-    
-    Session.syncSessions([arg1, arg2], [])
-
-    return { ok: true }
-
-}
-exports.nouvcomptepriv = nouvcomptepriv
+exports.connexionCompte = connexionCompte
