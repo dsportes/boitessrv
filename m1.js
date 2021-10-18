@@ -226,10 +226,7 @@ function creationCompte (cfg, args) {
     const avgrvq = { id: avatar.id, q1: args.q1, q2: args.q2, qm1: args.qm1, qm2:args.qm2, v1: 0, v2:0, vm1:0, vm2: 0 }
     try {
         cfg.db.transaction(creationCompteTr)(cfg, session, compte, avatar, avrsa, avgrvq)
-        result.rowItems = [ 
-            { table: 'compte', id: crypt.id2s(compte.id), serial: rowTypes.toBuffer('compte', compte) },
-            { table: 'avatar', id: crypt.id2s(avatar.id), serial: rowTypes.toBuffer('avatar', avatar) }
-        ]    
+        result.rowItems = [ rowTypes.newItem('compte', compte), rowTypes.newItem('avatar', avatar) ]    
         return result
     } catch (e) {
         return e
