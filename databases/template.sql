@@ -64,8 +64,8 @@ CREATE TABLE IF NOT EXISTS "invitct" (
     "ni" INTEGER,
     "dlv"	INTEGER,
     "st"  INTEGER,
-    "ccpub" BLOB,
-    "datac"  BLOB,
+    "datap" BLOB,
+    "datak"  BLOB,
     "ardc"  BLOB,
     PRIMARY KEY ("id", "ni"));
 CREATE TABLE IF NOT EXISTS "invitgr" (
@@ -76,7 +76,6 @@ CREATE TABLE IF NOT EXISTS "invitgr" (
     "st"  INTEGER,
     "datap" BLOB,
     "datak" BLOB,
-    "clek"  BLOB,
     PRIMARY KEY ("id", "ni"));
 CREATE TABLE IF NOT EXISTS "membre" (
     "id"  INTEGER,
