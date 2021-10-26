@@ -129,7 +129,7 @@ async function operation(req, res) {
         } else { // la réponse contient le résultat attendu
             if (dev) console.log(pfx + ' 200')
             if (isGet)
-                setRes(res, 200, result.type).send(result.bytes)
+                setRes(res, 200, result.type || 'application/octet-stream').send(result.bytes)
             else {
                 const type = at && at.length > 1 ? at[1] : null
                 const bytes = type ? type.toBuffer(result) : Buffer.from(JSON.stringify(result))

@@ -268,3 +268,32 @@ async function connexionCompte (cfg, args) {
     return result
 }
 exports.connexionCompte = connexionCompte
+
+const bytes0 = new Uint8Array(0)
+const selcv = 'SELECT id, st, vcv, cva FROM avatar WHERE id = @id'
+async function getcv (cfg, args) {
+    try {
+        const c = stmt(cfg, selcv).get({ id: crypt.id2n(args.sid) })
+        if (!c) return { bytes0 }
+        const buf = rowTypes.rowSchemas.cv.toBuffer(c)
+        // const obj = rowTypes.rowSchemas.cv.fromBuffer(buf)
+        return { bytes: buf }
+    } catch (e) {
+        console.log(e)
+        return { bytes: bytes0 }
+    }
+}
+exports.getcv = getcv
+
+const selavrsapub = 'SELECT clepub FROM avrsa WHERE id = @id'
+async function getclepub (cfg, args) {
+    try {
+        const c = stmt(cfg, selavrsapub).get({ id: crypt.id2n(args.sid) })
+        if (!c) return { bytes0 }
+        return { bytes: c.clepub }
+    } catch (e) {
+        console.log(e)
+        return { bytes: bytes0 }
+    }
+}
+exports.getclepub = getclepub
