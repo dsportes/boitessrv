@@ -3,6 +3,7 @@ const getSession = require('./session.js').getSession
 const now = require('nano-time')
 const avro = require('avsc')
 const api = require('./api.js')
+const AppExc = require('./api.js').AppExc
 const rowTypes = require('./rowTypes.js')
 
 const ETAT = 0
@@ -19,6 +20,11 @@ const valueTypes = {
   1: { type: avro.Type.forSchema({ type: 'array', items: 'int' }), defaut: defautVersions }
 }
 
+function sleep (delai) {
+    if (delai <= 0) return
+    return new Promise((resolve) => { setTimeout(() => resolve(), delai) })
+}
+
 /*
 Initialisation du module APRES que le serveur ait été créé et soit opérationnel
 Rafraîchissement périodique en cache (si demandé et seulement pour la production) de la liste des aricles à peser
@@ -30,19 +36,30 @@ function atStart(cfg) {
 exports.atStart = atStart
 
 /***************************************************************
+Appel de l'opération
     cfg : configuration relative au code de l'organisation    
     args : objet des arguments
-    Retourne un objet result :
-    Pour un GET :
-        result.type : type mime
-        result.bytes : si le résultat est du binaire
-    Pour un POST :
-        result : objet résultat
-    En cas d'erreur :
-        result.erreur : objet erreur {c:99 , m:"...message...", d:"...detail..." s:" stack trace "}
+Retourne un objet result :
+Pour un GET :
+    result.type : type mime
+    result.bytes : si le résultat est du binaire
+Pour un POST :
+    OK : result : objet résultat à sérialiser - HTTP status 200
+
+Exception : 
+    AppExc : AppExc sérialisé en JSON
+        code > 0 - erreur fonctionnelle à retourner par l'application
+            HTTP status 400
+        code < 0 - erreur fonctionnelle à émettre en exception à l'application
+            HTTP status 401                   
+    Inattendue : Création d'un AppExc avec code < 0 sérialisé en JSON
+        HTTP status 402
 *****************************************************************/
 
 async function echo (cfg, args, isGet) {
+    if (args.to) {
+        await sleep(args.to * 1000)
+    }
     if (!args) args = { a: 1, b: 'toto' }
     args.org = cfg.code || 'org'
     return !isGet ? args : { type:"text/plain", bytes:Buffer.from(JSON.stringify(args), 'utf8') }
@@ -50,10 +67,14 @@ async function echo (cfg, args, isGet) {
 exports.echo = echo
 
 async function erreur (cfg, args) {
-    return { erreur: args, org:cfg.code }
+    if (args.to) {
+        await sleep(args.to * 1000)
+    }
+    throw new AppExc(args.code, args.message, args.detail)
 }
 exports.erreur = erreur
 
+/*
 function decryptDatax(cle, datax) {
     const x = crypt.decrypter(cle, Buffer.from(datax, 'base64'))
     const y = x.toString('utf8')
@@ -64,6 +85,7 @@ function cryptDatax(cle, datax) {
     const j = JSON.stringify(datax)
     return [j, base64url(crypt.crypter(cle, Buffer.from(j, 'utf8')))]
 }
+*/
 
 function getdhc() {
     return parseInt(now.micro(), 10)
@@ -203,7 +225,7 @@ Retour :
 function creationCompte (cfg, args) {
     const result = { status: 0, sessionId: args.sessionId, dh: getdhc() }
     if (cfg.cle !== args.mdp64) {
-        return { erreur: { c: 1 , m: 'Mot de passe de l\'organisation non reconnu', d: 'Pour créer un compte privilégié, le mot de passe de l\'organisation est requis' } }
+        throw new AppExc(11, 'Mot de passe de l\'organisation non reconnu', 'Pour créer un compte privilégié, le mot de passe de l\'organisation est requis')
     }
     const session = getSession(args.sessionId)
     const compte = rowTypes.fromBuffer('compte', args.rowCompte)
@@ -222,13 +244,11 @@ function creationCompte (cfg, args) {
     avatar.dds = dds.ddsag(avatar.dds)
     const avrsa = { id: avatar.id, clepub: args.clePub }
     const avgrvq = { id: avatar.id, q1: args.q1, q2: args.q2, qm1: args.qm1, qm2:args.qm2, v1: 0, v2:0, vm1:0, vm2: 0 }
-    try {
-        cfg.db.transaction(creationCompteTr)(cfg, session, compte, avatar, avrsa, avgrvq)
-        result.rowItems = [ rowTypes.newItem('compte', compte), rowTypes.newItem('avatar', avatar) ]    
-        return result
-    } catch (e) {
-        return e
-    }
+
+    cfg.db.transaction(creationCompteTr)(cfg, session, compte, avatar, avrsa, avgrvq)
+
+    result.rowItems = [ rowTypes.newItem('compte', compte), rowTypes.newItem('avatar', avatar) ]    
+    return result
 }
 exports.creationCompte = creationCompte
 
@@ -236,9 +256,9 @@ function creationCompteTr (cfg, session, compte, avatar, avrsa, avgrvq) {
     const c = stmt(cfg, selcomptedpbh).get({ dpbh: compte.dpbh })
     if (c) {
         if (c.pcbh === compte.pcbh) {
-            throw { erreur: { f: true, c: 2, m: 'Phrase secrète probablement déjà utilisée', d: 'Vérifier que le compte n\'existe pas déjà en essayant de s\'y connecter avec la phrase secrète' } }
+            throw new AppExc(12, 'Phrase secrète probablement déjà utilisée', 'Vérifier que le compte n\'existe pas déjà en essayant de s\'y connecter avec la phrase secrète')
         } else {
-            throw { erreur: { f: true, c: 3, m: 'Une phrase secrète semblable est déjà utilisée', d: 'Changer a minima la première ligne de la phrase secrète pour ce nouveau compte' } }
+            throw new AppExc(13, 'Une phrase secrète semblable est déjà utilisée', 'Changer a minima la première ligne de la phrase secrète pour ce nouveau compte')
         }
     }
     stmt(cfg, inscompte).run({ ...compte })
@@ -260,7 +280,7 @@ async function connexionCompte (cfg, args) {
     const session = getSession(args.sessionId)
     const c = stmt(cfg, selcomptedpbh).get({ dpbh: args.dpbh })
     if (!c || (c.pcbh !== args.pcbh)) {
-        return { erreur: { f: true, c: 4, m: 'Compte non authentifié', d: 'Aucun compte n\est déclaré avec cette phrase secrète' } }
+        throw new AppExc(10, 'Compte non authentifié', 'Aucun compte n\est déclaré avec cette phrase secrète')
     }
     const it = rowTypes.newItem('compte', c)
     // const it2 = rowTypes.deserialItem(it)

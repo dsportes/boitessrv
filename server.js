@@ -5,6 +5,7 @@ const express = require('express')
 const WebSocket = require('ws')
 const Session = require("./session.js").Session
 const api = require('./api')
+const AppExc = require('./api').AppExc
 const crypt = require('./crypto.js')
 
 const modules = {}
@@ -55,15 +56,11 @@ function er(c) {
         "Organisation inconnue", // 4
         "Version d'API incompatble", // 5
     ]
-    return Buffer.from(JSON.stringify({ c: c, m: l[c] }, 'utf8'))
+    throw new AppExc(-(c + 900), l[c])
 }
 
 /*
 Traitement générique d'une opération
-Status HTTP de retour :
--200 : OK pas d'erreur, ni technique ni fonctionnelle
--400 : erreur fonctionnelle
--401 : exception non trappée, bug ou problème technique
 */
 async function operation(req, res) {
     let pfx = new Date().toISOString() // prefix de log
@@ -100,16 +97,26 @@ async function operation(req, res) {
             return
         }
 
-        /*  Appel de l'opération
-            Retourne un objet result :
-            Pour un GET :
-                result.type : type mime
-                result.bytes : si le résultat est du binaire (ume image ...)
-            Pour un POST :
-                result : objet résultat
-            En cas d'erreur :
-                result.error : objet erreur {c:99 , m:"...", s:" trace "}
-        */
+        /***************************************************************
+        Appel de l'opération
+            cfg : configuration relative au code de l'organisation    
+            args : objet des arguments
+        Retourne un objet result :
+        Pour un GET :
+            result.type : type mime
+            result.bytes : si le résultat est du binaire
+        Pour un POST :
+            OK : result : objet résultat à sérialiser - HTTP status 200
+
+        Exception : 
+            AppExc : AppExc sérialisé en JSON
+                code > 0 - erreur fonctionnelle à retourner par l'application
+                    HTTP status 400
+                code < 0 - erreur fonctionnelle à émettre en exception à l'application
+                    HTTP status 401                   
+            Inattendue : Création d'un AppExc avec code < 0 sérialisé en JSON
+                HTTP status 402
+        *****************************************************************/
         const at = api.argTypes[req.params.func]
         let args
         if (isGet) {
@@ -121,35 +128,28 @@ async function operation(req, res) {
         pfx += ' func=' + req.params.mod + '/' + req.params.func + ' org=' + req.params.org
         if (dev) console.log(pfx)
         const result = await func(cfgorg, args, isGet)
-
-        if (result.erreur) { // la réponse est une erreur fonctionnelle - descriptif dans erreur
-            const s = JSON.stringify(result.erreur)
-            if (dev) console.log(pfx + ' 400=' + s)
-            setRes(res, result.erreur.f ? 401 : 400).send(Buffer.from(s))
-        } else { // la réponse contient le résultat attendu
-            if (dev) console.log(pfx + ' 200')
-            if (isGet)
-                setRes(res, 200, result.type || 'application/octet-stream').send(result.bytes)
-            else {
-                const type = at && at.length > 1 ? at[1] : null
-                const bytes = type ? type.toBuffer(result) : Buffer.from(JSON.stringify(result))
-                // const obj = type.fromBuffer(bytes)
-                setRes(res, 200).send(bytes)
-            }
-        }            
+        if (dev) console.log(pfx + ' 200')
+        if (isGet)
+            setRes(res, 200, result.type || 'application/octet-stream').send(result.bytes)
+        else {
+            const type = at && at.length > 1 ? at[1] : null
+            const bytes = type ? type.toBuffer(result) : Buffer.from(JSON.stringify(result))
+            // const obj = type.fromBuffer(bytes)
+            setRes(res, 200).send(bytes)
+        }         
 	} catch(e) {
         // exception non prévue ou prévue
-        let x
-        if (e.apperror) { // erreur trappée déjà mise en forme en tant que apperror 
-            x = e
-        } else { // erreur non trappée : mise en forme en apperror
-            x = { apperror : { c: 0, m:'BUG : erreur inattendu' }}
-            if (e.message) x.apperror.d = e.message
-            if (e.stack) x.apperror.s = e.stack
+        if (e instanceof AppExc) { // erreur trappée déjà mise en forme en tant que AppExc 
+            const httpst = e.code < 0 ? 401 : 400
+            const s = e.toString
+            if (dev) console.log(pfx + ' ' + httpst + ' : ' + s)
+            setRes(res, httpst).send(Buffer.from(s))
+            return
         }
-        const s = JSON.stringify(x)
-        if (dev) console.log(pfx + ' 400=' + s)
-        setRes(res, 401).send(Buffer.from(s))
+        // erreur non trappée : mise en forme en AppExc
+        const s = new AppExc( -999, 'BUG : erreur inattendue sur le serveur', e.message, e.stack).toString
+        if (dev) console.log(pfx + ' 402 : ' + s)
+        setRes(res, 402).send(Buffer.from(s))
 	}
 }
 

@@ -3,6 +3,20 @@ const avro = require('avsc')
 const version = '1'
 exports.version = version
 
+class AppExc {
+  constructor (code, message, detail, stack) {
+    this.code = code
+    this.message = message || '?'
+    this.detail = detail || ''
+    if (stack) this.stack = stack
+  }
+
+  get toString () {
+    return JSON.stringify(this)
+  }
+}
+exports.AppExc = AppExc
+
 const rowItem = avro.Type.forSchema({
   name: 'rowitem',
   type: 'record',
@@ -30,6 +44,7 @@ const echoArg = avro.Type.forSchema({
   fields: [
     { name: 'a', type: 'int' },
     { name: 'b', type: 'string' },
+    { name: 'to', type: 'int' },
     { name: 'org', type: ['null', 'string'], default: null }
   ]
 })
