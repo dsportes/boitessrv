@@ -80,7 +80,8 @@ const rowCompte = avro.Type.forSchema({
     { name: 'pcbh', type: 'long' },
     { name: 'kx', type: 'bytes' },
     { name: 'mack', type: 'bytes' },
-    { name: 'mmck', type: 'bytes' }
+    { name: 'mmck', type: 'bytes' },
+    { name: 'memok', type: ['null', 'bytes'] }
   ]
 })
 

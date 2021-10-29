@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS "compte" (
     "kx"   BLOB,
     "mack"  BLOB,
     "mmck"	BLOB,
+    "memok" BLOB,
     PRIMARY KEY("id")
     ) WITHOUT ROWID;
 CREATE TABLE IF NOT EXISTS "contact" (
