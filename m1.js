@@ -74,6 +74,12 @@ async function erreur (cfg, args) {
 }
 exports.erreur = erreur
 
+async function pingdb (cfg) {
+  stmt(cfg, selvalues).get({ id: 1 })
+  return { dhc: getdhc() }
+}
+exports.pingdb = pingdb
+
 /*
 function decryptDatax(cle, datax) {
     const x = crypt.decrypter(cle, Buffer.from(datax, 'base64'))
