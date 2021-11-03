@@ -99,6 +99,7 @@ const rowContact = avro.Type.forSchema({
     { name: 'qm2', type: 'long' },
     { name: 'ardc', type: 'bytes' },
     { name: 'icbc', type: 'bytes' },
+    { name: 'vsd', type: 'int' },
     { name: 'datak', type: 'bytes' }
   ]
 })
@@ -155,6 +156,7 @@ const rowMembre = avro.Type.forSchema({
     { name: 'v', type: 'int' },
     { name: 'st', type: 'int' },
     { name: 'dlv', type: 'int' },
+    { name: 'vsd', type: 'int' },
     { name: 'datag', type: ['null', 'bytes'] },
     { name: 'ardg', type: ['null', 'bytes'] },
     { name: 'lmck', type: ['null', 'bytes'] }
@@ -206,6 +208,7 @@ const rowSecret = avro.Type.forSchema({
     { name: 'st', type: 'int' },
     { name: 'txts', type: ['null', 'bytes'] },
     { name: 'mcs', type: ['null', 'bytes'] },
+    { name: 'vsd', type: 'int' },
     { name: 'aps', type: ['null', 'bytes'] },
     { name: 'dups', type: ['null', 'bytes'] }
   ]

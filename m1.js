@@ -275,7 +275,9 @@ function creationCompteTr (cfg, session, compte, avatar, avrsa, avgrvq) {
     session.setAvatarId(avatar.id)
     session.setCvId(avatar.id)
 }
+/******************************************/
 
+/******************************************/
 /*
 Détermine si les hash de la phrase secrète en argument correspond à un compte.
 args = { dpbh, pcbh }
@@ -295,6 +297,7 @@ async function connexionCompte (cfg, args) {
 }
 exports.connexionCompte = connexionCompte
 
+/******************************************/
 const bytes0 = new Uint8Array(0)
 const selcv = 'SELECT id, st, vcv, cva FROM avatar WHERE id = @id'
 async function getcv (cfg, args) {
@@ -311,6 +314,7 @@ async function getcv (cfg, args) {
 }
 exports.getcv = getcv
 
+/******************************************/
 const selavrsapub = 'SELECT clepub FROM avrsa WHERE id = @id'
 async function getclepub (cfg, args) {
     try {

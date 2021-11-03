@@ -47,7 +47,8 @@ CREATE TABLE IF NOT EXISTS "contact" (
     "qm1" INTEGER,
     "qm2" INTEGER,
     "ardc"	BLOB,
-    "icbc"  BLOB
+    "icbc"  BLOB,
+    "vsd" INTEGER,
     "datak"	BLOB,
     PRIMARY KEY("id", "ic"));
 CREATE TABLE IF NOT EXISTS "groupe" (
@@ -85,6 +86,7 @@ CREATE TABLE IF NOT EXISTS "membre" (
     "st"	INTEGER,
     "vote"  INTEGER,
     "dlv"   INTEGER,
+    "vsd" INTEGER,
     "datag"	BLOB,
     "ardg"  BLOB,
     PRIMARY KEY("id", "im"));
@@ -121,6 +123,7 @@ CREATE TABLE IF NOT EXISTS "secret" (
     "st"	INTEGER,
     "txts"	BLOB,
     "mcs"   BLOB,
+    "vsd" INTEGER,
     "aps"	BLOB,
     "dups"	BLOB,
     PRIMARY KEY("id", "ns"));

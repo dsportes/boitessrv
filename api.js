@@ -11,11 +11,15 @@ class AppExc {
     if (stack) this.stack = stack
   }
 
-  get toString () {
+  toString () {
     return JSON.stringify(this)
   }
 }
 exports.AppExc = AppExc
+
+const arrayIntType = avro.Type.forSchema({ type: 'array', items: 'int' })
+const mapIntType = avro.Type.forSchema({ type: 'map', values: 'int' })
+const mapArrayIntType = avro.Type.forSchema({ type: 'map', values: arrayIntType })
 
 const rowItem = avro.Type.forSchema({
   name: 'rowitem',
@@ -96,10 +100,43 @@ const creationCompte = avro.Type.forSchema({
   ]
 })
 
+const sync1 = avro.Type.forSchema({
+  name: 'sync1',
+  type: 'record',
+  fields: [
+    { name: 'sessionId', type: 'string' },
+    { name: 'lvav', type: mapIntType }
+  ]
+})
+
+const sync2 = avro.Type.forSchema({
+  name: 'sync2',
+  type: 'record',
+  fields: [
+    { name: 'sessionId', type: 'string' },
+    { name: 'lav', type: mapArrayIntType },
+    { name: 'lgr', type: mapArrayIntType }
+  ]
+})
+
+const sync3 = avro.Type.forSchema({
+  name: 'sync3',
+  type: 'record',
+  fields: [
+    { name: 'sessionId', type: 'string' },
+    { name: 'avgr', type: 'long' },
+    { name: 'lv', type: arrayIntType }
+  ]
+})
+
 const argTypes = {
   echo: [echoArg, echoResp],
   creationCompte: [creationCompte, respBase1],
-  connexionCompte: [connexionCompte, respBase1]
+  connexionCompte: [connexionCompte, respBase1],
+  syncInvitgr: [sync1, respBase1],
+  syncAbo: [sync2, respBase1],
+  syncAv: [sync3, respBase1],
+  syncGr: [sync3, respBase1]
 }
 exports.argTypes = argTypes
 
