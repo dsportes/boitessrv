@@ -63,94 +63,95 @@ function er(c) {
 Traitement générique d'une opération
 */
 async function operation(req, res) {
-    let pfx = new Date().toISOString() // prefix de log
-    try {
-        let isGet = req.method === "GET"
-        // vérification de l'origine de la requête
-        if (!checkOrigin(req)) {
-            setRes(res, 400).send(er(1))
-            return
-        }
-        // récupération du module traitant l'opération
-        const mod = modules[req.params.mod]
-        if (!mod) {
-            setRes(res, 400).send(er(2))
-            return
-        }
-        // récupétration de la fonction de ce module traitant l'opération
-        const f = req.params.func
-        const func = mod[f]
-        if (!func) {
-            setRes(res, 400).send(er(3))
-            return
-        }
-        // reconnaissance de l'organisation
-        const cfgorg = cfg.orgs[req.params.org]
-        if (!cfgorg) {
-            setRes(res, 400).send(er(4))
-            return
-        }
-        // vérification de la version de l'API
-        const apiv = req.headers['x-api-version']
-        if (apiv && apiv !== api.version) {
-            setRes(res, 400).send(er(5))
-            return
-        }
+  let pfx = new Date().toISOString() // prefix de log
+  try {
+    let isGet = req.method === "GET"
+    // vérification de l'origine de la requête
+    if (!checkOrigin(req)) {
+        setRes(res, 400).send(er(1))
+        return
+    }
+    // récupération du module traitant l'opération
+    const mod = modules[req.params.mod]
+    if (!mod) {
+        setRes(res, 400).send(er(2))
+        return
+    }
+    // récupétration de la fonction de ce module traitant l'opération
+    const f = req.params.func
+    const func = mod[f]
+    if (!func) {
+        setRes(res, 400).send(er(3))
+        return
+    }
+    // reconnaissance de l'organisation
+    const cfgorg = cfg.orgs[req.params.org]
+    if (!cfgorg) {
+        setRes(res, 400).send(er(4))
+        return
+    }
+    // vérification de la version de l'API
+    const apiv = req.headers['x-api-version']
+    if (apiv && apiv !== api.version) {
+        setRes(res, 400).send(er(5))
+        return
+    }
 
-        /***************************************************************
-        Appel de l'opération
-            cfg : configuration relative au code de l'organisation    
-            args : objet des arguments
-        Retourne un objet result :
-        Pour un GET :
-            result.type : type mime
-            result.bytes : si le résultat est du binaire
-        Pour un POST :
-            OK : result : objet résultat à sérialiser - HTTP status 200
+    /***************************************************************
+    Appel de l'opération
+        cfg : configuration relative au code de l'organisation    
+        args : objet des arguments
+    Retourne un objet result :
+    Pour un GET :
+        result.type : type mime
+        result.bytes : si le résultat est du binaire
+    Pour un POST :
+        OK : result : objet résultat à sérialiser - HTTP status 200
 
-        Exception : 
-            AppExc : AppExc sérialisé en JSON
-                code > 0 - erreur fonctionnelle à retourner par l'application
-                    HTTP status 400
-                code < 0 - erreur fonctionnelle à émettre en exception à l'application
-                    HTTP status 401                   
-            Inattendue : Création d'un AppExc avec code < 0 sérialisé en JSON
-                HTTP status 402
-        *****************************************************************/
-        const at = api.argTypes[req.params.func]
-        let args
-        if (isGet) {
-            args = req.query
-        } else {
-            const type = at && at.length > 0 ? at[0] : null
-            args = type ? type.fromBuffer(req.body) : JSON.parse(Buffer.from(req.body).toString())
-        }
-        pfx += ' func=' + req.params.mod + '/' + req.params.func + ' org=' + req.params.org
-        if (dev) console.log(pfx)
-        const result = await func(cfgorg, args, isGet)
-        if (dev) console.log(pfx + ' 200')
-        if (isGet)
-            setRes(res, 200, result.type || 'application/octet-stream').send(result.bytes)
-        else {
-            const type = at && at.length > 1 ? at[1] : null
-            const bytes = type ? type.toBuffer(result) : Buffer.from(JSON.stringify(result))
-            // const obj = type.fromBuffer(bytes)
-            setRes(res, 200).send(bytes)
-        }         
-	} catch(e) {
-        // exception non prévue ou prévue
-        if (e instanceof AppExc) { // erreur trappée déjà mise en forme en tant que AppExc 
-            const httpst = e.code < 0 ? 401 : 400
-            const s = e.toString
-            if (dev) console.log(pfx + ' ' + httpst + ' : ' + s)
-            setRes(res, httpst).send(Buffer.from(s))
-            return
-        }
-        // erreur non trappée : mise en forme en AppExc
-        const s = new AppExc( -999, 'BUG : erreur inattendue sur le serveur', e.message, e.stack).toString
-        if (dev) console.log(pfx + ' 402 : ' + s)
-        setRes(res, 402).send(Buffer.from(s))
-	}
+    Exception : 
+        AppExc : AppExc sérialisé en JSON
+            code > 0 - erreur fonctionnelle à retourner par l'application
+                HTTP status 400
+            code < 0 - erreur fonctionnelle à émettre en exception à l'application
+                HTTP status 401                   
+        Inattendue : Création d'un AppExc avec code < 0 sérialisé en JSON
+            HTTP status 402
+    *****************************************************************/
+    const at = api.argTypes[req.params.func]
+    let args
+    if (isGet) {
+      args = req.query
+    } else {
+      const type = at && at.length > 0 ? at[0] : null
+      args = type ? type.fromBuffer(req.body) : JSON.parse(Buffer.from(req.body).toString())
+    }
+    pfx += ' func=' + req.params.mod + '/' + req.params.func + ' org=' + req.params.org
+    if (dev) console.log(pfx)
+    const result = await func(cfgorg, args, isGet)
+    if (dev) console.log(pfx + ' 200')
+    if (isGet)
+      setRes(res, 200, result.type || 'application/octet-stream').send(result.bytes)
+    else {
+      const type = at && at.length > 1 ? at[1] : null
+      const bytes = type ? type.toBuffer(result) : Buffer.from(JSON.stringify(result))
+      // const obj = type.fromBuffer(bytes)
+      setRes(res, 200).send(bytes)
+    }         
+  } catch(e) {
+    let httpst
+    let s
+    // exception non prévue ou prévue
+    if (e instanceof AppExc) { // erreur trappée déjà mise en forme en tant que AppExc 
+      httpst = e.code < 0 ? 401 : 400
+      s = e.toString() // JSON
+    } else {
+      // erreur non trappée : mise en forme en AppExc
+      httpst = 402
+      s = new AppExc( -999, 'BUG : erreur inattendue sur le serveur', e.message, e.stack).toString()
+    }
+    if (dev) console.log(pfx + ' ' + httpst + ' : ' + s)
+    setRes(res, httpst).send(Buffer.from(s))
+  }
 }
 
 /*
