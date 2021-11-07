@@ -48,11 +48,11 @@ Pour un POST :
 
 Exception : 
     AppExc : AppExc sérialisé en JSON
-        code > 0 - erreur fonctionnelle à retourner par l'application
+        code api.F_SRV - erreur fonctionnelle à retourner par l'application
             HTTP status 400
-        code < 0 - erreur fonctionnelle à émettre en exception à l'application
+        code api.X_SRV - erreur fonctionnelle à émettre en exception à l'application
             HTTP status 401                   
-    Inattendue : Création d'un AppExc avec code < 0 sérialisé en JSON
+    Non transformée en AppExc : Création d'un AppExc avec E_SRV sérialisé en JSON
         HTTP status 402
 *****************************************************************/
 
@@ -70,7 +70,7 @@ async function erreur (cfg, args) {
     if (args.to) {
         await sleep(args.to * 1000)
     }
-    throw new AppExc(args.code, args.message, args.detail)
+    throw new AppExc(args.code, args.message)
 }
 exports.erreur = erreur
 
@@ -231,7 +231,7 @@ Retour :
 function creationCompte (cfg, args) {
     const result = { status: 0, sessionId: args.sessionId, dh: getdhc() }
     if (cfg.cle !== args.mdp64) {
-        throw new AppExc(11, 'Mot de passe de l\'organisation non reconnu', 'Pour créer un compte privilégié, le mot de passe de l\'organisation est requis')
+        throw new AppExc(api.X_SRV, 'Mot de passe de l\'organisation non reconnu. Pour créer un compte privilégié, le mot de passe de l\'organisation est requis')
     }
     const session = getSession(args.sessionId)
     const compte = rowTypes.fromBuffer('compte', args.rowCompte)
@@ -262,9 +262,9 @@ function creationCompteTr (cfg, session, compte, avatar, avrsa, avgrvq) {
     const c = stmt(cfg, selcomptedpbh).get({ dpbh: compte.dpbh })
     if (c) {
         if (c.pcbh === compte.pcbh) {
-            throw new AppExc(12, 'Phrase secrète probablement déjà utilisée', 'Vérifier que le compte n\'existe pas déjà en essayant de s\'y connecter avec la phrase secrète')
+            throw new AppExc(api.X_SRV, 'Phrase secrète probablement déjà utilisée. Vérifier que le compte n\'existe pas déjà en essayant de s\'y connecter avec la phrase secrète')
         } else {
-            throw new AppExc(13, 'Une phrase secrète semblable est déjà utilisée', 'Changer a minima la première ligne de la phrase secrète pour ce nouveau compte')
+            throw new AppExc(api.X_SRV, 'Une phrase secrète semblable est déjà utilisée. Changer a minima la première ligne de la phrase secrète pour ce nouveau compte')
         }
     }
     stmt(cfg, inscompte).run({ ...compte })

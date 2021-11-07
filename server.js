@@ -56,7 +56,7 @@ function er(c) {
         "Organisation inconnue", // 4
         "Version d'API incompatble", // 5
     ]
-    throw new AppExc(-(c + 900), l[c])
+    throw new AppExc(api.E_SRV, l[c])
 }
 
 /*
@@ -68,32 +68,32 @@ async function operation(req, res) {
     let isGet = req.method === "GET"
     // vérification de l'origine de la requête
     if (!checkOrigin(req)) {
-        setRes(res, 400).send(er(1))
+        setRes(res, 402).send(er(1))
         return
     }
     // récupération du module traitant l'opération
     const mod = modules[req.params.mod]
     if (!mod) {
-        setRes(res, 400).send(er(2))
+        setRes(res, 402).send(er(2))
         return
     }
     // récupétration de la fonction de ce module traitant l'opération
     const f = req.params.func
     const func = mod[f]
     if (!func) {
-        setRes(res, 400).send(er(3))
+        setRes(res, 402).send(er(3))
         return
     }
     // reconnaissance de l'organisation
     const cfgorg = cfg.orgs[req.params.org]
     if (!cfgorg) {
-        setRes(res, 400).send(er(4))
+        setRes(res, 402).send(er(4))
         return
     }
     // vérification de la version de l'API
     const apiv = req.headers['x-api-version']
     if (apiv && apiv !== api.version) {
-        setRes(res, 400).send(er(5))
+        setRes(res, 402).send(er(5))
         return
     }
 
@@ -142,12 +142,12 @@ async function operation(req, res) {
     let s
     // exception non prévue ou prévue
     if (e instanceof AppExc) { // erreur trappée déjà mise en forme en tant que AppExc 
-      httpst = e.code < 0 ? 401 : 400
+      httpst = e.code === api.F_SRV ? 400 : (e.code === api.X_SRV ? 401 : 402)
       s = e.toString() // JSON
     } else {
       // erreur non trappée : mise en forme en AppExc
       httpst = 402
-      s = new AppExc( -999, 'BUG : erreur inattendue sur le serveur', e.message, e.stack).toString()
+      s = new AppExc(api.E_SRV, e.message, e.stack).toString()
     }
     if (dev) console.log(pfx + ' ' + httpst + ' : ' + s)
     setRes(res, httpst).send(Buffer.from(s))

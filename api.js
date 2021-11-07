@@ -3,11 +3,19 @@ const avro = require('avsc')
 const version = '1'
 exports.version = version
 
+exports.E_BRK = -1 // Interruption volontaire de l'opération
+exports.E_WS = -2 // Toutes erreurs de réseau
+exports.E_DB = -3 // Toutes erreurs d'accès à la base locale
+exports.E_BRO = -4 // Erreur inattendue trappée sur le browser
+exports.E_SRV = -5 // Erreur inattendue trappée sur le serveur
+exports.X_SRV = -6 // Erreur fonctionnelle trappée sur le serveur transmise en exception
+exports.F_BRO = 1 // Erreur fonctionnelle trappée sur le browser
+exports.F_SRV = 2 // Erreur fonctionnelle trappée sur le serveur transmise en résultat
+
 class AppExc {
-  constructor (code, message, detail, stack) {
+  constructor (code, message, stack) {
     this.code = code
     this.message = message || '?'
-    this.detail = detail || ''
     if (stack) this.stack = stack
   }
 
@@ -18,8 +26,9 @@ class AppExc {
 exports.AppExc = AppExc
 
 const arrayIntType = avro.Type.forSchema({ type: 'array', items: 'int' })
+const arrayLongType = avro.Type.forSchema({ type: 'array', items: 'long' })
 const mapIntType = avro.Type.forSchema({ type: 'map', values: 'int' })
-const mapArrayIntType = avro.Type.forSchema({ type: 'map', values: arrayIntType })
+// const mapArrayIntType = avro.Type.forSchema({ type: 'map', values: arrayIntType })
 
 const rowItem = avro.Type.forSchema({
   name: 'rowitem',
@@ -80,7 +89,7 @@ const respBase1 = avro.Type.forSchema({
     { name: 'status', type: 'int' },
     { name: 'sessionId', type: 'string' },
     { name: 'dh', type: 'long' },
-    { name: 'rowItems', type: { type: 'array', items: [rowItem] } }
+    { name: 'rowItems', type: ['null', { type: 'array', items: [rowItem] }], default: 'null' }
   ]
 })
 
@@ -114,8 +123,9 @@ const sync2 = avro.Type.forSchema({
   type: 'record',
   fields: [
     { name: 'sessionId', type: 'string' },
-    { name: 'lav', type: mapArrayIntType },
-    { name: 'lgr', type: mapArrayIntType }
+    { name: 'idc', type: 'long' },
+    { name: 'lav', type: arrayLongType },
+    { name: 'lgr', type: arrayIntType }
   ]
 })
 
