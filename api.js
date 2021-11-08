@@ -1,3 +1,4 @@
+/* eslint-disable quote-props */
 const avro = require('avsc')
 
 const version = '1'
@@ -36,7 +37,7 @@ const rowItem = avro.Type.forSchema({
   fields: [
     { name: 'table', type: 'string' },
     { name: 'id', type: 'string' },
-    { name: 'serial', type: ['null', 'bytes'], default: null }
+    { name: 'serial', type: ['null', 'bytes'], 'default': null }
   ]
 })
 
@@ -58,7 +59,7 @@ const echoArg = avro.Type.forSchema({
     { name: 'a', type: 'int' },
     { name: 'b', type: 'string' },
     { name: 'to', type: 'int' },
-    { name: 'org', type: ['null', 'string'], default: null }
+    { name: 'org', type: ['null', 'string'], 'default': null }
   ]
 })
 
@@ -89,7 +90,7 @@ const respBase1 = avro.Type.forSchema({
     { name: 'status', type: 'int' },
     { name: 'sessionId', type: 'string' },
     { name: 'dh', type: 'long' },
-    { name: 'rowItems', type: ['null', { type: 'array', items: [rowItem] }], default: 'null' }
+    { name: 'rowItems', type: ['null', { type: 'array', items: [rowItem] }], 'default': null }
   ]
 })
 
