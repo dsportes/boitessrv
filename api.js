@@ -45,10 +45,9 @@ const synclist = avro.Type.forSchema({
   name: 'synclist',
   type: 'record',
   fields: [
-    { name: 'status', type: 'int' },
     { name: 'sessionId', type: 'string' },
     { name: 'dh', type: 'long' },
-    { name: 'rowItems', type: { type: 'array', items: [rowItem] } }
+    { name: 'rowItems', type: ['null', { type: 'array', items: [rowItem] }], 'default': null }
   ]
 })
 

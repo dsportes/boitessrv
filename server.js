@@ -290,11 +290,11 @@ try {
 
     const wss = new WebSocket.Server({ server })
     wss.on('connection', (ws, request) => {
-        if (checkOrigin(request)) {
-            new Session (ws, request, wss)
-        } else {
-            ws.close()
-        }
+      if (checkOrigin(request)) {
+        new Session (ws, request, wss)
+      } else {
+        ws.close()
+      }
     })
 
 } catch(e) { // exception générale. Ne devrait jamais être levée

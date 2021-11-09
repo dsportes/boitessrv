@@ -57,20 +57,20 @@ Exception :
 *****************************************************************/
 
 async function echo (cfg, args, isGet) {
-    if (args.to) {
-        await sleep(args.to * 1000)
-    }
-    if (!args) args = { a: 1, b: 'toto' }
-    args.org = cfg.code || 'org'
-    return !isGet ? args : { type:"text/plain", bytes:Buffer.from(JSON.stringify(args), 'utf8') }
+  if (args.to) {
+    await sleep(args.to * 1000)
+  }
+  if (!args) args = { a: 1, b: 'toto' }
+  args.org = cfg.code || 'org'
+  return !isGet ? args : { type:"text/plain", bytes:Buffer.from(JSON.stringify(args), 'utf8') }
 }
 exports.echo = echo
 
 async function erreur (cfg, args) {
-    if (args.to) {
-        await sleep(args.to * 1000)
-    }
-    throw new AppExc(args.code, args.message)
+  if (args.to) {
+    await sleep(args.to * 1000)
+  }
+  throw new AppExc(args.code, args.message)
 }
 exports.erreur = erreur
 
