@@ -4,6 +4,9 @@ const avro = require('avsc')
 const version = '1'
 exports.version = version
 
+const PINGTO = 3000
+exports.PINGTO = PINGTO
+
 exports.E_BRK = -1 // Interruption volontaire de l'opération
 exports.E_WS = -2 // Toutes erreurs de réseau
 exports.E_DB = -3 // Toutes erreurs d'accès à la base locale
@@ -25,6 +28,16 @@ class AppExc {
   }
 }
 exports.AppExc = AppExc
+
+exports.SECRET = 0
+exports.INVITGR = 1
+exports.AVATAR = 2
+exports.CONTACT = 3
+exports.INVITCT = 4
+exports.RENCONTRE = 5
+exports.PARRAIN = 6
+exports.GROUPE = 1
+exports.MEMBRE = 2
 
 const arrayIntType = avro.Type.forSchema({ type: 'array', items: 'int' })
 const arrayLongType = avro.Type.forSchema({ type: 'array', items: 'long' })
@@ -125,7 +138,7 @@ const sync2 = avro.Type.forSchema({
     { name: 'sessionId', type: 'string' },
     { name: 'idc', type: 'long' },
     { name: 'lav', type: arrayLongType },
-    { name: 'lgr', type: arrayIntType }
+    { name: 'lgr', type: arrayLongType }
   ]
 })
 
