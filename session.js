@@ -29,15 +29,12 @@ const gcSessions = setInterval(() => {
   sessionsmortes.clear()
 }, api.PINGTO * 1000)
 
-let wss // pour tester
-
 /* Appelé sur l'événement 'connection' reçu du Web Server
 - request : requête Http correspondante : on ne sait rien en faire a priori
 - wss1 : server web socket
 */
 class Session {
-  constructor (ws, request, wss1) {
-    wss = wss1
+  constructor (ws /*, request, wss1*/) {
     this.ws = ws
     this.dhping = 0
     this.sessionId = null
@@ -51,7 +48,7 @@ class Session {
       if (this.sessionId)
         sessions.delete(this.sessionId)
     }
-    this.ws.onclose = (e) => {
+    this.ws.onclose = (/* e */) => {
       if (this.sessionId)
         sessions.delete(this.sessionId)
       console.log('Fermeture de session détectée:' + this.sessionId)
@@ -103,7 +100,7 @@ class Session {
     this.ws.send(data)
   }
 
-  sync (rows, delobjs) {
+  sync (/* rows, delobjs */) {
     /* 
     liste d'envoi : liste des rows créés / modifiés, liste des objets supprimés
     Uniquement ceux concerné par la session

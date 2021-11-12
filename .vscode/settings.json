@@ -1,4 +1,9 @@
 {
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "vue"],
   "editor.tabSize": 2,
-  "editor.detectIndentation": false
+  "editor.detectIndentation": false,
+  "eslint.packageManager": "yarn",
+  "cSpell.enableFiletypes": [
+    "!sass", "!yml"
+  ]
 }
