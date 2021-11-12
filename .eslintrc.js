@@ -1,3 +1,4 @@
+/* eslint-disable quotes */
 module.exports = {
   "env": {
     "browser": true,
@@ -30,7 +31,9 @@ module.exports = {
     'no-multiple-empty-lines': ['error', { 'max': 1 }],
     'lines-between-class-members': ['error', 'always'],
     'arrow-spacing': ['error', { "before": true, "after": true }],
-    'prefer-const': ['error', { 'destructuring': 'any',  'ignoreReadBeforeAssign': false }]
+    'prefer-const': ['error', { 'destructuring': 'any',  'ignoreReadBeforeAssign': false }],
+    'quotes': ['error', 'single'],
+    'eqeqeq': 'error'
 
   }
 };

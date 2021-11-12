@@ -1,7 +1,7 @@
 const now = require('nano-time')
 const api = require('./api.js')
 
-const dev = process.env.NODE_ENV === "development"
+const dev = process.env.NODE_ENV === 'development'
 
 const sessions = new Map()
 
@@ -21,7 +21,7 @@ const gcSessions = setInterval(() => {
   sessionsmortes.clear()
   sessions.forEach((session, sessionId) => {
     const dh2 = session.dhping
-    if (dh2 != 0 && (dh1 - dh2 > max)) sessionsmortes.add(sessionId)
+    if (dh2 !== 0 && (dh1 - dh2 > max)) sessionsmortes.add(sessionId)
   })
   sessionsmortes.forEach((sid) => {
     sessions.delete(sid)
