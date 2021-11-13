@@ -80,22 +80,6 @@ class Session {
     }    
   }
 
-  setCompteId (id) {
-    this.compteId = id
-  }
-
-  setAvatarId (id) {
-    if (this.avatarsIds.indexOf(id) === -1) this.avatarsIds.push(id)
-  }
-
-  setGroupeId (id) {
-    if (this.groupesIds.indexOf(id) === -1) this.groupeIds.push(id)
-  }
-
-  setCvId (id) {
-    if (this.cvsIds.indexOf(id) === -1) this.cvsIds.push(id)
-  }
-
   send (data) {
     this.ws.send(data)
   }

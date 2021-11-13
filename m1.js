@@ -427,6 +427,48 @@ function signaturesTr (cfg, idc, lav, lgr) {
 }
 exports.syncAbo = syncAbo
 
+/******************************************
+Chargement des CVs :
+- celles de lcvmaj si changées après vcv
+- celles de lcvchargt sans filtre de version
+Abonnement de l'union des deux listes
+    { name: 'sessionId', type: 'string' },
+    { name: 'vcv', type: 'int' },
+    { name: 'lcvmaj', type: arrayIntType },
+    { name: 'lcvchargt', type: arrayIntType }
+*/
+const selcv1 = 'SELECT id, vcv, st, phinf FROM avatar WHERE id IN @lid AND vcv > @vcv'
+const selcv2 = 'SELECT id, vcv, st, phinf FROM avatar WHERE id IN @lid'
+
+async function chargtCVs (cfg, args) {
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const session = getSession(args.sessionsId)
+  session.cvsIds = args.lcvmaj.concat(args.lcvchargt)
+  const rowItems = []
+
+  let lst = []
+  if (args.lcvmaj.length) {
+    args.lcvmaj.forEach((sid) => { lst.push('' + crypt.id2n(sid)) })
+    const lid = '(' + lst.join(',') + ')'
+    for (const row of stmt(cfg, selcv1).iterate({ lid, vcv: args.vcv})) {
+      rowItems.push(rowTypes.newItem('cv', row))
+    }
+  }
+  
+  lst = []
+  if (args.lcvchargt.length) {
+    args.lcvchargt.forEach((sid) => { lst.push('' + crypt.id2n(sid)) })
+    const lid = '(' + lst.join(',') + ')'
+    for (const row of stmt(cfg, selcv2).iterate({ lid })) {
+      rowItems.push(rowTypes.newItem('cv', row))
+    }
+  }
+
+  result.rowItels = rowItems
+  return result
+}
+exports.chargtCVs = chargtCVs
+
 /******************************************/
 const bytes0 = new Uint8Array(0)
 const selcv = 'SELECT id, st, vcv, cva FROM avatar WHERE id = @id'

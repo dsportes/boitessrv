@@ -152,6 +152,17 @@ const sync3 = avro.Type.forSchema({
   ]
 })
 
+const sync4 = avro.Type.forSchema({
+  name: 'sync3',
+  type: 'record',
+  fields: [
+    { name: 'sessionId', type: 'string' },
+    { name: 'vcv', type: 'int' },
+    { name: 'lcvmaj', type: arrayIntType },
+    { name: 'lcvchargt', type: arrayIntType }
+  ]
+})
+
 const argTypes = {
   echo: [echoArg, echoResp],
   creationCompte: [creationCompte, respBase1],
@@ -159,7 +170,8 @@ const argTypes = {
   syncInvitgr: [sync1, respBase1],
   syncAbo: [sync2, respBase1],
   syncAv: [sync3, respBase1],
-  syncGr: [sync3, respBase1]
+  syncGr: [sync3, respBase1],
+  chargtCVs: [sync4, respBase1]
 }
 exports.argTypes = argTypes
 
