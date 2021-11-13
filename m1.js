@@ -6,11 +6,10 @@ const api = require('./api.js')
 const AppExc = require('./api.js').AppExc
 const rowTypes = require('./rowTypes.js')
 
-const ETAT = 0
 const VERSIONS = 1
 
-const dev = process.env.NODE_ENV === "development"
-const MO = 1024 * 1024
+// eslint-disable-next-line no-unused-vars
+const dev = process.env.NODE_ENV === 'development'
 const nbVersions = 100
 const defautVersions = new Array(nbVersions)
 for (let i = 0; i < nbVersions; i++) { defautVersions[i] = 0 }
@@ -30,8 +29,8 @@ Initialisation du module APRES que le serveur ait été créé et soit opératio
 Rafraîchissement périodique en cache (si demandé et seulement pour la production) de la liste des aricles à peser
 afin que les balances aient plus rapidement la réponse en cas de changement dans Odoo
 */
-function atStart(cfg) {
-  console.log("m1 start")
+function atStart(/* cfg */) {
+  console.log('m1 start')
 }
 exports.atStart = atStart
 
@@ -62,7 +61,7 @@ async function echo (cfg, args, isGet) {
   }
   if (!args) args = { a: 1, b: 'toto' }
   args.org = cfg.code || 'org'
-  return !isGet ? args : { type:"text/plain", bytes:Buffer.from(JSON.stringify(args), 'utf8') }
+  return !isGet ? args : { type:'text/plain', bytes:Buffer.from(JSON.stringify(args), 'utf8') }
 }
 exports.echo = echo
 
@@ -128,6 +127,7 @@ class Dds {
 const dds = new Dds()
 
 /* Mois courant depuis janvier 2020 */
+// eslint-disable-next-line no-unused-vars
 function getMois () {
   const d = new Date()
   const an = (d.getUTCFullYear() % 100) - 20
@@ -160,13 +160,13 @@ const cacheValues = { }
 function getValue (cfg, n) {
   let cache = cacheValues[cfg.code]
   if (!cache) {
-      cache = {}
-      cacheValues[cfg.code] = cache
+    cache = {}
+    cacheValues[cfg.code] = cache
   }
   if (cache[n]) return cache[n]
   const t = valueTypes[n]
   let value
-  let res = stmt(cfg, selvalues).get({ id: n })
+  const res = stmt(cfg, selvalues).get({ id: n })
   let bin = res ? res.v : null
   if (bin) {
     value = t.type === 'json' ? JSON.parse(Buffer.from(bin).toString()) : t.type.fromBuffer(bin)
@@ -182,7 +182,7 @@ function getValue (cfg, n) {
 function setValue (cfg, n) {
   const t = valueTypes[n]
   const value = cacheValues[cfg.code][n]
-  bin = t.type === 'json' ? Buffer.from(value) : t.type.toBuffer(value)
+  const bin = t.type === 'json' ? Buffer.from(value) : t.type.toBuffer(value)
   stmt(cfg, updvalues).run({ id: n, v: bin })
 }
 
@@ -226,7 +226,7 @@ Retour :
 function creationCompte (cfg, args) {  
   const result = { sessionId: args.sessionId, dh: getdhc() }
   if (cfg.cle !== args.mdp64) {
-      throw new AppExc(api.X_SRV, 'Mot de passe de l\'organisation non reconnu. Pour créer un compte privilégié, le mot de passe de l\'organisation est requis')
+    throw new AppExc(api.X_SRV, 'Mot de passe de l\'organisation non reconnu. Pour créer un compte privilégié, le mot de passe de l\'organisation est requis')
   }
   const session = getSession(args.sessionId)
   const compte = rowTypes.fromBuffer('compte', args.rowCompte)
@@ -280,7 +280,7 @@ async function connexionCompte (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const c = stmt(cfg, selcomptedpbh).get({ dpbh: args.dpbh })
   if (!c || (c.pcbh !== args.pcbh)) {
-    throw new AppExc(api.X_SRV, 'Compte non authentifié : aucun compte n\est déclaré avec cette phrase secrète')
+    throw new AppExc(api.X_SRV, 'Compte non authentifié : aucun compte n\'est déclaré avec cette phrase secrète')
   }
   const it = rowTypes.newItem('compte', c)
   // const it2 = rowTypes.deserialItem(it)
@@ -308,7 +308,8 @@ const selmembre = 'SELECT * FROM membre WHERE id = @id AND v > @v'
 
 async function syncAv (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
-  let rowItems = []
+  const rowItems = []
+  const id = args.avgr
   /*
   for (const row of stmt(cfg, selinvitgr).iterate({ id, v: args.lv[api.INVITGR] })) {
     rowItems.push(rowTypes.newItem('invitgr', row))
@@ -335,11 +336,13 @@ async function syncAv (cfg, args) {
   result.rowItems = rowItems
   return result
 }
+exports.syncAv = syncAv
 
 /*****************************************/
 async function syncGr (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
-  let rowItems = []
+  const rowItems = []
+  const id = args.avgr
   /*
   for (const row of stmt(cfg, selinvitgr).iterate({ id, v: args.lv[api.INVITGR] })) {
     rowItems.push(rowTypes.newItem('invitgr', row))
@@ -357,6 +360,7 @@ async function syncGr (cfg, args) {
   result.rowItems = rowItems
   return result
 }
+exports.syncGr = syncGr
 
 /*****************************************
 Chargement des rows invitgr de la liste fournie
@@ -365,7 +369,7 @@ Chargement des rows invitgr de la liste fournie
 */
 async function syncInvitgr (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
-  let rowItems = []
+  const rowItems = []
   args.lvav.forEach((sid, v) => {
     const id = crypt.id2n(sid)
     for (const row of stmt(cfg, selinvitgr).iterate({ id, v })) {
@@ -375,6 +379,8 @@ async function syncInvitgr (cfg, args) {
   result.rowItems = rowItems
   return result
 }
+exports.syncInvitgr = syncInvitgr
+
 /*****************************************
 Abonnement de la session aux compte et listes d'avatars et de groupes et signatures
     { name: 'sessionId', type: 'string' },
@@ -385,7 +391,13 @@ Abonnement de la session aux compte et listes d'avatars et de groupes et signatu
 async function syncAbo (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const session = getSession(args.sessionsId)
-  cfg.db.transaction(signaturesTr)(cfg, session, args.idc, args.lav, args.lgr)
+  if (args.idc) session.compteId = args.idc
+  session.avatarsIds = args.lav
+  session.groupesIds = args.lgr
+
+  if (args.idc) {
+    cfg.db.transaction(signaturesTr)(cfg, args.idc, args.lav, args.lgr)
+  }
   return result
 }
 
@@ -396,7 +408,7 @@ const ddsc = 'SELECT dds FROM compte WHERE id = @id'
 const ddsa = 'SELECT dds FROM avatar WHERE id = @id'
 const ddsg = 'SELECT dds FROM groupe WHERE id = @id'
 
-function signaturesTr (cfg, session, idc, lav, lgr) {
+function signaturesTr (cfg, idc, lav, lgr) {
   const a = stmt(cfg, ddsc).get({ id: idc })
   const n = dds.ddsc(a)
   if (a > n) stmt(cfg, updddsc).run({ id: idc, dds:a })
@@ -407,16 +419,13 @@ function signaturesTr (cfg, session, idc, lav, lgr) {
     if (a > n) stmt(cfg, updddsa).run({ id: id, dds: a })
   })
 
-  lav.forEach((id) => {
+  lgr.forEach((id) => {
     const a = stmt(cfg, ddsg).get({ id: id })
     const n = dds.ddsag(a)
     if (a > n) stmt(cfg, updddsg).run({ id: id, dds: a })
   })
-
-  session.compteId = idc
-  session.avatarsIds = lav
-  session.groupesIds = lgr
 }
+exports.syncAbo = syncAbo
 
 /******************************************/
 const bytes0 = new Uint8Array(0)
