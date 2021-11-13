@@ -381,7 +381,7 @@ async function syncInvitgr (cfg, args) {
 }
 exports.syncInvitgr = syncInvitgr
 
-/*****************************************
+/******************************************
 Abonnement de la session aux compte et listes d'avatars et de groupes et signatures
     { name: 'sessionId', type: 'string' },
     { name: 'idc', type: 'long' },
