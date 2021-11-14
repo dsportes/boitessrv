@@ -266,9 +266,8 @@ function creationCompteTr (cfg, session, compte, avatar, avrsa, avgrvq) {
   stmt(cfg, insavatar).run({ ...avatar })
   stmt(cfg, insavrsa).run(avrsa)
   stmt(cfg, insavgrvq).run(avgrvq)
-  session.setCompteId(compte.id)
-  session.setAvatarId(avatar.id)
-  session.setCvId(avatar.id)
+  session.compteId = compte.id
+  session.avatarsId = [avatar.id]
 }
 
 /******************************************

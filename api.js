@@ -99,7 +99,6 @@ const respBase1 = avro.Type.forSchema({
   name: 'respBase1',
   type: 'record',
   fields: [
-    { name: 'status', type: 'int' },
     { name: 'sessionId', type: 'string' },
     { name: 'dh', type: 'long' },
     { name: 'rowItems', type: ['null', { type: 'array', items: [rowItem] }], 'default': null }
