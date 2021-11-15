@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS "groupe" (
     ) WITHOUT ROWID;
 CREATE TABLE IF NOT EXISTS "invitct" (
     "id"  INTEGER,
+    "v"   INTEGER,
     "ni" INTEGER,
     "dlv"	INTEGER,
     "st"  INTEGER,
@@ -93,6 +94,7 @@ CREATE TABLE IF NOT EXISTS "membre" (
 CREATE TABLE IF NOT EXISTS "parrain" (
     "pph"  INTEGER,
     "id" INTEGER,
+    "v"   INTEGER,
     "nc" INTEGER,  
     "dlv"  INTEGER,
     "st"  INTEGER,

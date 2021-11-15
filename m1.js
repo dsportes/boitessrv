@@ -187,7 +187,7 @@ function setValue (cfg, n) {
 }
 
 /******************************************/
-const inscompte = 'INSERT INTO compte (id, v, dds, dpbh, pcbh, kx, mack, mmck) VALUES (@id, @v, @dds, @dpbh, @pcbh, @kx, @mack, @mmck)'
+const inscompte = 'INSERT INTO compte (id, v, dds, dpbh, pcbh, kx, mack, mmck, memok) VALUES (@id, @v, @dds, @dpbh, @pcbh, @kx, @mack, @mmck, @memok)'
 const insavatar = 'INSERT INTO avatar (id, v, st, vcv, dds, cva, lctk) VALUES (@id, @v, @st, @vcv, @dds, @cva, @lctk)'
 const insavrsa = 'INSERT INTO avrsa (id, clepub) VALUES (@id, @clepub)'
 const insavgrvq = 'INSERT INTO avgrvq (id, q1, q2, qm1, qm2, v1, v2, vm1, vm2) VALUES (@id, @q1, @q2, @qm1, @qm2, @v1, @v2, @vm1, @vm2)'
@@ -262,8 +262,10 @@ function creationCompteTr (cfg, session, compte, avatar, avrsa, avgrvq) {
       throw new AppExc(api.X_SRV, 'Une phrase secrète semblable est déjà utilisée. Changer a minima la première ligne de la phrase secrète pour ce nouveau compte')
     }
   }
-  stmt(cfg, inscompte).run({ ...compte })
-  stmt(cfg, insavatar).run({ ...avatar })
+  const c1 = { ...compte }
+  const a1 = { ...avatar }
+  stmt(cfg, inscompte).run(c1)
+  stmt(cfg, insavatar).run(a1)
   stmt(cfg, insavrsa).run(avrsa)
   stmt(cfg, insavgrvq).run(avgrvq)
   session.compteId = compte.id
@@ -309,29 +311,37 @@ async function syncAv (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const rowItems = []
   const id = args.avgr
+  let rows
   /*
-  for (const row of stmt(cfg, selinvitgr).iterate({ id, v: args.lv[api.INVITGR] })) {
+  rows = stmt(cfg, selinvitgr).all({ id, v: args.lv[api.INVITGR] })
+  rows.forEach((row) => {
     rowItems.push(rowTypes.newItem('invitgr', row))
-  }
+  })
   */
-  for (const row of stmt(cfg, selavatar).iterate({ id, v: args.lv[api.AVATAR] })) {
+  rows = stmt(cfg, selavatar).all({ id, v: args.lv[api.AVATAR] })
+  rows.forEach((row) => {
     rowItems.push(rowTypes.newItem('avatar', row))
-  }
-  for (const row of stmt(cfg, selcontact).iterate({ id, v: args.lv[api.CONTACT] })) {
+  })
+  rows = stmt(cfg, selcontact).all({ id, v: args.lv[api.CONTACT] })
+  rows.forEach((row) => {
     rowItems.push(rowTypes.newItem('contact', row))
-  }
-  for (const row of stmt(cfg, selinvitct).iterate({ id, v: args.lv[api.INVITCT] })) {
+  })
+  rows = stmt(cfg, selinvitct).all({ id, v: args.lv[api.INVITCT] })
+  rows.forEach((row) => {
     rowItems.push(rowTypes.newItem('invitvt', row))
-  }
-  for (const row of stmt(cfg, selrencontre).iterate({ id, v: args.lv[api.RENCONTRE] })) {
+  })
+  rows = stmt(cfg, selrencontre).all({ id, v: args.lv[api.RENCONTRE] })
+  rows.forEach((row) => {
     rowItems.push(rowTypes.newItem('rencontre', row))
-  }
-  for (const row of stmt(cfg, selparrain).iterate({ id, v: args.lv[api.PARRAIN] })) {
+  })
+  rows = stmt(cfg, selparrain).all({ id, v: args.lv[api.PARRAIN] })
+  rows.forEach((row) => {
     rowItems.push(rowTypes.newItem('parrain', row))
-  }
-  for (const row of stmt(cfg, selsecret).iterate({ id, v: args.lv[api.SECRET] })) {
+  })
+  rows = stmt(cfg, selsecret).all({ id, v: args.lv[api.SECRET] })
+  rows.forEach((row) => {
     rowItems.push(rowTypes.newItem('secret', row))
-  }
+  })
   result.rowItems = rowItems
   return result
 }
@@ -342,20 +352,18 @@ async function syncGr (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const rowItems = []
   const id = args.avgr
-  /*
-  for (const row of stmt(cfg, selinvitgr).iterate({ id, v: args.lv[api.INVITGR] })) {
-    rowItems.push(rowTypes.newItem('invitgr', row))
-  }
-  */
-  for (const row of stmt(cfg, selgroupe).iterate({ id, v: args.lv[api.GROUPE] })) {
+  let rows = stmt(cfg, selgroupe).all({ id, v: args.lv[api.GROUPE] })
+  rows.forEach((row) => {
     rowItems.push(rowTypes.newItem('groupe', row))
-  }
-  for (const row of stmt(cfg, selmembre).iterate({ id, v: args.lv[api.MEMBRE] })) {
+  })
+  rows = stmt(cfg, selmembre).all({ id, v: args.lv[api.MEMBRE] })
+  rows.forEach((row) => {
     rowItems.push(rowTypes.newItem('membre', row))
-  }
-  for (const row of stmt(cfg, selsecret).iterate({ id, v: args.lv[api.SECRET] })) {
+  })
+  rows = stmt(cfg, selsecret).all({ id, v: args.lv[api.SECRET] })
+  rows.forEach((row) => {
     rowItems.push(rowTypes.newItem('secret', row))
-  }
+  })
   result.rowItems = rowItems
   return result
 }
@@ -369,12 +377,14 @@ Chargement des rows invitgr de la liste fournie
 async function syncInvitgr (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const rowItems = []
-  args.lvav.forEach((sid, v) => {
+  for(const sid in args.lvav) {
+    const v = args.lvav[sid]
     const id = crypt.id2n(sid)
-    for (const row of stmt(cfg, selinvitgr).iterate({ id, v })) {
+    const rows = stmt(cfg, selinvitgr).all({ id, v })
+    rows.forEach((row) => {
       rowItems.push(rowTypes.newItem('invitgr', row))
-    }
-  })
+    })
+  }
   result.rowItems = rowItems
   return result
 }
@@ -389,7 +399,7 @@ Abonnement de la session aux compte et listes d'avatars et de groupes et signatu
 */
 async function syncAbo (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
-  const session = getSession(args.sessionsId)
+  const session = getSession(args.sessionId)
   if (args.idc) session.compteId = args.idc
   session.avatarsIds = args.lav
   session.groupesIds = args.lgr
@@ -441,7 +451,7 @@ const selcv2 = 'SELECT id, vcv, st, phinf FROM avatar WHERE id IN @lid'
 
 async function chargtCVs (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
-  const session = getSession(args.sessionsId)
+  const session = getSession(args.sessionId)
   session.cvsIds = args.lcvmaj.concat(args.lcvchargt)
   const rowItems = []
 
@@ -463,7 +473,7 @@ async function chargtCVs (cfg, args) {
     }
   }
 
-  result.rowItels = rowItems
+  result.rowItems = rowItems
   return result
 }
 exports.chargtCVs = chargtCVs

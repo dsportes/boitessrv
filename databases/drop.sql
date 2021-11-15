@@ -1,0 +1,13 @@
+DROP TABLE avatar;
+DROP TABLE avgrvq;
+DROP TABLE avrsa;
+DROP TABLE compte;
+DROP TABLE contact;
+DROP TABLE groupe;
+DROP TABLE invitct;
+DROP TABLE invitgr;
+DROP TABLE membre;
+DROP TABLE parrain;
+DROP TABLE rencontre;
+DROP TABLE secret;
+DROP TABLE versions;

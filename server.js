@@ -170,7 +170,7 @@ Dans la configuration de chaque environnement, son code est inséré
 const configjson = fs.readFileSync('./config.json')
 let cfg
 try {
-  const options = { fileMustExist: true, verbose: console.log }
+  const options = { fileMustExist: true, verbose: null }
   cfg = JSON.parse(configjson)
   for(const org in cfg.orgs) {
     const e = cfg.orgs[org]
