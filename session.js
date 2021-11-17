@@ -17,7 +17,7 @@ const sessionsmortes = new Set()
 // eslint-disable-next-line no-unused-vars
 const gcSessions = setInterval(() => {
   const dh1 = getdhc()
-  const max = api.PINGTO * 3000000
+  const max = api.PINGTO * 6 * 10000
   sessionsmortes.clear()
   sessions.forEach((session, sessionId) => {
     const dh2 = session.dhping
@@ -71,7 +71,7 @@ class Session {
         if (dev) console.log('Ping reçu: ' + newid + ' / ' + d.toISOString())
       }
       // réponse pong
-      if (this.nbpings < 50000000) { // pour tester
+      if (this.nbpings < 1000000) { // pour tester et ne plus envoyer de pong au delà de N pings
         const pong = { sessionId: newid, dh: getdhc(), syncList: null }
         const buf = api.types.synclist.toBuffer(pong)
         // const pong2 = api.types.synclist.fromBuffer(buf)
