@@ -4,7 +4,7 @@ const avro = require('avsc')
 const version = '1'
 exports.version = version
 
-const PINGTO = 10 // en secondes
+const PINGTO = 10000 // en secondes
 exports.PINGTO = PINGTO
 
 exports.E_BRK = -1 // Interruption volontaire de l'opération
