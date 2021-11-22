@@ -1,23 +1,16 @@
-const wcrypt = require('./webcrypto')
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
+
+import { pbkfd, sha256, random, crypter, decrypter, decrypterStr, genKeyPair, crypterRSA, decrypterRSA, concat } from './webcrypto.mjs'
 const base64js = require('base64-js')
 
-exports.pbkfd = wcrypt.pbkfd
-exports.sha256 = wcrypt.sha256
-exports.random = wcrypt.random
-exports.crypter = wcrypt.crypter
-exports.decrypter = wcrypt.decrypter
-exports.decrypterStr = wcrypt.decrypterStr
-exports.genKeyPair = wcrypt.genKeyPair
-exports.crypterRSA = wcrypt.crypterRSA
-exports.decrypterRSA = wcrypt.decrypterRSA
-exports.concat = wcrypt.concat
+export const crypt = { pbkfd, sha256, random, crypter, decrypter, decrypterStr, genKeyPair, crypterRSA, decrypterRSA, concat, u8ToB64, b64ToU8, rnd6, hash, hashBin, int2base64, bigToU8, u8ToBig, u8ToInt, intToU8, sidToId, idToSid, test }
 
 function u8ToB64 (u8, url) {
   const s = base64js.fromByteArray(u8)
   if (!url) return s
   return s.replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
 }
-exports.u8ToB64 = u8ToB64
 
 function b64ToU8 (s) {
   const diff = s.length % 4
@@ -28,10 +21,8 @@ function b64ToU8 (s) {
   }
   return base64js.toByteArray(x.replace(/-/g, '+').replace(/_/g, '/'))
 }
-exports.b64ToU8 = b64ToU8
 
-function rnd6 () { return u8ToInt(wcrypt.random(6)) }
-exports.rnd6 = rnd6
+function rnd6 () { return u8ToInt(random(6)) }
 
 function hash (str, big = false, b64 = false, seed = 0) {
   // https://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript
@@ -49,7 +40,6 @@ function hash (str, big = false, b64 = false, seed = 0) {
   }
   return b64 ? int2base64(r) : r
 }
-exports.hash = hash
 
 function hashBin (str, big = false, b64 = false, seed = 0) {
   // https://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript
@@ -64,7 +54,6 @@ function hashBin (str, big = false, b64 = false, seed = 0) {
   const r = big ? 4294967296n * BigInt(h2) + BigInt(h1) : 4294967296 * (2097151 & h2) + (h1 >>> 0)
   return b64 ? int2base64(r) : r
 }
-exports.hashBin = hashBin
 
 const c64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
 function int2base64 (n) {
@@ -77,7 +66,6 @@ function int2base64 (n) {
   }
   return r
 }
-exports.int2base64 = int2base64
 
 function writeUInt32LE (u8, value, offset) {
   value = +value
@@ -98,7 +86,6 @@ function bigToU8 (n) {
   writeUInt32LE(buf, Number(n % max32), 0)
   return buf
 }
-exports.bigToU8 = bigToU8
 
 function readUInt32LE (u8, offset) {
   offset = offset >>> 0
@@ -115,7 +102,6 @@ function u8ToBig (u8, number = false) {
   const r = (fort * max32) + faible
   return number && r < BI_MAX_SAFE_INTEGER ? Number(r) : r
 }
-exports.u8ToBig = u8ToBig
 
 function u8ToInt (u8) {
   if (!u8 || !u8.length || u8.length > 8) return 0
@@ -126,7 +112,6 @@ function u8ToInt (u8) {
   r += BigInt(u8[0])
   return r > BI_MAX_SAFE_INTEGER ? r : Number(r)
 }
-exports.u8ToInt = u8ToInt
 
 const p2 = [255, (256 ** 2) - 1, (256 ** 3) - 1, (256 ** 4) - 1, (256 ** 5) - 1, (256 ** 6) - 1, (256 ** 7) - 1]
 const p2b = [255n, (256n ** 2n) - 1n, (256n ** 3n) - 1n, (256n ** 4n) - 1n, (256n ** 5n) - 1n, (256n ** 6n) - 1n, (256n ** 7n) - 1n]
@@ -143,19 +128,18 @@ function intToU8 (n) {
   }
   return u8
 }
-exports.intToU8 = intToU8
 
 function sidToId (id) {
   return u8ToInt(b64ToU8(id, true)) // b64 -> buffer
 }
-exports.sidToId = sidToId
 
 function idToSid (id) { // to string (b64)
   if (typeof id === 'string') return id // déjà en B64
   if (typeof id === 'number') return u8ToB64(intToU8(id), true) // int -> u8 -> b64
   return u8ToB64(id, true) // u8 -> b64
 }
-exports.idToSid = idToSid
+
+async function test () { }
 
 /*
 async function test () {

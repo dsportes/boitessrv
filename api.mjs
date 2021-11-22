@@ -1,22 +1,20 @@
-const schemas = require('./schemas')
-require('./rowTypes')
+import { schemas } from './schemas.mjs'
+import './rowTypes.mjs'
 
-const version = '1'
-exports.version = version
+export const version = '1'
 
-const PINGTO = 10000 // en secondes
-exports.PINGTO = PINGTO
+export const PINGTO = 10000 // en secondes
 
-exports.E_BRK = -1 // Interruption volontaire de l'opération
-exports.E_WS = -2 // Toutes erreurs de réseau
-exports.E_DB = -3 // Toutes erreurs d'accès à la base locale
-exports.E_BRO = -4 // Erreur inattendue trappée sur le browser
-exports.E_SRV = -5 // Erreur inattendue trappée sur le serveur
-exports.X_SRV = -6 // Erreur fonctionnelle trappée sur le serveur transmise en exception
-exports.F_BRO = -7 // Erreur fonctionnelle trappée sur le browser
-exports.F_SRV = -8 // Erreur fonctionnelle trappée sur le serveur transmise en résultat
+export const E_BRK = -1 // Interruption volontaire de l'opération
+export const E_WS = -2 // Toutes erreurs de réseau
+export const E_DB = -3 // Toutes erreurs d'accès à la base locale
+export const E_BRO = -4 // Erreur inattendue trappée sur le browser
+export const E_SRV = -5 // Erreur inattendue trappée sur le serveur
+export const X_SRV = -6 // Erreur fonctionnelle trappée sur le serveur transmise en exception
+export const F_BRO = -7 // Erreur fonctionnelle trappée sur le browser
+export const F_SRV = -8 // Erreur fonctionnelle trappée sur le serveur transmise en résultat
 
-class AppExc {
+export class AppExc {
   constructor (code, message, stack) {
     this.code = code
     this.message = message || '?'
@@ -27,17 +25,18 @@ class AppExc {
     return JSON.stringify(this)
   }
 }
-exports.AppExc = AppExc
 
-exports.SECRET = 0
-exports.INVITGR = 1
-exports.AVATAR = 2
-exports.CONTACT = 3
-exports.INVITCT = 4
-exports.RENCONTRE = 5
-exports.PARRAIN = 6
-exports.GROUPE = 1
-exports.MEMBRE = 2
+export const INDEXT = {
+  SECRET: 0,
+  INVITGR: 1,
+  AVATAR: 2,
+  CONTACT: 3,
+  INVITCT: 4,
+  RENCONTRE: 5,
+  PARRAIN: 6,
+  GROUPE: 1,
+  MEMBRE: 2
+}
 
 const arrayIntType = schemas.forSchema({ type: 'array', items: 'int' })
 const arrayLongType = schemas.forSchema({ type: 'array', items: 'long' })
@@ -161,7 +160,7 @@ const sync4 = schemas.forSchema({
   ]
 })
 
-const argTypes = {
+export const argTypes = {
   echo: [echoArg, echoResp],
   creationCompte: [creationCompte, respBase1],
   connexionCompte: [connexionCompte, respBase1],
@@ -171,4 +170,3 @@ const argTypes = {
   syncGr: [sync3, respBase1],
   chargtCVs: [sync4, respBase1]
 }
-exports.argTypes = argTypes

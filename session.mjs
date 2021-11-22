@@ -1,13 +1,15 @@
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
+
 const now = require('nano-time')
-const api = require('./api')
-const schemas = require('./schemas')
+import { PINGTO } from './api.mjs'
+import { schemas } from './schemas.mjs'
 
 const dev = process.env.NODE_ENV === 'development'
 
 const sessions = new Map()
 
-function getSession (id) { return sessions.get(id) }
-exports.getSession = getSession
+export function getSession (id) { return sessions.get(id) }
 
 function getdhc() {
   return parseInt(now.micro(), 10)
@@ -18,7 +20,7 @@ const sessionsmortes = new Set()
 // eslint-disable-next-line no-unused-vars
 const gcSessions = setInterval(() => {
   const dh1 = getdhc()
-  const max = api.PINGTO * 6 * 10000
+  const max = PINGTO * 6 * 10000
   sessionsmortes.clear()
   sessions.forEach((session, sessionId) => {
     const dh2 = session.dhping
@@ -28,13 +30,13 @@ const gcSessions = setInterval(() => {
     sessions.delete(sid)
   })
   sessionsmortes.clear()
-}, api.PINGTO * 1000)
+}, PINGTO * 1000)
 
 /* Appelé sur l'événement 'connection' reçu du Web Server
 - request : requête Http correspondante : on ne sait rien en faire a priori
 - wss1 : server web socket
 */
-class Session {
+export class Session {
   constructor (ws /*, request, wss1*/) {
     this.ws = ws
     this.dhping = 0
@@ -75,7 +77,6 @@ class Session {
       if (this.nbpings < 1000000) { // pour tester et ne plus envoyer de pong au delà de N pings
         const pong = { sessionId: newid, dh: getdhc(), syncList: null }
         const buf = schemas.serialize('synclist', pong)
-        // const pong2 = api.types.synclist.fromBuffer(buf)
         this.ws.send(buf)
       }
     }    
@@ -92,9 +93,8 @@ class Session {
     */
   }
 }
-exports.Session = Session
 
-function syncSessions(rows, delobjs) {
+export function syncSessions(rows, delobjs) {
   rows.forEach(row => {
     delete row.datax
     delete row.datay
@@ -103,4 +103,3 @@ function syncSessions(rows, delobjs) {
     sessions[s].sync(rows, delobjs)
   }
 }
-exports.syncSessions = syncSessions

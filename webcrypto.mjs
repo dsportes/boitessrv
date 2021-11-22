@@ -1,6 +1,8 @@
 /*********************************************** 
 IMPLEMENTATION de webcrypto.js EN UTILISANT NODE (crypto)
 ************************************************/
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
 
 const crypto = require('crypto')
 const base64js = require('base64-js')
@@ -8,8 +10,8 @@ const fs = require('fs')
 
 const dec = new TextDecoder()
 
-const SALTS = new Array(256)
-function setSalts (a) {
+export const SALTS = new Array(256)
+export function setSalts (a) {
   const b = new Uint8Array(a)
   for (let i = 0; i < 256; i++) {
     SALTS[i] = Uint8Array.prototype.slice.call(b, i * 16, (i + 1) * 16)
@@ -17,12 +19,11 @@ function setSalts (a) {
 }
 setSalts (fs.readFileSync('./salts'))
 
-function u8ToB64 (u8, url) {
+export function u8ToB64 (u8, url) {
   const s = base64js.fromByteArray(u8)
   if (!url) return s
   return s.replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
 }
-exports.u8ToB64 = u8ToB64
 
 function b64ToU8 (s) {
   const diff = s.length % 4
@@ -34,20 +35,17 @@ function b64ToU8 (s) {
   return base64js.toByteArray(x.replace(/-/g, '+').replace(/_/g, '/'))
 }
 
-function sha256 (buffer) {
+export function sha256 (buffer) {
   return crypto.createHash('sha256').update(buffer).digest()
 }
-exports.sha256 = sha256
 
-async function pbkfd (secret) {
+export async function pbkfd (secret) {
   return crypto.pbkdf2Sync(secret, SALTS[0], 5000, 32, 'sha256')
 }
-exports.pbkfd = pbkfd
 
-function random (nbytes) { return crypto.randomBytes(nbytes) }
-exports.random = random
+export function random (nbytes) { return crypto.randomBytes(nbytes) }
 
-async function crypter (cle, buffer, idxIV) {
+export async function crypter (cle, buffer, idxIV) {
   const k = typeof cle === 'string' ? b64ToU8(cle) : cle
   const n = !idxIV ? 0 : (idxIV < 0 ? Number(crypto.randomBytes(1)) : idxIV)
   const cipher = crypto.createCipheriv('aes-256-cbc', k, SALTS[n])
@@ -57,24 +55,21 @@ async function crypter (cle, buffer, idxIV) {
   const x2 = cipher.final()
   return Buffer.concat([x0, x1, x2])
 }
-exports.crypter = crypter
 
-async function decrypter (cle, buffer) {
+export async function decrypter (cle, buffer) {
   const k = typeof cle === 'string' ? b64ToU8(cle) : cle
   const decipher = crypto.createDecipheriv('aes-256-cbc', k, SALTS[Number(buffer[0])])
   const x1 = decipher.update(buffer.slice(1))
   const x2 = decipher.final()
   return Buffer.concat([x1, x2])
 }
-exports.decrypter = decrypter
 
-async function decrypterStr (cle, buffer) {
+export async function decrypterStr (cle, buffer) {
   const buf = decrypter(cle, buffer)
   return dec.decode(buf)
 }
-exports.decrypterStr = decrypterStr
 
-async function genKeyPair () {
+export async function genKeyPair () {
   return crypto.generateKeyPairSync('rsa',
     {
       modulusLength: 2048, // the length of your key in bits
@@ -90,7 +85,6 @@ async function genKeyPair () {
       }
     })
 }
-exports.genKeyPair = genKeyPair
 
 /* encryption RSA avec la clé publique
   data est un Buffer
@@ -100,22 +94,33 @@ const pad3 = crypto.constants.RSA_PKCS1_PADDING
 */
 const pad4 = crypto.constants.RSA_NO_PADDING
 
-async function crypterRSA (publicKey, data) {
+export async function crypterRSA (publicKey, data) {
   return crypto.publicEncrypt({ key: publicKey /*, padding: pad3, oaepHash: 'sha256' */ }, data)
 }
-exports.crypterRSA = crypterRSA
 
 /* decryption RSA avec la clé privée
   encryptedData est un Buffer
 */
-async function decrypterRSA (privateKey, encryptedData) {
+export async function decrypterRSA (privateKey, encryptedData) {
   // !!! Web API ne peut être décrypté que sans padding !!!
   return crypto.privateDecrypt({ key: privateKey, padding: pad4 /*, oaepHash: 'sha256' */ }, encryptedData)
 }
-exports.decrypterRSA = decrypterRSA
+
+export function concat (arrays) {
+  // sum of individual array lengths
+  const totalLength = arrays.reduce((acc, value) => acc + value.length, 0)
+  if (!arrays.length) return null
+  const result = new Uint8Array(totalLength)
+  let length = 0
+  for (const array of arrays) {
+    result.set(array, length)
+    length += array.length
+  }
+  return result
+}
 
 /* Tests comparatifs Web API crypto et Node crypto *********
-async function testWAC () {
+export async function testWAC () {
   let cle = 'toto est beau'
   let clebin = await pbkfd(cle)
   console.log(u8ToB64(clebin, true))
@@ -174,5 +179,4 @@ async function testWAC () {
   const decRSA1b = await wcrypt.decrypterRSA(kp.privateKey, encRSA1)
   console.log('decypted data RSA1 : ' + dec.decode(decRSA1b))
 }
-exports.testWAC = testWAC
 */

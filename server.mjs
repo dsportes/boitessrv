@@ -1,14 +1,16 @@
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
+
 const fs = require('fs')
 const http = require('http')
 const https = require('https')
 const express = require('express')
 const WebSocket = require('ws')
-const Session = require('./session.js').Session
-const api = require('./api')
-const AppExc = require('./api').AppExc
+import { Session } from './session.mjs'
+import { AppExc, E_SRV, X_SRV, F_SRV, version, argTypes } from './api.mjs'
 
-const modules = {}
-modules.m1 = require('./m1.js')
+import { m1fonctions } from './m1.mjs'
+const modules = { m1: m1fonctions }
 
 const dev = process.env.NODE_ENV === 'development'
 console.log('server.js : chargement')
@@ -55,7 +57,7 @@ function er(c) {
     'Organisation inconnue', // 4
     'Version d\'API incompatble', // 5
   ]
-  throw new AppExc(api.E_SRV, l[c])
+  throw new AppExc(E_SRV, l[c])
 }
 
 /*
@@ -91,7 +93,7 @@ async function operation(req, res) {
     }
     // vérification de la version de l'API
     const apiv = req.headers['x-api-version']
-    if (apiv && apiv !== api.version) {
+    if (apiv && apiv !== version) {
       setRes(res, 402).send(er(5))
       return
     }
@@ -116,7 +118,7 @@ async function operation(req, res) {
         Inattendue : Création d'un AppExc avec code < 0 sérialisé en JSON
             HTTP status 402
     *****************************************************************/
-    const at = api.argTypes[req.params.func]
+    const at = argTypes[req.params.func]
     let args
     if (isGet) {
       args = req.query
@@ -141,12 +143,12 @@ async function operation(req, res) {
     let s
     // exception non prévue ou prévue
     if (e instanceof AppExc) { // erreur trappée déjà mise en forme en tant que AppExc 
-      httpst = e.code === api.F_SRV ? 400 : (e.code === api.X_SRV ? 401 : 402)
+      httpst = e.code === F_SRV ? 400 : (e.code === X_SRV ? 401 : 402)
       s = e.toString() // JSON
     } else {
       // erreur non trappée : mise en forme en AppExc
       httpst = 402
-      s = new AppExc(api.E_SRV, e.message, e.stack).toString()
+      s = new AppExc(E_SRV, e.message, e.stack).toString()
     }
     if (dev) console.log(pfx + ' ' + httpst + ' : ' + s)
     setRes(res, httpst).send(Buffer.from(s))

@@ -1,10 +1,11 @@
-const crypt = require('./crypto.js')
-const getSession = require('./session.js').getSession
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
+
+import { crypt } from './crypto.mjs'
+import { getSession } from './session.mjs'
 const now = require('nano-time')
-const avro = require('avsc')
-const api = require('./api.js')
-const AppExc = require('./api.js').AppExc
-const schemas = require('./schemas')
+import { AppExc, X_SRV, INDEXT } from './api.mjs'
+import { schemas } from './schemas.mjs'
 
 const VERSIONS = 1
 
@@ -16,13 +17,15 @@ for (let i = 0; i < nbVersions; i++) { defautVersions[i] = 0 }
 
 const valueTypes = {
   0: { type: 'json', defaut: '{}' },
-  1: { type: avro.Type.forSchema({ type: 'array', items: 'int' }), defaut: defautVersions }
+  1: { type: schemas.forSchema({ type: 'array', items: 'int' }), defaut: defautVersions }
 }
 
 function sleep (delai) {
   if (delai <= 0) return
   return new Promise((resolve) => { setTimeout(() => resolve(), delai) })
 }
+
+export const m1fonctions = { }
 
 /*
 Initialisation du module APRES que le serveur ait été créé et soit opérationnel
@@ -32,7 +35,7 @@ afin que les balances aient plus rapidement la réponse en cas de changement dan
 function atStart(/* cfg */) {
   console.log('m1 start')
 }
-exports.atStart = atStart
+m1fonctions.atStart = atStart
 
 /***************************************************************
 Appel de l'opération
@@ -47,9 +50,9 @@ Pour un POST :
 
 Exception : 
     AppExc : AppExc sérialisé en JSON
-        code api.F_SRV - erreur fonctionnelle à retourner par l'application
+        code F_SRV - erreur fonctionnelle à retourner par l'application
             HTTP status 400
-        code api.X_SRV - erreur fonctionnelle à émettre en exception à l'application
+        code X_SRV - erreur fonctionnelle à émettre en exception à l'application
             HTTP status 401                   
     Non transformée en AppExc : Création d'un AppExc avec E_SRV sérialisé en JSON
         HTTP status 402
@@ -63,7 +66,7 @@ async function echo (cfg, args, isGet) {
   args.org = cfg.code || 'org'
   return !isGet ? args : { type:'text/plain', bytes:Buffer.from(JSON.stringify(args), 'utf8') }
 }
-exports.echo = echo
+m1fonctions.echo = echo
 
 async function erreur (cfg, args) {
   if (args.to) {
@@ -71,13 +74,13 @@ async function erreur (cfg, args) {
   }
   throw new AppExc(args.code, args.message)
 }
-exports.erreur = erreur
+m1fonctions.erreur = erreur
 
 async function pingdb (cfg) {
   stmt(cfg, selvalues).get({ id: 1 })
   return { dhc: getdhc() }
 }
-exports.pingdb = pingdb
+m1fonctions.pingdb = pingdb
 
 /*
 function decryptDatax(cle, datax) {
@@ -234,7 +237,7 @@ Retour :
 function creationCompte (cfg, args) {  
   const result = { sessionId: args.sessionId, dh: getdhc() }
   if (cfg.cle !== args.mdp64) {
-    throw new AppExc(api.X_SRV, 'Mot de passe de l\'organisation non reconnu. Pour créer un compte privilégié, le mot de passe de l\'organisation est requis')
+    throw new AppExc(X_SRV, 'Mot de passe de l\'organisation non reconnu. Pour créer un compte privilégié, le mot de passe de l\'organisation est requis')
   }
   const session = getSession(args.sessionId)
   const compte = schemas.deserialize('rowcompte', args.rowCompte)
@@ -259,15 +262,15 @@ function creationCompte (cfg, args) {
   result.rowItems = [ newItem('compte', compte), newItem('avatar', avatar) ]    
   return result
 }
-exports.creationCompte = creationCompte
+m1fonctions.creationCompte = creationCompte
 
 function creationCompteTr (cfg, session, compte, avatar, avrsa, avgrvq) {
   const c = stmt(cfg, selcomptedpbh).get({ dpbh: compte.dpbh })
   if (c) {
     if (c.pcbh === compte.pcbh) {
-      throw new AppExc(api.X_SRV, 'Phrase secrète probablement déjà utilisée. Vérifier que le compte n\'existe pas déjà en essayant de s\'y connecter avec la phrase secrète')
+      throw new AppExc(X_SRV, 'Phrase secrète probablement déjà utilisée. Vérifier que le compte n\'existe pas déjà en essayant de s\'y connecter avec la phrase secrète')
     } else {
-      throw new AppExc(api.X_SRV, 'Une phrase secrète semblable est déjà utilisée. Changer a minima la première ligne de la phrase secrète pour ce nouveau compte')
+      throw new AppExc(X_SRV, 'Une phrase secrète semblable est déjà utilisée. Changer a minima la première ligne de la phrase secrète pour ce nouveau compte')
     }
   }
   const c1 = { ...compte }
@@ -289,13 +292,13 @@ async function connexionCompte (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const c = stmt(cfg, selcomptedpbh).get({ dpbh: args.dpbh })
   if (!c || (c.pcbh !== args.pcbh)) {
-    throw new AppExc(api.X_SRV, 'Compte non authentifié : aucun compte n\'est déclaré avec cette phrase secrète')
+    throw new AppExc(X_SRV, 'Compte non authentifié : aucun compte n\'est déclaré avec cette phrase secrète')
   }
   const it = newItem('compte', c)
   result.rowItems = [ it ]
   return result
 }
-exports.connexionCompte = connexionCompte
+m1fonctions.connexionCompte = connexionCompte
 
 /*****************************************
 Chargement des rows d'un avatar 
@@ -320,61 +323,61 @@ async function syncAv (cfg, args) {
   const id = args.avgr
   let rows
   /*
-  rows = stmt(cfg, selinvitgr).all({ id, v: args.lv[api.INVITGR] })
+  rows = stmt(cfg, selinvitgr).all({ id, v: args.lv[INDEXT.INVITGR] })
   rows.forEach((row) => {
     rowItems.push(newItem('invitgr', row))
   })
   */
-  rows = stmt(cfg, selavatar).all({ id, v: args.lv[api.AVATAR] })
+  rows = stmt(cfg, selavatar).all({ id, v: args.lv[INDEXT.AVATAR] })
   rows.forEach((row) => {
     rowItems.push(newItem('avatar', row))
   })
-  rows = stmt(cfg, selcontact).all({ id, v: args.lv[api.CONTACT] })
+  rows = stmt(cfg, selcontact).all({ id, v: args.lv[INDEXT.CONTACT] })
   rows.forEach((row) => {
     rowItems.push(newItem('contact', row))
   })
-  rows = stmt(cfg, selinvitct).all({ id, v: args.lv[api.INVITCT] })
+  rows = stmt(cfg, selinvitct).all({ id, v: args.lv[INDEXT.INVITCT] })
   rows.forEach((row) => {
     rowItems.push(newItem('invitvt', row))
   })
-  rows = stmt(cfg, selrencontre).all({ id, v: args.lv[api.RENCONTRE] })
+  rows = stmt(cfg, selrencontre).all({ id, v: args.lv[INDEXT.RENCONTRE] })
   rows.forEach((row) => {
     rowItems.push(newItem('rencontre', row))
   })
-  rows = stmt(cfg, selparrain).all({ id, v: args.lv[api.PARRAIN] })
+  rows = stmt(cfg, selparrain).all({ id, v: args.lv[INDEXT.PARRAIN] })
   rows.forEach((row) => {
     rowItems.push(newItem('parrain', row))
   })
-  rows = stmt(cfg, selsecret).all({ id, v: args.lv[api.SECRET] })
+  rows = stmt(cfg, selsecret).all({ id, v: args.lv[INDEXT.SECRET] })
   rows.forEach((row) => {
     rowItems.push(newItem('secret', row))
   })
   result.rowItems = rowItems
   return result
 }
-exports.syncAv = syncAv
+m1fonctions.syncAv = syncAv
 
 /*****************************************/
 async function syncGr (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const rowItems = []
   const id = args.avgr
-  let rows = stmt(cfg, selgroupe).all({ id, v: args.lv[api.GROUPE] })
+  let rows = stmt(cfg, selgroupe).all({ id, v: args.lv[INDEXT.GROUPE] })
   rows.forEach((row) => {
     rowItems.push(newItem('groupe', row))
   })
-  rows = stmt(cfg, selmembre).all({ id, v: args.lv[api.MEMBRE] })
+  rows = stmt(cfg, selmembre).all({ id, v: args.lv[INDEXT.MEMBRE] })
   rows.forEach((row) => {
     rowItems.push(newItem('membre', row))
   })
-  rows = stmt(cfg, selsecret).all({ id, v: args.lv[api.SECRET] })
+  rows = stmt(cfg, selsecret).all({ id, v: args.lv[INDEXT.SECRET] })
   rows.forEach((row) => {
     rowItems.push(newItem('secret', row))
   })
   result.rowItems = rowItems
   return result
 }
-exports.syncGr = syncGr
+m1fonctions.syncGr = syncGr
 
 /*****************************************
 Chargement des rows invitgr de la liste fournie
@@ -395,7 +398,7 @@ async function syncInvitgr (cfg, args) {
   result.rowItems = rowItems
   return result
 }
-exports.syncInvitgr = syncInvitgr
+m1fonctions.syncInvitgr = syncInvitgr
 
 /******************************************
 Abonnement de la session aux compte et listes d'avatars et de groupes et signatures
@@ -441,7 +444,7 @@ function signaturesTr (cfg, idc, lav, lgr) {
     if (a > n) stmt(cfg, updddsg).run({ id: id, dds: a })
   })
 }
-exports.syncAbo = syncAbo
+m1fonctions.syncAbo = syncAbo
 
 /******************************************
 Chargement des CVs :
@@ -483,7 +486,7 @@ async function chargtCVs (cfg, args) {
   result.rowItems = rowItems
   return result
 }
-exports.chargtCVs = chargtCVs
+m1fonctions.chargtCVs = chargtCVs
 
 /******************************************/
 const bytes0 = new Uint8Array(0)
@@ -499,7 +502,7 @@ async function getcv (cfg, args) {
     return { bytes: bytes0 }
   }
 }
-exports.getcv = getcv
+m1fonctions.getcv = getcv
 
 /******************************************/
 const selavrsapub = 'SELECT clepub FROM avrsa WHERE id = @id'
@@ -513,4 +516,4 @@ async function getclepub (cfg, args) {
     return { bytes: bytes0 }
   }
 }
-exports.getclepub = getclepub
+m1fonctions.getclepub = getclepub
