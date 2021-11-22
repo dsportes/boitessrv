@@ -4,7 +4,7 @@ const now = require('nano-time')
 const avro = require('avsc')
 const api = require('./api.js')
 const AppExc = require('./api.js').AppExc
-const rowTypes = require('./rowTypes.js')
+const schemas = require('./schemas')
 
 const VERSIONS = 1
 
@@ -187,6 +187,14 @@ function setValue (cfg, n) {
 }
 
 /******************************************/
+function newItem (table, row) {
+  const item = { table: table }
+  if (row.id) item.id = crypt.idToSid(row.id)
+  item.serial = schemas.serialize('row' + table, row)
+  return item
+}
+
+/******************************************/
 const inscompte = 'INSERT INTO compte (id, v, dds, dpbh, pcbh, kx, mack, mmck, memok) VALUES (@id, @v, @dds, @dpbh, @pcbh, @kx, @mack, @mmck, @memok)'
 const insavatar = 'INSERT INTO avatar (id, v, st, vcv, dds, cva, lctk) VALUES (@id, @v, @st, @vcv, @dds, @cva, @lctk)'
 const insavrsa = 'INSERT INTO avrsa (id, clepub) VALUES (@id, @clepub)'
@@ -229,8 +237,8 @@ function creationCompte (cfg, args) {
     throw new AppExc(api.X_SRV, 'Mot de passe de l\'organisation non reconnu. Pour créer un compte privilégié, le mot de passe de l\'organisation est requis')
   }
   const session = getSession(args.sessionId)
-  const compte = rowTypes.fromBuffer('compte', args.rowCompte)
-  const avatar = rowTypes.fromBuffer('avatar', args.rowAvatar)
+  const compte = schemas.deserialize('rowcompte', args.rowCompte)
+  const avatar = schemas.deserialize('rowavatar', args.rowAvatar)
 
   const versions = getValue(cfg, VERSIONS)
   let j = idx(compte.id)
@@ -248,7 +256,7 @@ function creationCompte (cfg, args) {
 
   cfg.db.transaction(creationCompteTr)(cfg, session, compte, avatar, avrsa, avgrvq)
 
-  result.rowItems = [ rowTypes.newItem('compte', compte), rowTypes.newItem('avatar', avatar) ]    
+  result.rowItems = [ newItem('compte', compte), newItem('avatar', avatar) ]    
   return result
 }
 exports.creationCompte = creationCompte
@@ -283,8 +291,7 @@ async function connexionCompte (cfg, args) {
   if (!c || (c.pcbh !== args.pcbh)) {
     throw new AppExc(api.X_SRV, 'Compte non authentifié : aucun compte n\'est déclaré avec cette phrase secrète')
   }
-  const it = rowTypes.newItem('compte', c)
-  // const it2 = rowTypes.deserialItem(it)
+  const it = newItem('compte', c)
   result.rowItems = [ it ]
   return result
 }
@@ -315,32 +322,32 @@ async function syncAv (cfg, args) {
   /*
   rows = stmt(cfg, selinvitgr).all({ id, v: args.lv[api.INVITGR] })
   rows.forEach((row) => {
-    rowItems.push(rowTypes.newItem('invitgr', row))
+    rowItems.push(newItem('invitgr', row))
   })
   */
   rows = stmt(cfg, selavatar).all({ id, v: args.lv[api.AVATAR] })
   rows.forEach((row) => {
-    rowItems.push(rowTypes.newItem('avatar', row))
+    rowItems.push(newItem('avatar', row))
   })
   rows = stmt(cfg, selcontact).all({ id, v: args.lv[api.CONTACT] })
   rows.forEach((row) => {
-    rowItems.push(rowTypes.newItem('contact', row))
+    rowItems.push(newItem('contact', row))
   })
   rows = stmt(cfg, selinvitct).all({ id, v: args.lv[api.INVITCT] })
   rows.forEach((row) => {
-    rowItems.push(rowTypes.newItem('invitvt', row))
+    rowItems.push(newItem('invitvt', row))
   })
   rows = stmt(cfg, selrencontre).all({ id, v: args.lv[api.RENCONTRE] })
   rows.forEach((row) => {
-    rowItems.push(rowTypes.newItem('rencontre', row))
+    rowItems.push(newItem('rencontre', row))
   })
   rows = stmt(cfg, selparrain).all({ id, v: args.lv[api.PARRAIN] })
   rows.forEach((row) => {
-    rowItems.push(rowTypes.newItem('parrain', row))
+    rowItems.push(newItem('parrain', row))
   })
   rows = stmt(cfg, selsecret).all({ id, v: args.lv[api.SECRET] })
   rows.forEach((row) => {
-    rowItems.push(rowTypes.newItem('secret', row))
+    rowItems.push(newItem('secret', row))
   })
   result.rowItems = rowItems
   return result
@@ -354,15 +361,15 @@ async function syncGr (cfg, args) {
   const id = args.avgr
   let rows = stmt(cfg, selgroupe).all({ id, v: args.lv[api.GROUPE] })
   rows.forEach((row) => {
-    rowItems.push(rowTypes.newItem('groupe', row))
+    rowItems.push(newItem('groupe', row))
   })
   rows = stmt(cfg, selmembre).all({ id, v: args.lv[api.MEMBRE] })
   rows.forEach((row) => {
-    rowItems.push(rowTypes.newItem('membre', row))
+    rowItems.push(newItem('membre', row))
   })
   rows = stmt(cfg, selsecret).all({ id, v: args.lv[api.SECRET] })
   rows.forEach((row) => {
-    rowItems.push(rowTypes.newItem('secret', row))
+    rowItems.push(newItem('secret', row))
   })
   result.rowItems = rowItems
   return result
@@ -379,10 +386,10 @@ async function syncInvitgr (cfg, args) {
   const rowItems = []
   for(const sid in args.lvav) {
     const v = args.lvav[sid]
-    const id = crypt.id2n(sid)
+    const id = crypt.sidToId(sid)
     const rows = stmt(cfg, selinvitgr).all({ id, v })
     rows.forEach((row) => {
-      rowItems.push(rowTypes.newItem('invitgr', row))
+      rowItems.push(newItem('invitgr', row))
     })
   }
   result.rowItems = rowItems
@@ -457,19 +464,19 @@ async function chargtCVs (cfg, args) {
 
   let lst = []
   if (args.lcvmaj.length) {
-    args.lcvmaj.forEach((sid) => { lst.push('' + crypt.id2n(sid)) })
+    args.lcvmaj.forEach((sid) => { lst.push('' + crypt.sidToId(sid)) })
     const lid = '(' + lst.join(',') + ')'
     for (const row of stmt(cfg, selcv1).iterate({ lid, vcv: args.vcv})) {
-      rowItems.push(rowTypes.newItem('cv', row))
+      rowItems.push(newItem('cv', row))
     }
   }
   
   lst = []
   if (args.lcvchargt.length) {
-    args.lcvchargt.forEach((sid) => { lst.push('' + crypt.id2n(sid)) })
+    args.lcvchargt.forEach((sid) => { lst.push('' + crypt.sidToId(sid)) })
     const lid = '(' + lst.join(',') + ')'
     for (const row of stmt(cfg, selcv2).iterate({ lid })) {
-      rowItems.push(rowTypes.newItem('cv', row))
+      rowItems.push(newItem('cv', row))
     }
   }
 
@@ -483,10 +490,9 @@ const bytes0 = new Uint8Array(0)
 const selcv = 'SELECT id, st, vcv, cva FROM avatar WHERE id = @id'
 async function getcv (cfg, args) {
   try {
-    const c = stmt(cfg, selcv).get({ id: crypt.id2n(args.sid) })
+    const c = stmt(cfg, selcv).get({ id: crypt.sidToId(args.sid) })
     if (!c) return { bytes0 }
-    const buf = rowTypes.rowSchemas.cv.toBuffer(c)
-    // const obj = rowTypes.rowSchemas.cv.fromBuffer(buf)
+    const buf = schemas.serialize('rowcv', c)
     return { bytes: buf }
   } catch (e) {
     console.log(e)
@@ -499,7 +505,7 @@ exports.getcv = getcv
 const selavrsapub = 'SELECT clepub FROM avrsa WHERE id = @id'
 async function getclepub (cfg, args) {
   try {
-    const c = stmt(cfg, selavrsapub).get({ id: crypt.id2n(args.sid) })
+    const c = stmt(cfg, selavrsapub).get({ id: crypt.sidToId(args.sid) })
     if (!c) return { bytes0 }
     return { bytes: c.clepub }
   } catch (e) {

@@ -1,5 +1,5 @@
-/* eslint-disable quote-props */
-const avro = require('avsc')
+const schemas = require('./schemas')
+require('./rowTypes')
 
 const version = '1'
 exports.version = version
@@ -39,43 +39,42 @@ exports.PARRAIN = 6
 exports.GROUPE = 1
 exports.MEMBRE = 2
 
-const arrayIntType = avro.Type.forSchema({ type: 'array', items: 'int' })
-const arrayLongType = avro.Type.forSchema({ type: 'array', items: 'long' })
-const mapIntType = avro.Type.forSchema({ type: 'map', values: 'int' })
-// const mapArrayIntType = avro.Type.forSchema({ type: 'map', values: arrayIntType })
+const arrayIntType = schemas.forSchema({ type: 'array', items: 'int' })
+const arrayLongType = schemas.forSchema({ type: 'array', items: 'long' })
+const mapIntType = schemas.forSchema({ type: 'map', values: 'int' })
 
-const rowItem = avro.Type.forSchema({
+const rowItem = schemas.forSchema({
   name: 'rowitem',
   type: 'record',
   fields: [
     { name: 'table', type: 'string' },
     { name: 'id', type: 'string' },
-    { name: 'serial', type: ['null', 'bytes'], 'default': null }
+    { name: 'serial', type: ['null', 'bytes'], default: null }
   ]
 })
 
-const synclist = avro.Type.forSchema({
+schemas.forSchema({
   name: 'synclist',
   type: 'record',
   fields: [
     { name: 'sessionId', type: 'string' },
     { name: 'dh', type: 'long' },
-    { name: 'rowItems', type: ['null', { type: 'array', items: [rowItem] }], 'default': null }
+    { name: 'rowItems', type: ['null', { type: 'array', items: [rowItem] }], default: null }
   ]
 })
 
-const echoArg = avro.Type.forSchema({
+const echoArg = schemas.forSchema({
   name: 'echo',
   type: 'record',
   fields: [
     { name: 'a', type: 'int' },
     { name: 'b', type: 'string' },
     { name: 'to', type: 'int' },
-    { name: 'org', type: ['null', 'string'], 'default': null }
+    { name: 'org', type: ['null', 'string'], default: null }
   ]
 })
 
-const echoResp = avro.Type.forSchema({
+const echoResp = schemas.forSchema({
   name: 'echoResp',
   type: 'record',
   fields: [
@@ -85,7 +84,7 @@ const echoResp = avro.Type.forSchema({
   ]
 })
 
-const connexionCompte = avro.Type.forSchema({
+const connexionCompte = schemas.forSchema({
   name: 'connexionCompte',
   type: 'record',
   fields: [
@@ -95,17 +94,17 @@ const connexionCompte = avro.Type.forSchema({
   ]
 })
 
-const respBase1 = avro.Type.forSchema({
+const respBase1 = schemas.forSchema({
   name: 'respBase1',
   type: 'record',
   fields: [
     { name: 'sessionId', type: 'string' },
     { name: 'dh', type: 'long' },
-    { name: 'rowItems', type: ['null', { type: 'array', items: [rowItem] }], 'default': null }
+    { name: 'rowItems', type: ['null', { type: 'array', items: [rowItem] }], default: null }
   ]
 })
 
-const creationCompte = avro.Type.forSchema({
+const creationCompte = schemas.forSchema({
   name: 'creationCompte',
   type: 'record',
   fields: [
@@ -121,7 +120,7 @@ const creationCompte = avro.Type.forSchema({
   ]
 })
 
-const sync1 = avro.Type.forSchema({
+const sync1 = schemas.forSchema({
   name: 'sync1',
   type: 'record',
   fields: [
@@ -130,7 +129,7 @@ const sync1 = avro.Type.forSchema({
   ]
 })
 
-const sync2 = avro.Type.forSchema({
+const sync2 = schemas.forSchema({
   name: 'sync2',
   type: 'record',
   fields: [
@@ -141,7 +140,7 @@ const sync2 = avro.Type.forSchema({
   ]
 })
 
-const sync3 = avro.Type.forSchema({
+const sync3 = schemas.forSchema({
   name: 'sync3',
   type: 'record',
   fields: [
@@ -151,7 +150,7 @@ const sync3 = avro.Type.forSchema({
   ]
 })
 
-const sync4 = avro.Type.forSchema({
+const sync4 = schemas.forSchema({
   name: 'sync3',
   type: 'record',
   fields: [
@@ -173,6 +172,3 @@ const argTypes = {
   chargtCVs: [sync4, respBase1]
 }
 exports.argTypes = argTypes
-
-const types = { synclist }
-exports.types = types

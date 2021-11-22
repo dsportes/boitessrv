@@ -1,14 +1,4 @@
-const avro = require('avsc')
-const crypt = require('./crypto')
-
-avro.types.LongType.__with({
-  fromBuffer: buf => crypt.u82big(buf),
-  toBuffer: n => crypt.big2u8(n < 0 ? -n : n),
-  fromJSON: Number,
-  toJSON: Number,
-  isValid: n => typeof n === 'bigint',
-  compare: (n1, n2) => n1 === n2 ? 0 : (n1 < n2 ? -1 : 1)
-})
+const schemas = require('./schemas')
 
 /*
 - `versions` (id) : table des prochains numéros de versions (actuel et dernière sauvegarde) et autres singletons clé / valeur
@@ -27,11 +17,10 @@ _**Tables aussi persistantes sur le client (IDB)**_
 - `groupe` (id) : données du groupe et liste de ses avatars, invités ou ayant été pressentis, un jour à être membre.
 - `membre` (id, im) : données d'un membre du groupe
 - `secret` (id, ns) : données d'un secret d'un avatar ou groupe
-
 */
 
-const rowAvatar = avro.Type.forSchema({
-  name: 'rowAvatar',
+schemas.forSchema({
+  name: 'rowavatar',
   type: 'record',
   fields: [
     { name: 'id', type: 'long' }, // pk
@@ -44,8 +33,8 @@ const rowAvatar = avro.Type.forSchema({
   ]
 })
 
-const rowAvgrq = avro.Type.forSchema({
-  name: 'rowAvgrq',
+schemas.forSchema({
+  name: 'rowavgrq',
   type: 'record',
   fields: [
     { name: 'id', type: 'long' }, // pk
@@ -60,8 +49,8 @@ const rowAvgrq = avro.Type.forSchema({
   ]
 })
 
-const rowAvrsa = avro.Type.forSchema({
-  name: 'rowAvrsa',
+schemas.forSchema({
+  name: 'rowavrsa',
   type: 'record',
   fields: [
     { name: 'id', type: 'long' }, // pk
@@ -69,8 +58,8 @@ const rowAvrsa = avro.Type.forSchema({
   ]
 })
 
-const rowCompte = avro.Type.forSchema({
-  name: 'rowCompte',
+schemas.forSchema({
+  name: 'rowcompte',
   type: 'record',
   fields: [
     { name: 'id', type: 'long' }, // pk
@@ -85,8 +74,8 @@ const rowCompte = avro.Type.forSchema({
   ]
 })
 
-const rowContact = avro.Type.forSchema({
-  name: 'rowContact',
+schemas.forSchema({
+  name: 'rowcontact',
   type: 'record',
   fields: [
     { name: 'id', type: 'long' }, // pk 1
@@ -104,8 +93,8 @@ const rowContact = avro.Type.forSchema({
   ]
 })
 
-const rowGroupe = avro.Type.forSchema({
-  name: 'rowGroupe',
+schemas.forSchema({
+  name: 'rowgroupe',
   type: 'record',
   fields: [
     { name: 'id', type: 'long' }, // pk
@@ -118,8 +107,8 @@ const rowGroupe = avro.Type.forSchema({
   ]
 })
 
-const rowInvitct = avro.Type.forSchema({
-  name: 'rowInvitct',
+schemas.forSchema({
+  name: 'rowinvitct',
   type: 'record',
   fields: [
     { name: 'id', type: 'long' }, // pk1
@@ -133,8 +122,8 @@ const rowInvitct = avro.Type.forSchema({
   ]
 })
 
-const rowInvitgr = avro.Type.forSchema({
-  name: 'rowInvitgr',
+schemas.forSchema({
+  name: 'rowinvitgr',
   type: 'record',
   fields: [
     { name: 'id', type: 'long' }, // pk1
@@ -147,8 +136,8 @@ const rowInvitgr = avro.Type.forSchema({
   ]
 })
 
-const rowMembre = avro.Type.forSchema({
-  name: 'rowMembre',
+schemas.forSchema({
+  name: 'rowmembre',
   type: 'record',
   fields: [
     { name: 'id', type: 'long' }, // pk 1
@@ -163,8 +152,8 @@ const rowMembre = avro.Type.forSchema({
   ]
 })
 
-const rowParrain = avro.Type.forSchema({
-  name: 'rowParrain',
+schemas.forSchema({
+  name: 'rowparrain',
   type: 'record',
   fields: [
     { name: 'pph', type: 'long' }, // pk
@@ -183,8 +172,8 @@ const rowParrain = avro.Type.forSchema({
   ]
 })
 
-const rowRencontre = avro.Type.forSchema({
-  name: 'rowRencontre',
+schemas.forSchema({
+  name: 'rowrencontre',
   type: 'record',
   fields: [
     { name: 'prh', type: 'long' }, // pk
@@ -197,8 +186,8 @@ const rowRencontre = avro.Type.forSchema({
   ]
 })
 
-const rowSecret = avro.Type.forSchema({
-  name: 'rowSecret',
+schemas.forSchema({
+  name: 'rowsecret',
   type: 'record',
   fields: [
     { name: 'id', type: 'long' }, // pk1
@@ -214,8 +203,8 @@ const rowSecret = avro.Type.forSchema({
   ]
 })
 
-const rowVersions = avro.Type.forSchema({
-  name: 'rowVersions',
+schemas.forSchema({
+  name: 'rowversions',
   type: 'record',
   fields: [
     { name: 'id', type: 'int' }, // pk
@@ -223,8 +212,8 @@ const rowVersions = avro.Type.forSchema({
   ]
 })
 
-const rowCv = avro.Type.forSchema({
-  name: 'rowCv',
+schemas.forSchema({
+  name: 'rowcv',
   type: 'record',
   fields: [
     { name: 'id', type: 'long' },
@@ -233,46 +222,3 @@ const rowCv = avro.Type.forSchema({
     { name: 'phinf', type: ['null', 'bytes'], default: null }
   ]
 })
-
-const rowSchemas = {
-  avatar: rowAvatar,
-  avgrq: rowAvgrq,
-  avrsa: rowAvrsa,
-  compte: rowCompte,
-  contact: rowContact,
-  groupe: rowGroupe,
-  invitct: rowInvitct,
-  invitgr: rowInvitgr,
-  membre: rowMembre,
-  parrain: rowParrain,
-  rencontre: rowRencontre,
-  secret: rowSecret,
-  versions: rowVersions,
-  cv: rowCv
-}
-exports.rowSchemas = rowSchemas
-
-function toBuffer (table, obj) {
-  return rowSchemas[table].toBuffer(obj)
-}
-exports.toBuffer = toBuffer
-
-function fromBuffer (table, buf) {
-  return rowSchemas[table].fromBuffer(buf)
-}
-exports.fromBuffer = fromBuffer
-
-function newItem (table, row) {
-  const item = { table: table }
-  if (row.id) item.id = crypt.id2s(row.id)
-  item.serial = rowSchemas[table].toBuffer(row)
-  return item
-}
-exports.newItem = newItem
-
-function deserialItem (item) {
-  const type = rowSchemas[item.table]
-  item.row = type.fromBuffer(item.serial)
-  return item
-}
-exports.deserialItem = deserialItem

@@ -1,5 +1,6 @@
 const now = require('nano-time')
-const api = require('./api.js')
+const api = require('./api')
+const schemas = require('./schemas')
 
 const dev = process.env.NODE_ENV === 'development'
 
@@ -73,7 +74,7 @@ class Session {
       // réponse pong
       if (this.nbpings < 1000000) { // pour tester et ne plus envoyer de pong au delà de N pings
         const pong = { sessionId: newid, dh: getdhc(), syncList: null }
-        const buf = api.types.synclist.toBuffer(pong)
+        const buf = schemas.serialize('synclist', pong)
         // const pong2 = api.types.synclist.fromBuffer(buf)
         this.ws.send(buf)
       }
