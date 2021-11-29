@@ -4,16 +4,18 @@ const require = createRequire(import.meta.url)
 const fs = require('fs')
 const http = require('http')
 const https = require('https')
+const process = require('process')
+const path = require('path')
 const express = require('express')
 const WebSocket = require('ws')
 import { Session } from './session.mjs'
+import { setSalts } from './webcrypto.mjs'
 import { AppExc, E_SRV, X_SRV, F_SRV, version, argTypes } from './api.mjs'
 
 import { m1fonctions } from './m1.mjs'
 const modules = { m1: m1fonctions }
 
 const dev = process.env.NODE_ENV === 'development'
-console.log('server.js : chargement')
 
 /* 
 vérification que l'origine appartient à la liste des origines autorisées (q'il y en a une)
@@ -164,11 +166,22 @@ const mimetype = {
 }
 */
 
+const dirs = { configdir: './config', dbdir: './databases' }
+process.argv.forEach((arg) => {
+  if (arg.startsWith('configdir=')) dirs.configdir = arg.substring('configdir='.length)
+  if (arg.startsWith('dbdir=')) dirs.dbdir = arg.substring('dbdir='.length)
+})
+
+console.log('configdir=' + path.resolve(dirs.configdir))
+console.log('dbdir=' + path.resolve(dirs.dbdir))
+
 /*
 Récupération de la configuration
 Dans la configuration de chaque environnement, son code est inséré
 */
-const configjson = fs.readFileSync('./config.json')
+setSalts (fs.readFileSync(path.resolve(dirs.configdir, './salts')))
+
+const configjson = fs.readFileSync(path.resolve(dirs.configdir, './config.json'))
 let cfg
 try {
   const options = { fileMustExist: true, verbose: null }
@@ -176,18 +189,15 @@ try {
   for(const org in cfg.orgs) {
     const e = cfg.orgs[org]
     e.code = org
-    e.db = require('better-sqlite3')('./databases/' + org + '.db3', options);
-    /*
-        const b = fs.readFileSync('./icons/' + org + '.' + e.typeicon, 'base64')
-        e.icon = 'data:' + mimetype[e.typeicon] + ';base64,' + b
-        */
+    e.isDev = dev
+    e.db = require('better-sqlite3')(path.resolve(dirs.dbdir, org + '.db3'), options);
   }
 } catch(e) {
   throw new Error(' Erreur de parsing de config.json : ' + e.message)
 }
 
 // Les sites appelent souvent favicon.ico
-const favicon = fs.readFileSync('./favicon.ico')
+const favicon = fs.readFileSync(path.resolve(dirs.configdir, './favicon.ico'))
 // const deficon = 'data:image/png;base64,' + fs.readFileSync('./anonymous.png', 'base64')
 
 const app = express()
@@ -210,22 +220,6 @@ app.get('/favicon.ico', (req, res) => {
 app.get('/ping', (req, res) => {
   setRes(res, 200, 'text/plain').send(new Date().toISOString())
 })
-
-/**** generation de paire de clés RSA 
-app.get("/genkeypair", (req, res) => {
-  const {publicKey, privateKey} = crypt.genKeyPair()
-  const x = JSON.stringify([ publicKey, privateKey])
-  setRes(res, 200, 'text/plain').send(x)
-})
-****/
-
-/**** icon d'une organisation
-app.get("/icon/:org", (req, res) => {
-    const e = cfg.orgs[req.params.org]
-    const ic = e ? e.icon : 'KO'
-    setRes(res, 200, 'text/plain').send(ic)
-})
-****/
 
 /**** appels des opérations ****/
 app.use('/:org/:mod/:func', async (req, res) => {
@@ -256,7 +250,7 @@ if (isPassenger) {
   PhusionPassenger.configure({ autoInstall: false })
 }
 
-console.log('server.js : isPassenger = ' + isPassenger)
+console.log('isPassenger:' + isPassenger)
 
 try {
   let server
@@ -273,8 +267,8 @@ try {
     })
   else {
     // Création en https avec un certificat et sa clé de signature
-    const key = fs.readFileSync('privkey.pem')
-    const cert = fs.readFileSync('fullchain.pem')
+    const key = fs.readFileSync(path.resolve(dirs.configdir, './privkey.pem'))
+    const cert = fs.readFileSync(path.resolve(dirs.configdir, './fullchain.pem'))
     server = https.createServer({key:key, cert:cert}, app).listen(port, () => {
       console.log('HTTP/S server running on port ' + port)
       try {

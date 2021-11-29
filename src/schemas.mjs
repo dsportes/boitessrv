@@ -32,7 +32,7 @@ function readUInt32LE (u8, offset) {
       (u8[offset + 3] * 0x1000000)
 }
 
-export function u8ToBig (u8, number = false) {
+function u8ToBig (u8, number = false) {
   const fort = BigInt(readUInt32LE(u8, 4))
   const faible = BigInt(readUInt32LE(u8, 0))
   const r = (fort * max32) + faible
@@ -55,27 +55,27 @@ export function getType (name) {
   return name && typeof name === 'string' ? allTypes[name] : null
 }
 
-export function ab2b (x) {
+function ab2b (x) {
   return Buffer.from(x)
 }
 
-export function forSchema (s) {
+function forSchema (s) {
   const sch = avro.Type.forSchema(s)
   if (s && s.name) allTypes[s.name] = sch
   return sch
 }
 
-export function serialize (s, obj) {
+function serialize (s, obj) {
   const sch = getType(s) || s
   return sch.toBuffer(obj)
 }
 
-export function deserialize (s, buf) {
+function deserialize (s, buf) {
   const sch = getType(s) || s
   return sch.fromBuffer(buf)
 }
 
-export function test () {
+function test () {
   const sch = {
     name: 'test',
     type: 'record',

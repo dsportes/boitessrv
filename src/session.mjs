@@ -54,7 +54,7 @@ export class Session {
     this.ws.onclose = (/* e */) => {
       if (this.sessionId)
         sessions.delete(this.sessionId)
-      console.log('Fermeture de session détectée:' + this.sessionId)
+      if (dev) console.log('Fermeture de session détectée:' + this.sessionId)
     }
     this.ws.onmessage = (m) => {
       // seul message reçu : ping avec le sessionid
@@ -69,7 +69,7 @@ export class Session {
         }
         this.sessionId = newid
         sessions.set(newid, this)
-        console.log('Ouverture de session reçue: ' + newid + ' / ' + d.toISOString())
+        if (dev) console.log('Ouverture de session reçue: ' + newid + ' / ' + d.toISOString())
       } else {
         if (dev) console.log('Ping reçu: ' + newid + ' / ' + d.toISOString())
       }

@@ -6,7 +6,6 @@ const require = createRequire(import.meta.url)
 
 const crypto = require('crypto')
 const base64js = require('base64-js')
-const fs = require('fs')
 
 const dec = new TextDecoder()
 
@@ -17,7 +16,6 @@ export function setSalts (a) {
     SALTS[i] = Uint8Array.prototype.slice.call(b, i * 16, (i + 1) * 16)
   }
 }
-setSalts (fs.readFileSync('./salts'))
 
 export function u8ToB64 (u8, url) {
   const s = base64js.fromByteArray(u8)
