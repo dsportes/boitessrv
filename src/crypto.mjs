@@ -1,25 +1,22 @@
-import { createRequire } from 'module'
-const require = createRequire(import.meta.url)
+import { toByteArray, fromByteArray } from './base64.mjs'
 
 import { pbkfd, sha256, random, crypter, decrypter, decrypterStr, genKeyPair, crypterRSA, decrypterRSA, concat } from './webcrypto.mjs'
-const base64js = require('base64-js')
 
-export const crypt = { pbkfd, sha256, random, crypter, decrypter, decrypterStr, genKeyPair, crypterRSA, decrypterRSA, concat, u8ToB64, b64ToU8, rnd6, hash, hashBin, int2base64, bigToU8, u8ToBig, u8ToInt, intToU8, sidToId, idToSid, test }
+export const crypt = { pbkfd, sha256, random, crypter, decrypter, decrypterStr, genKeyPair, crypterRSA, decrypterRSA, concat, u8ToB64, b64ToU8, rnd6, hash, hashBin, int2base64, bigToU8, u8ToBig, u8ToInt, intToU8, sidToId, idToSid, test1, test2 }
 
-function u8ToB64 (u8, url) {
-  const s = base64js.fromByteArray(u8)
-  if (!url) return s
-  return s.replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
+export function u8ToB64 (u8, url) {
+  const s = fromByteArray(u8)
+  return !url ? s : s.replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
 }
 
-function b64ToU8 (s) {
+export function b64ToU8 (s) {
   const diff = s.length % 4
   let x = s
   if (diff) {
     const pad = '===='.substring(0, 4 - diff)
     x = s + pad
   }
-  return base64js.toByteArray(x.replace(/-/g, '+').replace(/_/g, '/'))
+  return toByteArray(x.replace(/-/g, '+').replace(/_/g, '/'))
 }
 
 function rnd6 () { return u8ToInt(random(6)) }
@@ -139,10 +136,7 @@ function idToSid (id) { // to string (b64)
   return u8ToB64(id, true) // u8 -> b64
 }
 
-async function test () { }
-
-/*
-async function test () {
+async function test1 () {
   const xx = 'https://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript'
   console.log(int2base64(12345678))
   console.log(int2base64(12345678n))
@@ -202,14 +196,13 @@ async function test () {
   console.log(m5 + ' ' + u5.toString('hex') + ' ' + v5.toString('hex') + ' ' + i5 + ' ' + j5)
   console.log(m1 + ' ' + u1.toString('hex') + ' ' + v1.toString('hex') + ' ' + i1 + ' ' + j1)
 }
-exports.test = test
 
-async function testWAC () {
+async function test2 () {
   const enc = new TextEncoder()
   const dec = new TextDecoder()
 
   let cle = 'toto est beau'
-  const clebin2 = await wcrypt.pbkfd(cle)
+  const clebin2 = await crypt.pbkfd(cle)
   const s1 = u8ToB64(clebin2, true)
   let u8 = b64ToU8(s1)
   const s2 = u8ToB64(clebin2, false)
@@ -220,60 +213,35 @@ async function testWAC () {
   console.log(s3)
 
   cle = enc.encode('toto est beau')
-  const clebin = wcrypt.sha256(cle)
-  const cle64 = u8ToB64(clebin, true)
+  const clebin = crypt.sha256(cle)
+  console.log(u8ToB64(clebin, true))
 
-  const sha2 = wcrypt.sha256(cle)
+  const sha2 = crypt.sha256(cle)
   console.log(u8ToB64(sha2, true))
 
-  let x = wcrypt.random(16)
+  let x = crypt.random(16)
   console.log(u8ToB64(x, true))
-  x = wcrypt.random(6)
+  x = crypt.random(6)
   const xx = 'https://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript'
   x = enc.encode(xx)
-  const e1 = Buffer.from(await wcrypt.crypter(clebin, x))
+  const e1 = await crypt.crypter(clebin, x)
   console.log(e1.toString('hex'))
-  const d1 = await wcrypt.decrypter(clebin, e1)
+  const d1 = await crypt.decrypter(clebin, e1)
   console.log(dec.decode(d1))
-  const n = Number(wcrypt.random(1)[0])
-  const e2 = await wcrypt.crypter(cle64, x, n)
+  const y = crypt.random(1)
+  const n = Number(y[0])
+  const e2 = await crypt.crypter(clebin, x, n)
   console.log(e2.toString('hex'))
-  const d2 = await wcrypt.decrypter(clebin, e2)
+  const d2 = await crypt.decrypter(clebin, e2)
   console.log(dec.decode(d2))
-  const e3 = await wcrypt.crypter(cle64, x, n)
+  const e3 = await crypt.crypter(clebin, x, n)
   console.log(e3.toString('hex'))
-  const d3 = await wcrypt.decrypter(clebin, e3)
+  const d3 = await crypt.decrypter(clebin, e3)
   console.log(dec.decode(d3))
 
-  const kp = await wcrypt.genKeyPair()
-  const encRSA2 = await wcrypt.crypterRSA(kp.publicKey, x)
+  const kp = await crypt.genKeyPair()
+  const encRSA2 = await crypt.crypterRSA(kp.publicKey, x)
   console.log('encypted data RSA2 : ' + u8ToB64(encRSA2))
-  const decRSA2 = await wcrypt.decrypterRSA(kp.privateKey, encRSA2)
+  const decRSA2 = await crypt.decrypterRSA(kp.privateKey, encRSA2)
   console.log('decypted data RSA1 : ' + dec.decode(decRSA2))
 }
-exports.testWAC = testWAC
-
-async function testAvro () {
-  const enc = new TextEncoder()
-  const dec = new TextDecoder()
-  const avro = require('avsc')
-  const cle = wcrypt.sha256(enc.encode('toto est beau'))
-  const txt = 'https://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript'
-  const bin = await wcrypt.crypter(cle, enc.encode(txt))
-  const bin2 = Buffer.from(bin)
-  const itemType = avro.Type.forSchema({
-    name: 'item',
-    type: 'record',
-    fields: [
-      { name: 'txt', type: 'string' },
-      { name: 'bin', type: 'bytes' }
-    ]
-  })
-  const item = { txt, bin: bin2 }
-  const buf = itemType.toBuffer(item)
-  const item2 = itemType.fromBuffer(buf)
-  const b = await wcrypt.decrypter(cle, item2.bin)
-  console.log(dec.decode(b))
-}
-exports.testAvro = testAvro
-*/

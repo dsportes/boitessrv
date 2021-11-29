@@ -5,7 +5,8 @@ import { createRequire } from 'module'
 const require = createRequire(import.meta.url)
 
 const crypto = require('crypto')
-const base64js = require('base64-js')
+
+import { toByteArray, fromByteArray } from './base64.mjs'
 
 const dec = new TextDecoder()
 
@@ -18,19 +19,19 @@ export function setSalts (a) {
 }
 
 export function u8ToB64 (u8, url) {
-  const s = base64js.fromByteArray(u8)
+  const s = fromByteArray(u8)
   if (!url) return s
   return s.replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
 }
 
-function b64ToU8 (s) {
+export function b64ToU8 (s) {
   const diff = s.length % 4
   let x = s
   if (diff) {
     const pad = '===='.substring(0, 4 - diff)
     x = s + pad
   }
-  return base64js.toByteArray(x.replace(/-/g, '+').replace(/_/g, '/'))
+  return toByteArray(x.replace(/-/g, '+').replace(/_/g, '/'))
 }
 
 export function sha256 (buffer) {
