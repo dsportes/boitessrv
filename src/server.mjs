@@ -8,9 +8,10 @@ const process = require('process')
 const path = require('path')
 const express = require('express')
 const WebSocket = require('ws')
+import { encode, decode } from '@msgpack/msgpack'
 import { Session } from './session.mjs'
 import { setSalts } from './webcrypto.mjs'
-import { AppExc, E_SRV, X_SRV, F_SRV, version, argTypes } from './api.mjs'
+import { AppExc, E_SRV, X_SRV, F_SRV, version } from './api.mjs'
 
 import { m1fonctions } from './m1.mjs'
 const modules = { m1: m1fonctions }
@@ -120,14 +121,7 @@ async function operation(req, res) {
         Inattendue : Création d'un AppExc avec code < 0 sérialisé en JSON
             HTTP status 402
     *****************************************************************/
-    const at = argTypes[req.params.func]
-    let args
-    if (isGet) {
-      args = req.query
-    } else {
-      const type = at && at.length > 0 ? at[0] : null
-      args = type ? type.fromBuffer(req.body) : JSON.parse(Buffer.from(req.body).toString())
-    }
+    const args = isGet ? req.query : decode(req.body)
     pfx += ' func=' + req.params.mod + '/' + req.params.func + ' org=' + req.params.org
     if (dev) console.log(pfx)
     const result = await func(cfgorg, args, isGet)
@@ -135,10 +129,7 @@ async function operation(req, res) {
     if (isGet)
       setRes(res, 200, result.type || 'application/octet-stream').send(result.bytes)
     else {
-      const type = at && at.length > 1 ? at[1] : null
-      const bytes = type ? type.toBuffer(result) : Buffer.from(JSON.stringify(result))
-      // const obj = type.fromBuffer(bytes)
-      setRes(res, 200).send(bytes)
+      setRes(res, 200).send(Buffer.from(encode(result)))
     }         
   } catch(e) {
     let httpst
@@ -156,15 +147,6 @@ async function operation(req, res) {
     setRes(res, httpst).send(Buffer.from(s))
   }
 }
-
-/*
-const mimetype = {
-    "jpg": "image/jpeg",
-    "jpeg": "image/jpeg",
-    "png": "image/png",
-    "svg": "image/image/svg+xml"
-}
-*/
 
 const dirs = { configdir: './config', dbdir: './databases' }
 process.argv.forEach((arg) => {

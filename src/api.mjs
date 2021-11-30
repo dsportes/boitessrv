@@ -1,5 +1,4 @@
 import { schemas } from './schemas.mjs'
-import './rowTypes.mjs'
 
 export const version = '1'
 
@@ -38,135 +37,253 @@ export const INDEXT = {
   MEMBRE: 2
 }
 
-const arrayIntType = schemas.forSchema({ type: 'array', items: 'int' })
-const arrayLongType = schemas.forSchema({ type: 'array', items: 'long' })
-const mapIntType = schemas.forSchema({ type: 'map', values: 'int' })
+/*
+- `versions` (id) : table des prochains numéros de versions (actuel et dernière sauvegarde) et autres singletons clé / valeur
+- `avgrvq` (id) : volumes et quotas d'un avatar ou groupe
+- `avrsa` (id) : clé publique d'un avatar
 
-const rowItem = schemas.forSchema({
-  name: 'rowitem',
-  type: 'record',
-  fields: [
-    { name: 'table', type: 'string' },
-    { name: 'id', type: 'string' },
-    { name: 'serial', type: ['null', 'bytes'], default: null }
-  ]
-})
+_**Tables aussi persistantes sur le client (IDB)**_
+
+- `compte` (id) : authentification et données d'un compte
+- `avatar` (id) : données d'un avatar et liste de ses contacts
+- `invitgr` (id, ni) : invitation reçue par un avatar à devenir membre d'un groupe
+- `contact` (id, nc) : données d'un contact d'un avatar
+- `invitct` (id, ni) : invitation reçue à lier un contact fort avec un autre avatar
+- `rencontre` (prh) id : communication par A de son nom complet à un avatar B non connu de A dans l'application
+- `parrain` (pph) id : parrainage par un avatar A de la création d'un nouveau compte
+- `groupe` (id) : données du groupe et liste de ses avatars, invités ou ayant été pressentis, un jour à être membre.
+- `membre` (id, im) : données d'un membre du groupe
+- `secret` (id, ns) : données d'un secret d'un avatar ou groupe
+*/
 
 schemas.forSchema({
-  name: 'synclist',
-  type: 'record',
-  fields: [
-    { name: 'sessionId', type: 'string' },
-    { name: 'dh', type: 'long' },
-    { name: 'rowItems', type: ['null', { type: 'array', items: [rowItem] }], default: null }
-  ]
+  name: 'rowavatar',
+  cols: ['id', 'v', 'st', 'vcv', 'dds', 'cva', 'lctk']
 })
-
-const echoArg = schemas.forSchema({
-  name: 'echo',
-  type: 'record',
+/*
   fields: [
-    { name: 'a', type: 'int' },
-    { name: 'b', type: 'string' },
-    { name: 'to', type: 'int' },
-    { name: 'org', type: ['null', 'string'], default: null }
-  ]
-})
-
-const echoResp = schemas.forSchema({
-  name: 'echoResp',
-  type: 'record',
-  fields: [
-    { name: 'a', type: 'int' },
-    { name: 'b', type: 'string' },
-    { name: 'org', type: ['null', 'string'] }
-  ]
-})
-
-const connexionCompte = schemas.forSchema({
-  name: 'connexionCompte',
-  type: 'record',
-  fields: [
-    { name: 'sessionId', type: 'string' },
-    { name: 'pcbh', type: 'long' },
-    { name: 'dpbh', type: 'long' }
-  ]
-})
-
-const respBase1 = schemas.forSchema({
-  name: 'respBase1',
-  type: 'record',
-  fields: [
-    { name: 'sessionId', type: 'string' },
-    { name: 'dh', type: 'long' },
-    { name: 'rowItems', type: ['null', { type: 'array', items: [rowItem] }], default: null }
-  ]
-})
-
-const creationCompte = schemas.forSchema({
-  name: 'creationCompte',
-  type: 'record',
-  fields: [
-    { name: 'sessionId', type: 'string' },
-    { name: 'mdp64', type: 'string' },
-    { name: 'q1', type: 'int' },
-    { name: 'q2', type: 'int' },
-    { name: 'qm1', type: 'int' },
-    { name: 'qm2', type: 'int' },
-    { name: 'clePub', type: 'string' },
-    { name: 'rowCompte', type: 'bytes' },
-    { name: 'rowAvatar', type: 'bytes' }
-  ]
-})
-
-const sync1 = schemas.forSchema({
-  name: 'sync1',
-  type: 'record',
-  fields: [
-    { name: 'sessionId', type: 'string' },
-    { name: 'lvav', type: mapIntType }
-  ]
-})
-
-const sync2 = schemas.forSchema({
-  name: 'sync2',
-  type: 'record',
-  fields: [
-    { name: 'sessionId', type: 'string' },
-    { name: 'idc', type: 'long' },
-    { name: 'lav', type: arrayLongType },
-    { name: 'lgr', type: arrayLongType }
-  ]
-})
-
-const sync3 = schemas.forSchema({
-  name: 'sync3',
-  type: 'record',
-  fields: [
-    { name: 'sessionId', type: 'string' },
-    { name: 'avgr', type: 'long' },
-    { name: 'lv', type: arrayIntType }
-  ]
-})
-
-const sync4 = schemas.forSchema({
-  name: 'sync3',
-  type: 'record',
-  fields: [
-    { name: 'sessionId', type: 'string' },
+    { name: 'id', type: 'long' }, // pk
+    { name: 'v', type: 'int' },
+    { name: 'st', type: 'int' },
     { name: 'vcv', type: 'int' },
-    { name: 'lcvmaj', type: arrayIntType },
-    { name: 'lcvchargt', type: arrayIntType }
+    { name: 'dds', type: 'int' },
+    { name: 'cva', type: 'bytes' },
+    { name: 'lctk', type: 'bytes' }
   ]
-})
+*/
 
-export const argTypes = {
-  echo: [echoArg, echoResp],
-  creationCompte: [creationCompte, respBase1],
-  connexionCompte: [connexionCompte, respBase1],
-  syncInvitgr: [sync1, respBase1],
-  syncAbo: [sync2, respBase1],
-  syncAv: [sync3, respBase1],
-  syncGr: [sync3, respBase1],
-  chargtCVs: [sync4, respBase1]
-}
+schemas.forSchema({
+  name: 'rowavgrq',
+  cols: ['id', 'q1', 'q2', 'qm1', 'qm2', 'v1', 'v2', 'vm1', 'vm2']
+})
+/*
+  fields: [
+    { name: 'id', type: 'long' }, // pk
+    { name: 'q1', type: 'long' },
+    { name: 'q2', type: 'long' },
+    { name: 'qm1', type: 'long' },
+    { name: 'qm2', type: 'long' },
+    { name: 'v1', type: 'long' },
+    { name: 'v2', type: 'long' },
+    { name: 'vm1', type: 'long' },
+    { name: 'vm2', type: 'long' }
+  ]
+*/
+
+schemas.forSchema({
+  name: 'rowavrsa',
+  cols: ['id', 'clepub']
+})
+/*
+  fields: [
+    { name: 'id', type: 'long' }, // pk
+    { name: 'clepub', type: 'bytes' }
+  ]
+*/
+
+schemas.forSchema({
+  name: 'rowcompte',
+  cols: ['id', 'v', 'dds', 'dpbh', 'pcbh', 'kx', 'mack', 'mmck', 'memok']
+})
+/*
+  fields: [
+    { name: 'id', type: 'long' }, // pk
+    { name: 'v', type: 'int' },
+    { name: 'dds', type: 'int' },
+    { name: 'dpbh', type: 'long' }, // index
+    { name: 'pcbh', type: 'long' },
+    { name: 'kx', type: 'bytes' },
+    { name: 'mack', type: 'bytes' },
+    { name: 'mmck', type: 'bytes' },
+    { name: 'memok', type: ['null', 'bytes'] }
+  ]
+*/
+
+schemas.forSchema({
+  name: 'rowcontact',
+  cols: ['id', 'ic', 'v', 'st', 'q1', 'q2', 'qm1', 'qm2', 'ardc', 'icbc', 'vsd', 'datak']
+})
+/*
+  fields: [
+    { name: 'id', type: 'long' }, // pk 1
+    { name: 'ic', type: 'int' }, // pk 2
+    { name: 'v', type: 'int' },
+    { name: 'st', type: 'int' },
+    { name: 'q1', type: 'long' },
+    { name: 'q2', type: 'long' },
+    { name: 'qm1', type: 'long' },
+    { name: 'qm2', type: 'long' },
+    { name: 'ardc', type: 'bytes' },
+    { name: 'icbc', type: 'bytes' },
+    { name: 'vsd', type: 'int' },
+    { name: 'datak', type: 'bytes' }
+  ]
+*/
+
+schemas.forSchema({
+  name: 'rowgroupe',
+  cols: ['id', 'v', 'dds', 'st', 'cvg', 'mcg', 'lstmg']
+})
+/*
+  fields: [
+    { name: 'id', type: 'long' }, // pk
+    { name: 'v', type: 'int' },
+    { name: 'dds', type: 'int' },
+    { name: 'st', type: 'int' },
+    { name: 'cvg', type: ['null', 'bytes'] },
+    { name: 'mcg', type: ['null', 'bytes'] },
+    { name: 'lstmg', type: ['null', 'bytes'] }
+  ]
+*/
+
+schemas.forSchema({
+  name: 'rowinvitct',
+  cols: ['id', 'ni', 'v', 'dlv', 'st', 'datap', 'datak', 'ardc']
+})
+/*
+  fields: [
+    { name: 'id', type: 'long' }, // pk1
+    { name: 'ni', type: 'int' }, // pk2
+    { name: 'v', type: 'int' },
+    { name: 'dlv', type: 'int' },
+    { name: 'st', type: 'int' },
+    { name: 'datap', type: ['null', 'bytes'] },
+    { name: 'datak', type: ['null', 'bytes'] },
+    { name: 'ardc', type: ['null', 'bytes'] }
+  ]
+*/
+
+schemas.forSchema({
+  name: 'rowinvitgr',
+  cols: ['id', 'ni', 'v', 'dlv', 'st', 'datap', 'datak']
+})
+/*
+  fields: [
+    { name: 'id', type: 'long' }, // pk1
+    { name: 'ni', type: 'int' }, // pk2
+    { name: 'v', type: 'int' },
+    { name: 'dlv', type: 'int' },
+    { name: 'st', type: 'int' },
+    { name: 'datap', type: ['null', 'bytes'] },
+    { name: 'datak', type: ['null', 'bytes'] }
+  ]
+*/
+
+schemas.forSchema({
+  name: 'rowmembre',
+  cols: ['id', 'im', 'v', 'st', 'dlv', 'vsd', 'datag', 'ardg', 'lmck']
+})
+/*
+  fields: [
+    { name: 'id', type: 'long' }, // pk 1
+    { name: 'im', type: 'int' }, // pk 2
+    { name: 'v', type: 'int' },
+    { name: 'st', type: 'int' },
+    { name: 'dlv', type: 'int' },
+    { name: 'vsd', type: 'int' },
+    { name: 'datag', type: ['null', 'bytes'] },
+    { name: 'ardg', type: ['null', 'bytes'] },
+    { name: 'lmck', type: ['null', 'bytes'] }
+  ]
+*/
+
+schemas.forSchema({
+  name: 'rowparrain',
+  cols: ['pph', 'id', 'nc', 'dlv', 'st', 'v', 'q1', 'q2', 'qm1', 'qm2', 'datak', 'datax', 'ardc']
+})
+/*
+  fields: [
+    { name: 'pph', type: 'long' }, // pk
+    { name: 'id', type: 'long' },
+    { name: 'nc', type: 'int' },
+    { name: 'dlv', type: 'int' },
+    { name: 'st', type: 'int' },
+    { name: 'v', type: 'int' },
+    { name: 'q1', type: 'long' },
+    { name: 'q2', type: 'long' },
+    { name: 'qm1', type: 'long' },
+    { name: 'qm2', type: 'long' },
+    { name: 'datak', type: ['null', 'bytes'] },
+    { name: 'datax', type: ['null', 'bytes'] },
+    { name: 'ardc', type: ['null', 'bytes'] }
+  ]
+*/
+
+schemas.forSchema({
+  name: 'rowrencontre',
+  cols: ['prh', 'id', 'v', 'dlv', 'st', 'datak', 'nomcx']
+})
+/*
+  fields: [
+    { name: 'prh', type: 'long' }, // pk
+    { name: 'id', type: 'long' },
+    { name: 'v', type: 'int' },
+    { name: 'dlv', type: 'int' },
+    { name: 'st', type: 'int' },
+    { name: 'datak', type: ['null', 'bytes'] },
+    { name: 'nomcx', type: ['null', 'bytes'] }
+  ]
+*/
+
+schemas.forSchema({
+  name: 'rowsecret',
+  cols: ['id', 'ns', 'ic', 'v', 'st', 'txts', 'mcs', 'vsd', 'aps', 'dups']
+})
+/*
+  fields: [
+    { name: 'id', type: 'long' }, // pk1
+    { name: 'ns', type: 'int' }, // pk2
+    { name: 'ic', type: 'int' },
+    { name: 'v', type: 'int' },
+    { name: 'st', type: 'int' },
+    { name: 'txts', type: ['null', 'bytes'] },
+    { name: 'mcs', type: ['null', 'bytes'] },
+    { name: 'vsd', type: 'int' },
+    { name: 'aps', type: ['null', 'bytes'] },
+    { name: 'dups', type: ['null', 'bytes'] }
+  ]
+*/
+
+schemas.forSchema({
+  name: 'rowversions',
+  cols: ['id', 'v']
+})
+/*
+  fields: [
+    { name: 'id', type: 'int' }, // pk
+    { name: 'v', type: 'bytes' }
+  ]
+*/
+
+schemas.forSchema({
+  name: 'rowcv',
+  cols: ['id', 'vcv', 'st', 'phinf']
+})
+/*
+  fields: [
+    { name: 'id', type: 'long' },
+    { name: 'vcv', type: 'int' },
+    { name: 'st', type: 'int' }, // négatif, avatar supprimé / disparu, 0:OK, 1:alerte
+    { name: 'phinf', type: ['null', 'bytes'], default: null }
+  ]
+*/

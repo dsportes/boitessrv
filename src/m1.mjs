@@ -1,11 +1,10 @@
-import { createRequire } from 'module'
-const require = createRequire(import.meta.url)
-
 import { crypt } from './crypto.mjs'
+import { getdhc, sleep, dds, deserial, serial } from './util.mjs'
 import { getSession } from './session.mjs'
-const now = require('nano-time')
 import { AppExc, X_SRV, INDEXT } from './api.mjs'
 import { schemas } from './schemas.mjs'
+
+export const m1fonctions = { }
 
 const VERSIONS = 1
 
@@ -17,15 +16,8 @@ for (let i = 0; i < nbVersions; i++) { defautVersions[i] = 0 }
 
 const valueTypes = {
   0: { type: 'json', defaut: '{}' },
-  1: { type: schemas.forSchema({ type: 'array', items: 'int' }), defaut: defautVersions }
+  1: { defaut: defautVersions }
 }
-
-function sleep (delai) {
-  if (delai <= 0) return
-  return new Promise((resolve) => { setTimeout(() => resolve(), delai) })
-}
-
-export const m1fonctions = { }
 
 /*
 Initialisation du module APRES que le serveur ait été créé et soit opérationnel
@@ -82,62 +74,6 @@ async function pingdb (cfg) {
 }
 m1fonctions.pingdb = pingdb
 
-/*
-function decryptDatax(cle, datax) {
-    const x = crypt.decrypter(cle, Buffer.from(datax, 'base64'))
-    const y = x.toString('utf8')
-    return JSON.parse(y)
-}
-
-function cryptDatax(cle, datax) {
-    const j = JSON.stringify(datax)
-    return [j, base64url(crypt.crypter(cle, Buffer.from(j, 'utf8')))]
-}
-*/
-
-function getdhc() {
-  return parseInt(now.micro(), 10)
-}
-
-class Dds {
-  constructor () {
-    this.j0 = Math.floor(new Date('2020-01-01T00:00:00').getTime() / 86400000)
-  }
-  
-  // jour courant (nombre de jours écoulés) depuis le 1/1/2020
-  jourJ () {
-    return Math.floor(new Date().getTime() / 86400000) - this.j0
-  }
-
-  /* 
-  Si la dds actuelle du compte n'a pas plus de 28 jours, elle convient encore.
-  Sinon il faut en réattribuer une qui ait entre 14 et 28 jours d'âge.
-  */
-  ddsc (dds) {
-    const j = this.jourJ()
-    return ((j - dds) > 28) ? j - 14 - Math.floor(Math.random() * 14) : dds
-  }
-
-  /* 
-  Si la dds actuelle de l'avatar ou du groupe n'a pas plus de 14 jours, elle convient encore.
-  Sinon il faut en réattribuer une qui ait entre 0 et 14 d'âge.
-  */
-  ddsag (dds) {
-    const j = this.jourJ()
-    return ((j - dds) > 14) ? j - Math.floor(Math.random() * 14) : dds
-  }
-}
-const dds = new Dds()
-
-/* Mois courant depuis janvier 2020 */
-// eslint-disable-next-line no-unused-vars
-function getMois () {
-  const d = new Date()
-  const an = (d.getUTCFullYear() % 100) - 20
-  const mo = d.getUTCMonth()
-  return ( (an * 12) + mo)
-}
-
 /******************************************/
 const cachestmt = { }
 
@@ -172,10 +108,10 @@ function getValue (cfg, n) {
   const res = stmt(cfg, selvalues).get({ id: n })
   let bin = res ? res.v : null
   if (bin) {
-    value = t.type === 'json' ? JSON.parse(Buffer.from(bin).toString()) : t.type.fromBuffer(bin)
+    value = t.type === 'json' ? JSON.parse(Buffer.from(bin).toString()) : deserial(bin)
   } else {
     value = t.defaut
-    bin = t.type === 'json' ? Buffer.from(value) : t.type.toBuffer(value)
+    bin = t.type === 'json' ? Buffer.from(value) : serial(value)
     stmt(cfg, insvalues).run({ id: n, v: bin })
   }
   cache[n] = value
@@ -185,14 +121,14 @@ function getValue (cfg, n) {
 function setValue (cfg, n) {
   const t = valueTypes[n]
   const value = cacheValues[cfg.code][n]
-  const bin = t.type === 'json' ? Buffer.from(value) : t.type.toBuffer(value)
+  const bin = t.type === 'json' ? Buffer.from(value) : serial(value)
   stmt(cfg, updvalues).run({ id: n, v: bin })
 }
 
 /******************************************/
 function newItem (table, row) {
   const item = { table: table }
-  if (row.id) item.id = crypt.idToSid(row.id)
+  if (row.id) item.sid = crypt.idToSid(row.id)
   item.serial = schemas.serialize('row' + table, row)
   return item
 }
@@ -273,10 +209,8 @@ function creationCompteTr (cfg, session, compte, avatar, avrsa, avgrvq) {
       throw new AppExc(X_SRV, 'Une phrase secrète semblable est déjà utilisée. Changer a minima la première ligne de la phrase secrète pour ce nouveau compte')
     }
   }
-  const c1 = { ...compte }
-  const a1 = { ...avatar }
-  stmt(cfg, inscompte).run(c1)
-  stmt(cfg, insavatar).run(a1)
+  stmt(cfg, inscompte).run(compte)
+  stmt(cfg, insavatar).run(avatar)
   stmt(cfg, insavrsa).run(avrsa)
   stmt(cfg, insavgrvq).run(avgrvq)
   session.compteId = compte.id

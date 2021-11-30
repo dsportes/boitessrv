@@ -1,19 +1,12 @@
-import { createRequire } from 'module'
-const require = createRequire(import.meta.url)
-
-const now = require('nano-time')
 import { PINGTO } from './api.mjs'
 import { schemas } from './schemas.mjs'
+import { getdhc } from './util.mjs'
 
 const dev = process.env.NODE_ENV === 'development'
 
 const sessions = new Map()
 
 export function getSession (id) { return sessions.get(id) }
-
-function getdhc() {
-  return parseInt(now.micro(), 10)
-}
 
 const sessionsmortes = new Set()
 
