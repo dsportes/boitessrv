@@ -1,4 +1,4 @@
-Passage à msgpack
+Passage à msgpack OK
 
 La distribution "simple" est le zip des fichiers :
 
