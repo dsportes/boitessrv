@@ -1,3 +1,5 @@
+Passage à msgpack
+
 La distribution "simple" est le zip des fichiers :
 
 config.json favicon.ico package.json README.md server.js
