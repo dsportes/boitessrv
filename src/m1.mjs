@@ -1,6 +1,6 @@
 import { crypt } from './crypto.mjs'
 import { getdhc, sleep, dds, deserial, serial } from './util.mjs'
-import { getSession } from './session.mjs'
+import { getSession, syncListQueue, processQueue } from './session.mjs'
 import { AppExc, X_SRV, INDEXT } from './api.mjs'
 import { schemas } from './schemas.mjs'
 
@@ -139,6 +139,7 @@ const insavatar = 'INSERT INTO avatar (id, v, st, vcv, dds, cva, lctk) VALUES (@
 const insavrsa = 'INSERT INTO avrsa (id, clepub) VALUES (@id, @clepub)'
 const insavgrvq = 'INSERT INTO avgrvq (id, q1, q2, qm1, qm2, v1, v2, vm1, vm2) VALUES (@id, @q1, @q2, @qm1, @qm2, @v1, @v2, @vm1, @vm2)'
 const selcomptedpbh = 'SELECT * FROM compte WHERE dpbh = @dpbh'
+const selcompteid = 'SELECT * FROM compte WHERE id = @id'
 
 function idx (id) {
   return (id % (nbVersions - 1)) + 1
@@ -164,7 +165,6 @@ Retour :
   name: 'respBase1',
   type: 'record',
   fields: [
-    { name: 'status', type: 'int' },
     { name: 'sessionId', type: 'string' },
     { name: 'dh', type: 'long' },
     { name: 'rows', type: { type: 'array', items: ['bytes'] } }
@@ -215,6 +215,92 @@ function creationCompteTr (cfg, session, compte, avatar, avrsa, avgrvq) {
   stmt(cfg, insavgrvq).run(avgrvq)
   session.compteId = compte.id
   session.avatarsId = [avatar.id]
+}
+
+/***************************************
+Enregistrement du memo d'un compte :
+Args : 
+- sessionId
+- id: du compte
+- memok : memo crypté par la clé K
+Retour :
+- sessionId
+- dh
+Exception : compte inexistant
+*/
+const updmemokcompte = 'UPDATE compte SET v = @v, memok = @memok WHERE id = @id'
+
+function memoCompte (cfg, args) { 
+  const dh = getdhc()
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.id)
+  versions[j]++
+  setValue(cfg, VERSIONS)
+  const v = versions[j]
+
+  const rowItems = []
+
+  cfg.db.transaction(memoCompteTr)(cfg, args.id, v, args.memok, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return { sessionId: args.sessionId, dh: dh }
+}
+m1fonctions.memoCompte = memoCompte
+
+function memoCompteTr (cfg, id, v, memok, rowItems) {
+  const c = stmt(cfg, selcompteid).get({ id: id })
+  if (!c) {
+    throw new AppExc(X_SRV, 'Compte inexistant. Bug probable.')
+  }
+  c.memok = memok
+  c.v = v
+  stmt(cfg, updmemokcompte).run( { memok, v, id })
+  rowItems.push(newItem('compte', c))
+}
+
+/***************************************
+Enregistrement des mots clés d'un compte :
+Args : 
+- sessionId
+- id: du compte
+- mmck : map des mots cles cryptée par la clé K
+Retour :
+- sessionId
+- dh
+Exception : compte inexistant
+*/
+const updmmckcompte = 'UPDATE compte SET v = @v, mmck = @mmck WHERE id = @id'
+
+function mmcCompte (cfg, args) { 
+  const dh = getdhc()
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.id)
+  versions[j]++
+  setValue(cfg, VERSIONS)
+  const v = versions[j]
+
+  const rowItems = []
+
+  cfg.db.transaction(mmcCompteTr)(cfg, args.id, v, args.mmck, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return { sessionId: args.sessionId, dh: dh }
+}
+m1fonctions.mmcCompte = mmcCompte
+
+function mmcCompteTr (cfg, id, v, mmck, rowItems) {
+  const c = stmt(cfg, selcompteid).get({ id: id })
+  if (!c) {
+    throw new AppExc(X_SRV, 'Compte inexistant. Bug probable.')
+  }
+  c.mmck = mmck
+  c.v = v
+  stmt(cfg, updmmckcompte).run( { mmck, v, id })
+  rowItems.push(newItem('compte', c))
 }
 
 /******************************************
@@ -345,8 +431,8 @@ async function syncAbo (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const session = getSession(args.sessionId)
   if (args.idc) session.compteId = args.idc
-  session.avatarsIds = args.lav
-  session.groupesIds = args.lgr
+  session.avatarsIds = new Set(args.lav)
+  session.groupesIds = new Set(args.lgr)
 
   if (args.idc) {
     cfg.db.transaction(signaturesTr)(cfg, args.idc, args.lav, args.lgr)
@@ -384,7 +470,7 @@ m1fonctions.syncAbo = syncAbo
 Chargement des CVs :
 - celles de lcvmaj si changées après vcv
 - celles de lcvchargt sans filtre de version
-Abonnement de l'union des deux listes
+Abonnement à l'union des deux listes
     { name: 'sessionId', type: 'string' },
     { name: 'vcv', type: 'int' },
     { name: 'lcvmaj', type: arrayIntType },
@@ -396,7 +482,7 @@ const selcv2 = 'SELECT id, vcv, st, phinf FROM avatar WHERE id IN @lid'
 async function chargtCVs (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const session = getSession(args.sessionId)
-  session.cvsIds = args.lcvmaj.concat(args.lcvchargt)
+  session.cvsIds = new Set(args.lcvmaj.concat(args.lcvchargt))
   const rowItems = []
 
   let lst = []
@@ -422,7 +508,12 @@ async function chargtCVs (cfg, args) {
 }
 m1fonctions.chargtCVs = chargtCVs
 
-/******************************************/
+/*****************************************
+getcv : retourne la CV d'un avatar
+args : 
+-sessionId
+-sid de l'avatar
+*/
 const bytes0 = new Uint8Array(0)
 const selcv = 'SELECT id, st, vcv, cva FROM avatar WHERE id = @id'
 async function getcv (cfg, args) {
@@ -438,8 +529,12 @@ async function getcv (cfg, args) {
 }
 m1fonctions.getcv = getcv
 
-/******************************************/
-const selavrsapub = 'SELECT clepub FROM avrsa WHERE id = @id'
+/*****************************************
+getclepub : retourne la clé publique d'un avatar
+args : 
+-sessionId
+-sid de l'avatar
+*/const selavrsapub = 'SELECT clepub FROM avrsa WHERE id = @id'
 async function getclepub (cfg, args) {
   try {
     const c = stmt(cfg, selavrsapub).get({ id: crypt.sidToId(args.sid) })

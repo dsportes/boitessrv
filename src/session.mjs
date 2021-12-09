@@ -35,9 +35,9 @@ export class Session {
     this.dhping = 0
     this.sessionId = null
     this.compteId = null
-    this.avatarsIds = []
-    this.groupesIds = []
-    this.cvsIds = []
+    this.avatarsIds = null // Set
+    this.groupesIds = null // Set
+    this.cvsIds = null // Set
     this.nbpings = 0
     this.ws.onerror = (e) => {
       console.log(e)
@@ -75,15 +75,79 @@ export class Session {
     }    
   }
 
+  aavatar (rowItem) {
+    return this.avatarIds && this.avatarsIds.has(rowItem.id)
+  }
+
+  agroupe (rowItem) {
+    return this.groupeIds && this.groupeIds.has(rowItem.id)
+  }
+
+  acv (rowItem) {
+    return this.cvIds && this.cvIds.has(rowItem.id)
+  }
+
   send (data) {
     this.ws.send(data)
   }
 
-  sync (/* rows, delobjs */) {
-    /* 
-    liste d'envoi : liste des rows créés / modifiés, liste des objets supprimés
-    Uniquement ceux concerné par la session
-    */
+  traiteSyncList (syncList) { // syncList : { sessionId, dh, rowItems }
+    // filtre dans rowItems ceux concernés par la session et envoie (éventuellement) le message
+    const msg = { sessionId: syncList.sessionId, dh: syncList.dh, rowItems: [] }
+    syncList.rowItems.forEach((rowItem) => {
+      switch (rowItem.table) {
+      case 'avatar' : {
+        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
+        break
+      }
+      case 'compte' : {
+        if (rowItem.id === this.compteId) msg.rowItems.push(rowItem)
+        break
+      }
+      case 'contact' : {
+        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
+        break
+      }
+      case 'groupe' : {
+        if (this.agroupe(rowItem)) msg.rowItems.push(rowItem)
+        break
+      }
+      case 'invitct' : {
+        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
+        break
+      }
+      case 'invitgr' : {
+        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
+        break
+      }
+      case 'membre' : {
+        if (this.agroupe(rowItem)) msg.rowItems.push(rowItem)
+        break
+      }
+      case 'parrain' : {
+        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
+        break
+      }
+      case 'rencontre' : {
+        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
+        break
+      }
+      case 'secret' : {
+        if (this.aavatar(rowItem) || this.agroupe(rowItem) ) msg.rowItems.push(rowItem)
+        break
+      }
+      case 'cv' : {
+        if (this.acv(rowItem)) msg.rowItems.push(rowItem)
+        break
+      }
+      }
+    })
+    if (msg.rowItems.length) {
+      const buf = schemas.serialize('syncList', msg)
+      setImmediate(() => {
+        this.send(buf)
+      })
+    }
   }
 }
 
@@ -94,5 +158,17 @@ export function syncSessions(rows, delobjs) {
   })
   for (const s of sessions) {
     sessions[s].sync(rows, delobjs)
+  }
+}
+
+export const syncListQueue = [] // array de syncList : { sessionId, dh, rowItems }
+
+export function processQueue() {
+  while (syncListQueue.length) {
+    const syncList = syncListQueue[0]
+    sessions.forEach((session) => {
+      if (syncList.rowItems.length) session.traiteSyncList(syncList)
+    })
+    syncListQueue.splice(0, 1)
   }
 }

@@ -287,3 +287,8 @@ schemas.forSchema({
     { name: 'phinf', type: ['null', 'bytes'], default: null }
   ]
 */
+
+schemas.forSchema({
+  name: 'syncList',
+  cols: ['sessionId', 'dh', 'rowItems']
+})
