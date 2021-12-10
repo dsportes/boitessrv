@@ -128,7 +128,7 @@ function setValue (cfg, n) {
 /******************************************/
 function newItem (table, row) {
   const item = { table: table }
-  if (row.id) item.sid = crypt.idToSid(row.id)
+  if (row.id) item.id = row.id
   item.serial = schemas.serialize('row' + table, row)
   return item
 }

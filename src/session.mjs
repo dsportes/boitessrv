@@ -93,7 +93,7 @@ export class Session {
 
   traiteSyncList (syncList) { // syncList : { sessionId, dh, rowItems }
     // filtre dans rowItems ceux concernés par la session et envoie (éventuellement) le message
-    const msg = { sessionId: syncList.sessionId, dh: syncList.dh, rowItems: [] }
+    const msg = { sessionId: this.sessionId, dh: syncList.dh, rowItems: [] }
     syncList.rowItems.forEach((rowItem) => {
       switch (rowItem.table) {
       case 'avatar' : {
