@@ -75,12 +75,12 @@ export class Session {
     }    
   }
 
-  aavatar (rowItem) {
-    return this.avatarIds && this.avatarsIds.has(rowItem.id)
+  avatar (rowItem) {
+    return this.avatarsIds && this.avatarsIds.has(rowItem.id)
   }
 
   agroupe (rowItem) {
-    return this.groupeIds && this.groupeIds.has(rowItem.id)
+    return this.groupesIds && this.groupesIds.has(rowItem.id)
   }
 
   acv (rowItem) {
@@ -97,7 +97,7 @@ export class Session {
     syncList.rowItems.forEach((rowItem) => {
       switch (rowItem.table) {
       case 'avatar' : {
-        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
+        if (this.avatar(rowItem)) msg.rowItems.push(rowItem)
         break
       }
       case 'compte' : {
@@ -105,7 +105,7 @@ export class Session {
         break
       }
       case 'contact' : {
-        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
+        if (this.avatar(rowItem)) msg.rowItems.push(rowItem)
         break
       }
       case 'groupe' : {
@@ -113,11 +113,11 @@ export class Session {
         break
       }
       case 'invitct' : {
-        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
+        if (this.avatar(rowItem)) msg.rowItems.push(rowItem)
         break
       }
       case 'invitgr' : {
-        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
+        if (this.avatar(rowItem)) msg.rowItems.push(rowItem)
         break
       }
       case 'membre' : {
@@ -125,15 +125,15 @@ export class Session {
         break
       }
       case 'parrain' : {
-        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
+        if (this.avatar(rowItem)) msg.rowItems.push(rowItem)
         break
       }
       case 'rencontre' : {
-        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
+        if (this.avatar(rowItem)) msg.rowItems.push(rowItem)
         break
       }
       case 'secret' : {
-        if (this.aavatar(rowItem) || this.agroupe(rowItem) ) msg.rowItems.push(rowItem)
+        if (this.avatar(rowItem) || this.agroupe(rowItem) ) msg.rowItems.push(rowItem)
         break
       }
       case 'cv' : {

@@ -140,6 +140,7 @@ const insavrsa = 'INSERT INTO avrsa (id, clepub) VALUES (@id, @clepub)'
 const insavgrvq = 'INSERT INTO avgrvq (id, q1, q2, qm1, qm2, v1, v2, vm1, vm2) VALUES (@id, @q1, @q2, @qm1, @qm2, @v1, @v2, @vm1, @vm2)'
 const selcomptedpbh = 'SELECT * FROM compte WHERE dpbh = @dpbh'
 const selcompteid = 'SELECT * FROM compte WHERE id = @id'
+const selavatarid = 'SELECT * FROM avatar WHERE id = @id'
 
 function idx (id) {
   return (id % (nbVersions - 1)) + 1
@@ -301,6 +302,52 @@ function mmcCompteTr (cfg, id, v, mmck, rowItems) {
   c.v = v
   stmt(cfg, updmmckcompte).run( { mmck, v, id })
   rowItems.push(newItem('compte', c))
+}
+
+/***************************************
+Enregistrement de la CV d'un avatar :
+Args : 
+- sessionId
+- id: de l'avatar
+- phinfo : [ph, info] crtpter par la clé de l'avatar et sérialisé]
+Retour :
+- sessionId
+- dh
+Exception : avatar inexistant
+*/
+const updcvavatar = 'UPDATE avatar SET v = @v, vcv = @vcv, cva = @cva WHERE id = @id'
+
+function cvAvatar (cfg, args) { 
+  const dh = getdhc()
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.id)
+  versions[j]++
+  setValue(cfg, VERSIONS)
+  const v = versions[j]
+
+  const rowItems = []
+
+  cfg.db.transaction(cvAvatarTr)(cfg, args.id, v, args.phinfo, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return { sessionId: args.sessionId, dh: dh }
+}
+m1fonctions.cvAvatar = cvAvatar
+
+function cvAvatarTr (cfg, id, v, cva, rowItems) {
+  const a = stmt(cfg, selavatarid).get({ id: id })
+  if (!a) {
+    throw new AppExc(X_SRV, 'Avatar inexistant. Bug probable.')
+  }
+  a.cva = cva
+  a.v = v
+  a.vcv = v
+  stmt(cfg, updcvavatar).run( { cva, vcv: v, v, id })
+  rowItems.push(newItem('avatar', a))
+  // cols: ['id', 'vcv', 'st', 'phinf']
+  rowItems.push(newItem('cv', { id: id, vcv: v, st: a.st, phinf: cva }))
 }
 
 /******************************************
