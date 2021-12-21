@@ -25,6 +25,9 @@ export class AppExc {
   }
 }
 
+export const EXBRK = new AppExc(E_BRK, 'Interruption volontaire')
+export const EXPS = new AppExc(F_BRO, 'La phrase secrète a changé depuis l\'authentification du comptE Déconnexion et reconnexion requise')
+
 export const INDEXT = {
   SECRET: 0,
   INVITGR: 1,
@@ -238,11 +241,12 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowsecret',
-  cols: ['id', 'ns', 'ic', 'v', 'st', 'ora', 'v1', 'v2', 'txts', 'mcs', 'mpjs', 'dups', 'vsh']
+  cols: ['id', 'ns', 'nr', 'ic', 'v', 'st', 'ora', 'v1', 'v2', 'txts', 'mcs', 'mpjs', 'dups', 'vsh']
 })
 /*
     "id"  INTEGER,
     "ns"  INTEGER,
+    "nr"  INTEGER,
     "ic"  INTEGER,
     "v"   INTEGER,
     "st   INTEGER,

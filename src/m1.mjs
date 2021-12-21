@@ -137,7 +137,9 @@ function newItem (table, row) {
 const inscompte = 'INSERT INTO compte (id, v, dds, dpbh, pcbh, kx, mack, mmck, memok) VALUES (@id, @v, @dds, @dpbh, @pcbh, @kx, @mack, @mmck, @memok)'
 const insavatar = 'INSERT INTO avatar (id, v, st, vcv, dds, cva, lctk) VALUES (@id, @v, @st, @vcv, @dds, @cva, @lctk)'
 const insavrsa = 'INSERT INTO avrsa (id, clepub) VALUES (@id, @clepub)'
+const selavgrvqid = 'SELECT * FROM avgrvq WHERE id = @id'
 const insavgrvq = 'INSERT INTO avgrvq (id, q1, q2, qm1, qm2, v1, v2, vm1, vm2) VALUES (@id, @q1, @q2, @qm1, @qm2, @v1, @v2, @vm1, @vm2)'
+const updavgrvq = 'UPDATE avgrvq SET q1 = @q1, q2 = @q2, qm1 = @qm1, qm2 = @qm2, v1 = @v1, v2 = @v2, vm1 = @vm1, vm2 = @vm2 WHERE id = @id'
 const selcomptedpbh = 'SELECT * FROM compte WHERE dpbh = @dpbh'
 const selcompteid = 'SELECT * FROM compte WHERE id = @id'
 const selavatarid = 'SELECT * FROM avatar WHERE id = @id'
@@ -581,7 +583,8 @@ getclepub : retourne la clé publique d'un avatar
 args : 
 -sessionId
 -sid de l'avatar
-*/const selavrsapub = 'SELECT clepub FROM avrsa WHERE id = @id'
+*/
+const selavrsapub = 'SELECT clepub FROM avrsa WHERE id = @id'
 async function getclepub (cfg, args) {
   try {
     const c = stmt(cfg, selavrsapub).get({ id: crypt.sidToId(args.sid) })
@@ -593,3 +596,55 @@ async function getclepub (cfg, args) {
   }
 }
 m1fonctions.getclepub = getclepub
+
+/***************************************
+Nouveau secret personnel
+Args : 
+- sessionId
+- rowSecret (v à 0)
+Retour :
+- sessionId
+- dh
+Exception : dépassement des quotas 
+*/
+const inssecret = 'INSERT INTO secret (id, ns, nr, ic, v, st, ora, v1, v2, txts, mcs, mpjs, dups, vsh) ' +
+  'VALUES (@id, @ns, @nr, @ic, @v, @st, @ora, @v1, @v2, @txts, @mcs, @mpjs, @dups, @vsh)'
+
+function nouveauSecretP (cfg, args) { 
+  const dh = getdhc()
+  const secret = schemas.deserialize('rowsecret', args.rowSecret)
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(secret.id)
+  versions[j]++
+  setValue(cfg, VERSIONS)
+  secret.v = versions[j]
+
+  cfg.db.transaction(nouveauSecretPTr)(cfg, secret)
+
+  const rowItems = []
+  rowItems.push(newItem('secret', secret))
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return { sessionId: args.sessionId, dh: dh }
+}
+m1fonctions.nouveauSecretP = nouveauSecretP
+
+function nouveauSecretPTr (cfg, secret) {
+
+  const a = stmt(cfg, selavgrvqid).get({ id: secret.id })
+  if (a) {
+    if (secret.st === 99999) {
+      a.v1 = a.v1 + secret.v1
+    } else {
+      a.vm1 = a.vm1 + secret.v1
+    }
+  }
+  if (!a || a.v1 > a.q1 || a.vm1 > a.qm1) {
+    console.log('Quotas d\'espace insuffisants.')
+    // throw new AppExc(X_SRV, 'Quotas d\'espace insuffisants.')
+  }
+  stmt(cfg, updavgrvq).run(a)
+  stmt(cfg, inssecret).run(secret)
+}
