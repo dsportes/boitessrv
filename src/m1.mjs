@@ -143,6 +143,7 @@ const updavgrvq = 'UPDATE avgrvq SET q1 = @q1, q2 = @q2, qm1 = @qm1, qm2 = @qm2,
 const selcomptedpbh = 'SELECT * FROM compte WHERE dpbh = @dpbh'
 const selcompteid = 'SELECT * FROM compte WHERE id = @id'
 const selavatarid = 'SELECT * FROM avatar WHERE id = @id'
+const selsecretidns = 'SELECT * FROM secret WHERE id = @id AND ns = @ns'
 
 function idx (id) {
   return (id % (nbVersions - 1)) + 1
@@ -647,4 +648,66 @@ function nouveauSecretPTr (cfg, secret) {
   }
   stmt(cfg, updavgrvq).run(a)
   stmt(cfg, inssecret).run(secret)
+}
+
+/***************************************
+MAJ secret
+Args : 
+- sessionId, id, ns, v1, txts, mcs
+Retour :
+- sessionId
+- dh
+Exception : dépassement des quotas 
+*/
+const upd1secret = 'UPDATE secret SET v = @v, v1 = @v1, txts = @txts, mcs = @mcs WHERE id = @id AND ns = @ns'
+
+function maj1SecretP (cfg, args) { 
+  const dh = getdhc()
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.id)
+  versions[j]++
+  setValue(cfg, VERSIONS)
+  args.v = versions[j]
+  const rowItems = []
+
+  cfg.db.transaction(maj1SecretPTr)(cfg, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return { sessionId: args.sessionId, dh: dh }
+}
+m1fonctions.maj1SecretP = maj1SecretP
+
+function maj1SecretPTr (cfg, args, rowItems) {
+
+  const secret = stmt(cfg, selsecretidns).get({ id: args.id, ns: args.ns }) 
+  if (!secret) {
+    console.log('Secret inconnu.')
+    throw new AppExc(X_SRV, 'Secret inexistant.')
+  }
+
+  const deltav1 = args.v1 - secret.v1
+  secret.v1 = args.v1
+  secret.mcs = args.mcs
+  secret.txts = args.txts
+  secret.v = args.v
+
+  const a = stmt(cfg, selavgrvqid).get({ id: args.id })
+  if (a) {
+    if (secret.st === 99999) {
+      a.v1 = a.v1 + deltav1
+    } else {
+      a.vm1 = a.vm1 + deltav1
+    }
+  }
+  if (!a || a.v1 > a.q1 || a.vm1 > a.qm1) {
+    console.log('Quotas d\'espace insuffisants.')
+    // throw new AppExc(X_SRV, 'Quotas d\'espace insuffisants.')
+  }
+
+  rowItems.push(newItem('secret', secret))
+
+  stmt(cfg, updavgrvq).run(a)
+  stmt(cfg, upd1secret).run(secret)
 }
