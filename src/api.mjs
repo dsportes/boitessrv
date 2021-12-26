@@ -241,7 +241,7 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowsecret',
-  cols: ['id', 'ns', 'nr', 'ic', 'v', 'st', 'ora', 'v1', 'v2', 'txts', 'mcs', 'mpjs', 'dups', 'vsh']
+  cols: ['id', 'ns', 'ic', 'v', 'st', 'ora', 'v1', 'v2', 'txts', 'mcs', 'mpjs', 'dups', 'refs', 'vsh']
 })
 /*
     "id"  INTEGER,
@@ -264,10 +264,6 @@ schemas.forSchema({
   name: 'rowversions',
   cols: ['id', 'v']
 })
-/*
-    "id"  INTEGER,
-    "v"  BLOB,
-*/
 
 schemas.forSchema({
   name: 'rowcv',
