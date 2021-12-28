@@ -35,9 +35,9 @@ export class Session {
     this.dhping = 0
     this.sessionId = null
     this.compteId = null
-    this.avatarsIds = null // Set
-    this.groupesIds = null // Set
-    this.cvsIds = null // Set
+    this.avatarsIds = new Set() // Set
+    this.groupesIds = new Set // Set
+    this.cvsIds = new Set() // Set
     this.nbpings = 0
     this.ws.onerror = (e) => {
       console.log(e)
@@ -75,7 +75,19 @@ export class Session {
     }    
   }
 
-  avatar (rowItem) {
+  plusAvatars (ar) {
+    if (ar && ar.length) ar.forEach(id => { this.avatarsIds.add(id) })
+  }
+
+  plusGroupes (ar) {
+    if (ar && ar.length) ar.forEach(id => { this.groupesIds.add(id) })
+  }
+
+  plusCvs (ar) {
+    if (ar && ar.length) ar.forEach(id => { this.cvIds.add(id) })
+  }
+
+  aavatar (rowItem) {
     return this.avatarsIds && this.avatarsIds.has(rowItem.id)
   }
 
@@ -97,7 +109,7 @@ export class Session {
     syncList.rowItems.forEach((rowItem) => {
       switch (rowItem.table) {
       case 'avatar' : {
-        if (this.avatar(rowItem)) msg.rowItems.push(rowItem)
+        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
         break
       }
       case 'compte' : {
@@ -105,7 +117,7 @@ export class Session {
         break
       }
       case 'contact' : {
-        if (this.avatar(rowItem)) msg.rowItems.push(rowItem)
+        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
         break
       }
       case 'groupe' : {
@@ -113,7 +125,7 @@ export class Session {
         break
       }
       case 'invitct' : {
-        if (this.avatar(rowItem)) msg.rowItems.push(rowItem)
+        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
         break
       }
       case 'invitgr' : {
@@ -125,7 +137,7 @@ export class Session {
         break
       }
       case 'parrain' : {
-        if (this.avatar(rowItem)) msg.rowItems.push(rowItem)
+        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
         break
       }
       case 'rencontre' : {
@@ -133,7 +145,7 @@ export class Session {
         break
       }
       case 'secret' : {
-        if (this.avatar(rowItem) || this.agroupe(rowItem) ) msg.rowItems.push(rowItem)
+        if (this.aavatar(rowItem) || this.agroupe(rowItem) ) msg.rowItems.push(rowItem)
         break
       }
       case 'cv' : {

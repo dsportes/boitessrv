@@ -5,7 +5,7 @@ import { AppExc, X_SRV, INDEXT } from './api.mjs'
 import { schemas } from './schemas.mjs'
 
 export const m1fonctions = { }
-
+const MO = 1024 * 1024
 const VERSIONS = 1
 
 // eslint-disable-next-line no-unused-vars
@@ -187,15 +187,16 @@ function creationCompte (cfg, args) {
   let j = idx(compte.id)
   versions[j]++
   compte.v = versions[j]
+
   j = idx(avatar.id)
   versions[j]++
   avatar.v = versions[j]
   setValue(cfg, VERSIONS)
 
-  compte.dds = dds.ddsc(compte.dds)
-  avatar.dds = dds.ddsag(avatar.dds)
+  compte.dds = dds.ddsc(0)
+  avatar.dds = dds.ddsag(0)
   const avrsa = { id: avatar.id, clepub: args.clePub }
-  const avgrvq = { id: avatar.id, q1: args.q1, q2: args.q2, qm1: args.qm1, qm2:args.qm2, v1: 0, v2:0, vm1:0, vm2: 0 }
+  const avgrvq = { id: avatar.id, q1: args.q1*MO, q2: args.q2*MO, qm1: args.qm1*MO, qm2:args.qm2*MO, v1: 0, v2:0, vm1:0, vm2: 0 }
 
   cfg.db.transaction(creationCompteTr)(cfg, session, compte, avatar, avrsa, avgrvq)
 
@@ -218,7 +219,7 @@ function creationCompteTr (cfg, session, compte, avatar, avrsa, avgrvq) {
   stmt(cfg, insavrsa).run(avrsa)
   stmt(cfg, insavgrvq).run(avgrvq)
   session.compteId = compte.id
-  session.avatarsId = [avatar.id]
+  session.plusAvatars([avatar.id])
 }
 
 /***************************************
