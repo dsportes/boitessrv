@@ -371,16 +371,10 @@ async function connexionCompte (cfg, args) {
 }
 m1fonctions.connexionCompte = connexionCompte
 
-/*****************************************
-Chargement des rows d'un avatar 
-    { name: 'sessionId', type: 'string' },
-    { name: 'avgr', type: 'long' },
-    { name: 'lv', type: arrayIntType } 7 compteurs pour les versions des 7 tables
-*/
-
+/**************************************** */
+const selavatar = 'SELECT * FROM avatar WHERE id = @id AND v > @v'
 const selsecret = 'SELECT * FROM secret WHERE id = @id AND v > @v'
 const selinvitgr = 'SELECT * FROM invitgr WHERE id = @id AND v > @v'
-const selavatar = 'SELECT * FROM avatar WHERE id = @id AND v > @v'
 const selcontact = 'SELECT * FROM contact WHERE id = @id AND v > @v'
 const selinvitct = 'SELECT * FROM invitct WHERE id = @id AND v > @v'
 const selrencontre = 'SELECT * FROM rencontre WHERE id = @id AND v > @v'
@@ -388,21 +382,44 @@ const selparrain = 'SELECT * FROM parrain WHERE id = @id AND v > @v'
 const selgroupe = 'SELECT * FROM groupe WHERE id = @id AND v > @v'
 const selmembre = 'SELECT * FROM membre WHERE id = @id AND v > @v'
 
+/*****************************************
+Chargement des avatars d'un compte
+- sessionId
+- idsVers : map de clé:id de l'avatar, valeur: version détenue en session
+*/
+async function chargerAv (cfg, args) {
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const rowItems = []
+  for(const id in args.idsVers) {
+    const rows = stmt(cfg, selavatar).all({ id, v: args.idsVers[id] })
+    rows.forEach((row) => {
+      rowItems.push(newItem('avatar', row))
+    })
+  }
+  result.rowItems = rowItems
+  return result
+}
+m1fonctions.chargerAv = chargerAv
+
+/*****************************************
+Chargement des rows d'un avatar 
+    { name: 'sessionId', type: 'string' },
+    { name: 'avgr', type: 'long' },
+    { name: 'lv', type: arrayIntType } 7 compteurs pour les versions des 7 tables
+*/
+
 async function syncAv (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const rowItems = []
   const id = args.avgr
   let rows
-  /*
-  rows = stmt(cfg, selinvitgr).all({ id, v: args.lv[INDEXT.INVITGR] })
-  rows.forEach((row) => {
-    rowItems.push(newItem('invitgr', row))
-  })
-  */
-  rows = stmt(cfg, selavatar).all({ id, v: args.lv[INDEXT.AVATAR] })
-  rows.forEach((row) => {
-    rowItems.push(newItem('avatar', row))
-  })
+  const lva = args.lv[INDEXT.AVATAR]
+  if (lva !== -1) {
+    rows = stmt(cfg, selavatar).all({ id, v: lva })
+    rows.forEach((row) => {
+      rowItems.push(newItem('avatar', row))
+    })
+  }
   rows = stmt(cfg, selcontact).all({ id, v: args.lv[INDEXT.CONTACT] })
   rows.forEach((row) => {
     rowItems.push(newItem('contact', row))
@@ -410,6 +427,10 @@ async function syncAv (cfg, args) {
   rows = stmt(cfg, selinvitct).all({ id, v: args.lv[INDEXT.INVITCT] })
   rows.forEach((row) => {
     rowItems.push(newItem('invitvt', row))
+  })
+  rows = stmt(cfg, selinvitgr).all({ id, v: args.lv[INDEXT.INVITGR] })
+  rows.forEach((row) => {
+    rowItems.push(newItem('invitgr', row))
   })
   rows = stmt(cfg, selrencontre).all({ id, v: args.lv[INDEXT.RENCONTRE] })
   rows.forEach((row) => {
@@ -473,21 +494,23 @@ m1fonctions.syncInvitgr = syncInvitgr
 
 /******************************************
 Abonnement de la session aux compte et listes d'avatars et de groupes et signatures
-    { name: 'sessionId', type: 'string' },
-    { name: 'idc', type: 'long' },
-    { name: 'lav', type: arrayLongType },
-    { name: 'lgr', type: arrayLongType }
+- sessionId
+- idc : id du compte
+- lav : array des ids des avatars
+- lgr : array des ids des groupes
 */
 async function syncAbo (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const session = getSession(args.sessionId)
-  if (args.idc) session.compteId = args.idc
+
+  // Abonnements
+  session.compteId = args.idc
   session.avatarsIds = new Set(args.lav)
   session.groupesIds = new Set(args.lgr)
 
-  if (args.idc) {
-    cfg.db.transaction(signaturesTr)(cfg, args.idc, args.lav, args.lgr)
-  }
+  // Signatures
+  cfg.db.transaction(signaturesTr)(cfg, args.idc, args.lav, args.lgr)
+
   return result
 }
 
