@@ -1,7 +1,7 @@
 import { crypt } from './crypto.mjs'
 import { getdhc, sleep, dds, deserial, serial } from './util.mjs'
 import { getSession, syncListQueue, processQueue } from './session.mjs'
-import { AppExc, X_SRV, INDEXT } from './api.mjs'
+import { AppExc, X_SRV, E_WS, INDEXT } from './api.mjs'
 import { schemas } from './schemas.mjs'
 
 export const m1fonctions = { }
@@ -49,6 +49,12 @@ Exception :
     Non transformée en AppExc : Création d'un AppExc avec E_SRV sérialisé en JSON
         HTTP status 402
 *****************************************************************/
+
+function checkSession (sessionId) {
+  const session = getSession(sessionId)
+  if (!session) throw new AppExc(E_WS, 'Session interrompue. Se déconnecter et tenter de se reconnecter')
+  return session
+}
 
 async function echo (cfg, args, isGet) {
   if (args.to) {
@@ -174,12 +180,13 @@ Retour :
     { name: 'rows', type: { type: 'array', items: ['bytes'] } }
   ]
 */
-function creationCompte (cfg, args) {  
+function creationCompte (cfg, args) {
+  checkSession(args.sessionId)  
   const result = { sessionId: args.sessionId, dh: getdhc() }
   if (cfg.cle !== args.mdp64) {
     throw new AppExc(X_SRV, 'Mot de passe de l\'organisation non reconnu. Pour créer un compte privilégié, le mot de passe de l\'organisation est requis')
   }
-  const session = getSession(args.sessionId)
+  const session = checkSession(args.sessionId)
   const compte = schemas.deserialize('rowcompte', args.rowCompte)
   const avatar = schemas.deserialize('rowavatar', args.rowAvatar)
 
@@ -235,7 +242,8 @@ Exception : compte inexistant
 */
 const updmemokcompte = 'UPDATE compte SET v = @v, memok = @memok WHERE id = @id'
 
-function memoCompte (cfg, args) { 
+function memoCompte (cfg, args) {
+  checkSession(args.sessionId) 
   const dh = getdhc()
 
   const versions = getValue(cfg, VERSIONS)
@@ -278,7 +286,8 @@ Exception : compte inexistant
 */
 const updmmckcompte = 'UPDATE compte SET v = @v, mmck = @mmck WHERE id = @id'
 
-function mmcCompte (cfg, args) { 
+function mmcCompte (cfg, args) {
+  checkSession(args.sessionId)
   const dh = getdhc()
 
   const versions = getValue(cfg, VERSIONS)
@@ -321,7 +330,8 @@ Exception : avatar inexistant
 */
 const updcvavatar = 'UPDATE avatar SET v = @v, vcv = @vcv, cva = @cva WHERE id = @id'
 
-function cvAvatar (cfg, args) { 
+function cvAvatar (cfg, args) {
+  checkSession(args.sessionId)
   const dh = getdhc()
 
   const versions = getValue(cfg, VERSIONS)
@@ -360,6 +370,7 @@ args = { dpbh, pcbh }
 Retour = compte
 */
 async function connexionCompte (cfg, args) {
+  checkSession(args.sessionId)
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const c = stmt(cfg, selcomptedpbh).get({ dpbh: args.dpbh })
   if (!c || (c.pcbh !== args.pcbh)) {
@@ -388,6 +399,7 @@ Chargement des avatars d'un compte
 - idsVers : map de clé:id de l'avatar, valeur: version détenue en session
 */
 async function chargerAv (cfg, args) {
+  checkSession(args.sessionId)
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const rowItems = []
   for(const id in args.idsVers) {
@@ -409,6 +421,7 @@ Chargement des rows d'un avatar
 */
 
 async function syncAv (cfg, args) {
+  checkSession(args.sessionId)
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const rowItems = []
   const id = args.avgr
@@ -451,6 +464,7 @@ m1fonctions.syncAv = syncAv
 
 /*****************************************/
 async function syncGr (cfg, args) {
+  checkSession(args.sessionId)
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const rowItems = []
   const id = args.avgr
@@ -475,7 +489,7 @@ m1fonctions.syncGr = syncGr
 Chargement des rows invitgr de la liste fournie
 { name: 'sessionId', type: 'string' },
 { name: 'lvav', type: mapIntType } key: sid de l'avatar, value: version
-*/
+
 async function syncInvitgr (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const rowItems = []
@@ -491,6 +505,7 @@ async function syncInvitgr (cfg, args) {
   return result
 }
 m1fonctions.syncInvitgr = syncInvitgr
+*/
 
 /******************************************
 Abonnement de la session aux compte et listes d'avatars et de groupes et signatures
@@ -498,10 +513,11 @@ Abonnement de la session aux compte et listes d'avatars et de groupes et signatu
 - idc : id du compte
 - lav : array des ids des avatars
 - lgr : array des ids des groupes
+- sign : true s'il faut signer
 */
 async function syncAbo (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
-  const session = getSession(args.sessionId)
+  const session = checkSession(args.sessionId)
 
   // Abonnements
   session.compteId = args.idc
@@ -509,7 +525,9 @@ async function syncAbo (cfg, args) {
   session.groupesIds = new Set(args.lgr)
 
   // Signatures
-  cfg.db.transaction(signaturesTr)(cfg, args.idc, args.lav, args.lgr)
+  if (args.sign) {
+    cfg.db.transaction(signaturesTr)(cfg, args.idc, args.lav, args.lgr)
+  }
 
   return result
 }
@@ -555,7 +573,7 @@ const selcv2 = 'SELECT id, vcv, st, phinf FROM avatar WHERE id IN @lid'
 
 async function chargtCVs (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
-  const session = getSession(args.sessionId)
+  const session = checkSession(args.sessionId)
   session.cvsIds = new Set(args.lcvmaj.concat(args.lcvchargt))
   const rowItems = []
 
@@ -591,6 +609,7 @@ args :
 const bytes0 = new Uint8Array(0)
 const selcv = 'SELECT id, st, vcv, cva FROM avatar WHERE id = @id'
 async function getcv (cfg, args) {
+  checkSession(args.sessionId)
   try {
     const c = stmt(cfg, selcv).get({ id: crypt.sidToId(args.sid) })
     if (!c) return { bytes0 }
@@ -611,6 +630,7 @@ args :
 */
 const selavrsapub = 'SELECT clepub FROM avrsa WHERE id = @id'
 async function getclepub (cfg, args) {
+  checkSession(args.sessionId)
   try {
     const c = stmt(cfg, selavrsapub).get({ id: crypt.sidToId(args.sid) })
     if (!c) return { bytes0 }
@@ -635,7 +655,8 @@ Exception : dépassement des quotas
 const inssecret = 'INSERT INTO secret (id, ns, nr, ic, v, st, ora, v1, v2, txts, mcs, mpjs, dups, vsh) ' +
   'VALUES (@id, @ns, @nr, @ic, @v, @st, @ora, @v1, @v2, @txts, @mcs, @mpjs, @dups, @vsh)'
 
-function nouveauSecretP (cfg, args) { 
+function nouveauSecretP (cfg, args) {
+  checkSession(args.sessionId)
   const dh = getdhc()
   const secret = schemas.deserialize('rowsecret', args.rowSecret)
 
@@ -657,7 +678,6 @@ function nouveauSecretP (cfg, args) {
 m1fonctions.nouveauSecretP = nouveauSecretP
 
 function nouveauSecretPTr (cfg, secret) {
-
   const a = stmt(cfg, selavgrvqid).get({ id: secret.id })
   if (a) {
     if (secret.st === 99999) {
@@ -685,7 +705,8 @@ Exception : dépassement des quotas
 */
 const upd1secret = 'UPDATE secret SET v = @v, v1 = @v1, txts = @txts, mcs = @mcs WHERE id = @id AND ns = @ns'
 
-function maj1SecretP (cfg, args) { 
+function maj1SecretP (cfg, args) {
+  checkSession(args.sessionId)
   const dh = getdhc()
 
   const versions = getValue(cfg, VERSIONS)
