@@ -646,38 +646,86 @@ m1fonctions.getclepub = getclepub
 Nouveau secret personnel
 Args : 
 - sessionId
-- rowSecret (v à 0)
+- ts, id, ns, ic, st, ora, v1, mcg, mc, im, txts, dups, refs, id2, ns2, ic2, dups2
 Retour :
 - sessionId
 - dh
 Exception : dépassement des quotas 
 */
-const inssecret = 'INSERT INTO secret (id, ns, nr, ic, v, st, ora, v1, v2, txts, mcs, mpjs, dups, vsh) ' +
-  'VALUES (@id, @ns, @nr, @ic, @v, @st, @ora, @v1, @v2, @txts, @mcs, @mpjs, @dups, @vsh)'
+const inssecret = 'INSERT INTO secret (id, ns, ic, v, st, ora, v1, v2, mc, txts, mpjs, dups, refs, vsh) ' +
+  'VALUES (@id, @ns, @ic, @v, @st, @ora, @v1, @v2, @mc, @txts, @mpjs, @dups, @refs, @vsh)'
 
-function nouveauSecretP (cfg, args) {
+function nouveauSecret (cfg, args) {
   checkSession(args.sessionId)
   const dh = getdhc()
-  const secret = schemas.deserialize('rowsecret', args.rowSecret)
 
   const versions = getValue(cfg, VERSIONS)
-  const j = idx(secret.id)
+  const j = idx(args.id)
   versions[j]++
   setValue(cfg, VERSIONS)
-  secret.v = versions[j]
+  const v = versions[j]
+  let vb
+  if (args.ts ===1) {
+    const j2 = idx(args.id2)
+    versions[j2]++
+    setValue(cfg, VERSIONS)
+    vb = versions[j2]
+  }
 
-  cfg.db.transaction(nouveauSecretPTr)(cfg, secret)
+  let mc = args.mc || null
+  if (args.ts === 2) {
+    mc = { }
+    if (args.mcg) mc[0] = args.mcg
+    if (args.mc && args.im) mc[args.im] = args.mc
+  }
+
+  const secret = { 
+    id: args.id,
+    ns: args.ns,
+    ic: args.ts === 1 ? args.ic : 0,
+    v: v,
+    st: args.st,
+    ora: args.ora,
+    v1: args.v1,
+    v2: 0,
+    mc: mc,
+    txts: args.txts,
+    mpjs: null,
+    dups: args.ts === 1 ? args.dups : null,
+    refs: args.refs || null,
+    vsh: 0
+  }
+  
+  let secret2
+  if (args.ts ===1) secret2 = { 
+    id: args.id2,
+    ns: args.ns2,
+    ic: args.ic2,
+    v: vb,
+    st: args.st,
+    v1: args.v1,
+    v2: 0,
+    ora: args.ora,
+    mc: null,
+    txts: args.txts,
+    mpjs: null,
+    dups: args.dups2 || null,
+    refs: args.refs || null,
+    vsh: 0
+  }
+
+  cfg.db.transaction(nouveauSecretTr)(cfg, secret, secret2 )
 
   const rowItems = []
   rowItems.push(newItem('secret', secret))
-
+  if (args.ts ===1) rowItems.push(newItem('secret', secret2))
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
   return { sessionId: args.sessionId, dh: dh }
 }
-m1fonctions.nouveauSecretP = nouveauSecretP
+m1fonctions.nouveauSecret = nouveauSecret
 
-function nouveauSecretPTr (cfg, secret) {
+function nouveauSecretTr (cfg, secret, secret2) {
   const a = stmt(cfg, selavgrvqid).get({ id: secret.id })
   if (a) {
     if (secret.st === 99999) {
@@ -688,16 +736,20 @@ function nouveauSecretPTr (cfg, secret) {
   }
   if (!a || a.v1 > a.q1 || a.vm1 > a.qm1) {
     console.log('Quotas d\'espace insuffisants.')
-    // throw new AppExc(X_SRV, 'Quotas d\'espace insuffisants.')
+    throw new AppExc(X_SRV, 'Quotas d\'espace insuffisants.')
   }
+
   stmt(cfg, updavgrvq).run(a)
+  if (secret2) stmt(cfg, inssecret).run(secret2)
   stmt(cfg, inssecret).run(secret)
 }
 
 /***************************************
 MAJ secret
 Args : 
-- sessionId, id, ns, v1, txts, mcs
+- sessionId
+- ts, id, ns, v1, mc, mcg, im, txts, id2, ns2 }
+
 Retour :
 - sessionId
 - dh
@@ -705,7 +757,7 @@ Exception : dépassement des quotas
 */
 const upd1secret = 'UPDATE secret SET v = @v, v1 = @v1, txts = @txts, mcs = @mcs WHERE id = @id AND ns = @ns'
 
-function maj1SecretP (cfg, args) {
+function maj1Secret (cfg, args) {
   checkSession(args.sessionId)
   const dh = getdhc()
 
@@ -714,29 +766,53 @@ function maj1SecretP (cfg, args) {
   versions[j]++
   setValue(cfg, VERSIONS)
   args.v = versions[j]
+
+  if (args.ts ===1) {
+    const j2 = idx(args.id2)
+    versions[j2]++
+    setValue(cfg, VERSIONS)
+    args.vb = versions[j2]
+  }
+
   const rowItems = []
 
-  cfg.db.transaction(maj1SecretPTr)(cfg, args, rowItems)
+  cfg.db.transaction(maj1SecretTr)(cfg, args, rowItems)
 
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
   return { sessionId: args.sessionId, dh: dh }
 }
-m1fonctions.maj1SecretP = maj1SecretP
+m1fonctions.maj1Secret = maj1Secret
 
-function maj1SecretPTr (cfg, args, rowItems) {
+function maj1SecretTr (cfg, args, rowItems) {
 
   const secret = stmt(cfg, selsecretidns).get({ id: args.id, ns: args.ns }) 
   if (!secret) {
     console.log('Secret inconnu.')
     throw new AppExc(X_SRV, 'Secret inexistant.')
   }
-
   const deltav1 = args.v1 - secret.v1
   secret.v1 = args.v1
-  secret.mcs = args.mcs
   secret.txts = args.txts
   secret.v = args.v
+  if (args.ts === 2) {
+    if (!secret.mc) secret.mc = { }
+    if (args.mcg) secret.mc[0] = args.mcg
+    if (args.mc && args.im) secret.mc[args.im] = args.mc
+  } else {
+    if (args.mc) secret.mc = args.mc
+  }
+
+  let secret2
+  if (args.ts === 1) {
+    // secret2 PEUT avoir été détruit
+    secret2 = stmt(cfg, selsecretidns).get({ id: args.id2, ns: args.ns2 }) 
+    if (secret2) {
+      secret2.v = args.vb
+      secret2.v1 = secret.v1
+      secret2.txts = args.txts
+    }
+  }
 
   const a = stmt(cfg, selavgrvqid).get({ id: args.id })
   if (a) {
@@ -748,11 +824,27 @@ function maj1SecretPTr (cfg, args, rowItems) {
   }
   if (!a || a.v1 > a.q1 || a.vm1 > a.qm1) {
     console.log('Quotas d\'espace insuffisants.')
-    // throw new AppExc(X_SRV, 'Quotas d\'espace insuffisants.')
+    throw new AppExc(X_SRV, 'Quotas d\'espace insuffisants.')
+  }
+  stmt(cfg, updavgrvq).run(a)
+
+  if (secret2) {
+    const a = stmt(cfg, selavgrvqid).get({ id: args.id2 })
+    if (a) {
+      if (secret.st === 99999) {
+        a.v1 = a.v1 + deltav1
+      } else {
+        a.vm1 = a.vm1 + deltav1
+      }
+      stmt(cfg, updavgrvq).run(a)
+    }
   }
 
   rowItems.push(newItem('secret', secret))
-
-  stmt(cfg, updavgrvq).run(a)
   stmt(cfg, upd1secret).run(secret)
+
+  if (secret2) {
+    stmt(cfg, upd1secret).run(secret2)
+    rowItems.push(newItem('secret', secret2))
+  }
 }
