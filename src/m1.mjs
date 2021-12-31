@@ -755,7 +755,7 @@ Retour :
 - dh
 Exception : dépassement des quotas 
 */
-const upd1secret = 'UPDATE secret SET v = @v, v1 = @v1, txts = @txts, mcs = @mcs WHERE id = @id AND ns = @ns'
+const upd1secret = 'UPDATE secret SET v = @v, v1 = @v1, txts = @txts, mc = @mc WHERE id = @id AND ns = @ns'
 
 function maj1Secret (cfg, args) {
   checkSession(args.sessionId)
@@ -784,6 +784,10 @@ function maj1Secret (cfg, args) {
 }
 m1fonctions.maj1Secret = maj1Secret
 
+function mcidem (mc) {
+  return mc && mc.length === 1 && mc[0] === 0
+}
+
 function maj1SecretTr (cfg, args, rowItems) {
 
   const secret = stmt(cfg, selsecretidns).get({ id: args.id, ns: args.ns }) 
@@ -797,10 +801,10 @@ function maj1SecretTr (cfg, args, rowItems) {
   secret.v = args.v
   if (args.ts === 2) {
     if (!secret.mc) secret.mc = { }
-    if (args.mcg) secret.mc[0] = args.mcg
-    if (args.mc && args.im) secret.mc[args.im] = args.mc
+    if (!mcidem(args.mcg)) secret.mc[0] = args.mcg || null
+    if (!mcidem(args.mc) && args.im) secret.mc[args.im] = args.mc || null
   } else {
-    if (args.mc) secret.mc = args.mc
+    if (!mcidem(args.mc)) secret.mc = args.mc [[ null]]
   }
 
   let secret2

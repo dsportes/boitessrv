@@ -141,7 +141,8 @@ async function operation(req, res) {
     } else {
       // erreur non trappée : mise en forme en AppExc
       httpst = 402
-      s = new AppExc(E_SRV, e.message, e.stack).toString()
+      const xx = (e.stack ? e.stack + '\n' : '') + lastSql.join('\n')
+      s = new AppExc(E_SRV, e.message, xx).toString()
     }
     if (dev) console.log(pfx + ' ' + httpst + ' : ' + s)
     setRes(res, httpst).send(Buffer.from(s))
@@ -163,10 +164,17 @@ Dans la configuration de chaque environnement, son code est inséré
 */
 setSalts (fs.readFileSync(path.resolve(dirs.configdir, './salts')))
 
+const lastSql = []
+function trapSql (msg) {
+  if (dev) console.log(msg)
+  lastSql.unshift(msg)
+  if (lastSql.length > 3) lastSql.length = 3
+}
+
 const configjson = fs.readFileSync(path.resolve(dirs.configdir, './config.json'))
 let cfg
 try {
-  const options = { fileMustExist: true, verbose: null }
+  const options = { fileMustExist: true, verbose: trapSql }
   cfg = JSON.parse(configjson)
   for(const org in cfg.orgs) {
     const e = cfg.orgs[org]
