@@ -37,8 +37,9 @@ function checkOrigin(req) {
     origin = req.headers['host'];
   if (origin && origin.startsWith('http://localhost'))
     origin = 'localhost'
-
-  return origin && cfg.origins.indexOf(origin) !== -1
+  if (cfg.origins.indexOf(origin) !== -1) return true
+  console.log('Origine refusée : ' + origin)
+  return false
 }
 
 // positionne les headers et le status d'une réponse. Permet d'accepter des requêtes cross origin des browsers
