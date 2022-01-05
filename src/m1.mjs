@@ -797,7 +797,7 @@ function maj1SecretTr (cfg, args, rowItems) {
   }
   const deltav1 = args.v1 - secret.v1
   secret.v1 = args.v1
-  secret.txts = args.txts
+  if (args.txts.length !== 1) secret.txts = args.txts // sinon texte inchangé par convention
   secret.v = args.v
   if (args.ts === 2) {
     if (!secret.mc) secret.mc = { }

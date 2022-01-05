@@ -158,7 +158,7 @@ CREATE TABLE IF NOT EXISTS "secret" (
 	"ic"	INTEGER,
 	"v"	INTEGER,
 	"st"	INTEGER,
-	"ora"	TEXT,
+	"ora"	INTEGER,
 	"v1"	INTEGER,
 	"v2"	INTEGER,
 	"mc"	BLOB,
