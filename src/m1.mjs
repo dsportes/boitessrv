@@ -748,7 +748,8 @@ function nouveauSecretTr (cfg, secret, secret2) {
 MAJ secret
 Args : 
 - sessionId
-- ts, id, ns, v1, mc, mcg, im, txts, id2, ns2 }
+- ts, id, ns, v1, mc, mcg, im, txts, id2, ns2, ora, temp 
+temp : 0: inchangé, 99999: devient permanent, 780: (re)devient temporaire
 
 Retour :
 - sessionId
@@ -795,7 +796,36 @@ function maj1SecretTr (cfg, args, rowItems) {
     console.log('Secret inconnu.')
     throw new AppExc(X_SRV, 'Secret inexistant.')
   }
-  const deltav1 = args.v1 - secret.v1
+
+  let deltav1 = 0, deltavm1 = 0
+  if (args.temp === 99999 && secret.st === 99999) {
+    // en réalité inchangé
+    args.temp = 0
+  }
+  if (args.temp > 0 && args.temp < 99999 && secret.st < 99999) {
+    // en réalité inchangé
+    args.temp = 0
+  }
+  if (args.temp === 0) {
+    // pas de changement perm / temp
+    if (secret.st === 99999) {
+      // il était permanent
+      deltav1 = args.v1 - secret.v1
+    } else {
+      deltavm1 = args.v1 - secret.v1
+    }
+  } else if (args.temp === 99999) {
+    // devient permanent
+    deltav1 = secret.v1
+    deltavm1 = -args.v1
+    secret.st = 99999
+  } else if (args.temp > 0 && args.temp < 99999) {
+    // (re)devient temporaire
+    deltav1 = -args.v1
+    deltavm1 = secret.v1
+    secret.st = args.temp
+  }
+  
   secret.v1 = args.v1
   if (args.txts.length !== 1) secret.txts = args.txts // sinon texte inchangé par convention
   secret.v = args.v
@@ -820,11 +850,8 @@ function maj1SecretTr (cfg, args, rowItems) {
 
   const a = stmt(cfg, selavgrvqid).get({ id: args.id })
   if (a) {
-    if (secret.st === 99999) {
-      a.v1 = a.v1 + deltav1
-    } else {
-      a.vm1 = a.vm1 + deltav1
-    }
+    a.v1 = a.v1 + deltav1
+    a.vm1 = a.vm1 + deltavm1
   }
   if (!a || a.v1 > a.q1 || a.vm1 > a.qm1) {
     console.log('Quotas d\'espace insuffisants.')
@@ -835,11 +862,8 @@ function maj1SecretTr (cfg, args, rowItems) {
   if (secret2) {
     const a = stmt(cfg, selavgrvqid).get({ id: args.id2 })
     if (a) {
-      if (secret.st === 99999) {
-        a.v1 = a.v1 + deltav1
-      } else {
-        a.vm1 = a.vm1 + deltav1
-      }
+      a.v1 = a.v1 + deltav1
+      a.vm1 = a.vm1 + deltavm1
       stmt(cfg, updavgrvq).run(a)
     }
   }
