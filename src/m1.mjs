@@ -140,14 +140,15 @@ function newItem (table, row) {
 }
 
 /******************************************/
-const inscompte = 'INSERT INTO compte (id, v, dds, dpbh, pcbh, kx, mack, mmck, memok) VALUES (@id, @v, @dds, @dpbh, @pcbh, @kx, @mack, @mmck, @memok)'
-const insavatar = 'INSERT INTO avatar (id, v, st, vcv, dds, cva, lctk) VALUES (@id, @v, @st, @vcv, @dds, @cva, @lctk)'
-const insavrsa = 'INSERT INTO avrsa (id, clepub) VALUES (@id, @clepub)'
+const inscompte = 'INSERT INTO compte (id, v, dds, dpbh, pcbh, kx, mack, vsh) VALUES (@id, @v, @dds, @dpbh, @pcbh, @kx, @mack, @vsh)'
+const insprefs = 'INSERT INTO prefs (id, v, mapk, vsh) VALUES (@id, @v, @mapk, @vsh)'
+const insavatar = 'INSERT INTO avatar (id, v, st, vcv, dds, cva, lctk, vsh) VALUES (@id, @v, @st, @vcv, @dds, @cva, @lctk, @vsh)'
+const insavrsa = 'INSERT INTO avrsa (id, clepub, vsh) VALUES (@id, @clepub, @vsh)'
 const selavgrvqid = 'SELECT * FROM avgrvq WHERE id = @id'
-const insavgrvq = 'INSERT INTO avgrvq (id, q1, q2, qm1, qm2, v1, v2, vm1, vm2) VALUES (@id, @q1, @q2, @qm1, @qm2, @v1, @v2, @vm1, @vm2)'
+const insavgrvq = 'INSERT INTO avgrvq (id, q1, q2, qm1, qm2, v1, v2, vm1, vm2, vsh) VALUES (@id, @q1, @q2, @qm1, @qm2, @v1, @v2, @vm1, @vm2, @vsh)'
 const updavgrvq = 'UPDATE avgrvq SET q1 = @q1, q2 = @q2, qm1 = @qm1, qm2 = @qm2, v1 = @v1, v2 = @v2, vm1 = @vm1, vm2 = @vm2 WHERE id = @id'
 const selcomptedpbh = 'SELECT * FROM compte WHERE dpbh = @dpbh'
-const selcompteid = 'SELECT * FROM compte WHERE id = @id'
+const selprefsid = 'SELECT * FROM prefs WHERE id = @id'
 const selavatarid = 'SELECT * FROM avatar WHERE id = @id'
 const selsecretidns = 'SELECT * FROM secret WHERE id = @id AND ns = @ns'
 
@@ -170,6 +171,7 @@ args:
     { name: 'clePub', type: 'bytes' },
     { name: 'rowCompte', type: 'bytes' },
     { name: 'rowAvatar', type: 'bytes' }
+    { name: 'rowPrefs', type: 'bytes' }
   ]
 Retour :
   name: 'respBase1',
@@ -189,11 +191,13 @@ function creationCompte (cfg, args) {
   const session = checkSession(args.sessionId)
   const compte = schemas.deserialize('rowcompte', args.rowCompte)
   const avatar = schemas.deserialize('rowavatar', args.rowAvatar)
+  const prefs = schemas.deserialize('rowprefs', args.rowPrefs)
 
   const versions = getValue(cfg, VERSIONS)
   let j = idx(compte.id)
   versions[j]++
   compte.v = versions[j]
+  prefs.v = versions[j]
 
   j = idx(avatar.id)
   versions[j]++
@@ -202,17 +206,17 @@ function creationCompte (cfg, args) {
 
   compte.dds = dds.ddsc(0)
   avatar.dds = dds.ddsag(0)
-  const avrsa = { id: avatar.id, clepub: args.clePub }
-  const avgrvq = { id: avatar.id, q1: args.q1*MO, q2: args.q2*MO, qm1: args.qm1*MO, qm2:args.qm2*MO, v1: 0, v2:0, vm1:0, vm2: 0 }
+  const avrsa = { id: avatar.id, clepub: args.clePub, vsh: 0 }
+  const avgrvq = { id: avatar.id, q1: args.q1*MO, q2: args.q2*MO, qm1: args.qm1*MO, qm2:args.qm2*MO, v1: 0, v2:0, vm1:0, vm2: 0, vsh: 0 }
 
-  cfg.db.transaction(creationCompteTr)(cfg, session, compte, avatar, avrsa, avgrvq)
+  cfg.db.transaction(creationCompteTr)(cfg, session, compte, avatar, prefs, avrsa, avgrvq)
 
-  result.rowItems = [ newItem('compte', compte), newItem('avatar', avatar) ]    
+  result.rowItems = [ newItem('compte', compte), newItem('avatar', avatar), newItem('prefs', prefs) ]    
   return result
 }
 m1fonctions.creationCompte = creationCompte
 
-function creationCompteTr (cfg, session, compte, avatar, avrsa, avgrvq) {
+function creationCompteTr (cfg, session, compte, avatar, prefs, avrsa, avgrvq) {
   const c = stmt(cfg, selcomptedpbh).get({ dpbh: compte.dpbh })
   if (c) {
     if (c.pcbh === compte.pcbh) {
@@ -223,6 +227,7 @@ function creationCompteTr (cfg, session, compte, avatar, avrsa, avgrvq) {
   }
   stmt(cfg, inscompte).run(compte)
   stmt(cfg, insavatar).run(avatar)
+  stmt(cfg, insprefs).run(prefs)
   stmt(cfg, insavrsa).run(avrsa)
   stmt(cfg, insavgrvq).run(avgrvq)
   session.compteId = compte.id
@@ -230,19 +235,20 @@ function creationCompteTr (cfg, session, compte, avatar, avrsa, avgrvq) {
 }
 
 /***************************************
-Enregistrement du memo d'un compte :
+Enregistrement d'une préférence d'un compte :
 Args : 
 - sessionId
 - id: du compte
-- memok : memo crypté par la clé K
+- code : code de la préférence
+- datak : données de la préférence crypté par la clé K
 Retour :
 - sessionId
 - dh
 Exception : compte inexistant
 */
-const updmemokcompte = 'UPDATE compte SET v = @v, memok = @memok WHERE id = @id'
+const updprefs = 'UPDATE prefs SET v = @v, mapk = @mapk WHERE id = @id'
 
-function memoCompte (cfg, args) {
+function prefCompte (cfg, args) {
   checkSession(args.sessionId) 
   const dh = getdhc()
 
@@ -254,67 +260,25 @@ function memoCompte (cfg, args) {
 
   const rowItems = []
 
-  cfg.db.transaction(memoCompteTr)(cfg, args.id, v, args.memok, rowItems)
+  cfg.db.transaction(prefCompteTr)(cfg, args.id, v, args.code, args.datak, rowItems)
 
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
   return { sessionId: args.sessionId, dh: dh }
 }
-m1fonctions.memoCompte = memoCompte
+m1fonctions.prefCompte = prefCompte
 
-function memoCompteTr (cfg, id, v, memok, rowItems) {
-  const c = stmt(cfg, selcompteid).get({ id: id })
-  if (!c) {
+function prefCompteTr (cfg, id, v, code, datak, rowItems) {
+  const p = stmt(cfg, selprefsid).get({ id: id })
+  if (!p) {
     throw new AppExc(X_SRV, 'Compte inexistant. Bug probable.')
   }
-  c.memok = memok
-  c.v = v
-  stmt(cfg, updmemokcompte).run( { memok, v, id })
-  rowItems.push(newItem('compte', c))
-}
-
-/***************************************
-Enregistrement des mots clés d'un compte :
-Args : 
-- sessionId
-- id: du compte
-- mmck : map des mots cles cryptée par la clé K
-Retour :
-- sessionId
-- dh
-Exception : compte inexistant
-*/
-const updmmckcompte = 'UPDATE compte SET v = @v, mmck = @mmck WHERE id = @id'
-
-function mmcCompte (cfg, args) {
-  checkSession(args.sessionId)
-  const dh = getdhc()
-
-  const versions = getValue(cfg, VERSIONS)
-  const j = idx(args.id)
-  versions[j]++
-  setValue(cfg, VERSIONS)
-  const v = versions[j]
-
-  const rowItems = []
-
-  cfg.db.transaction(mmcCompteTr)(cfg, args.id, v, args.mmck, rowItems)
-
-  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
-  setImmediate(() => { processQueue() })
-  return { sessionId: args.sessionId, dh: dh }
-}
-m1fonctions.mmcCompte = mmcCompte
-
-function mmcCompteTr (cfg, id, v, mmck, rowItems) {
-  const c = stmt(cfg, selcompteid).get({ id: id })
-  if (!c) {
-    throw new AppExc(X_SRV, 'Compte inexistant. Bug probable.')
-  }
-  c.mmck = mmck
-  c.v = v
-  stmt(cfg, updmmckcompte).run( { mmck, v, id })
-  rowItems.push(newItem('compte', c))
+  const x = deserial(p.mapk)
+  x[code] = datak
+  p.mapk = serial(x)
+  p.v = v
+  stmt(cfg, updprefs).run( { mapk: p.mapk, v, id })
+  rowItems.push(newItem('prefs', p))
 }
 
 /***************************************
@@ -367,7 +331,7 @@ function cvAvatarTr (cfg, id, v, cva, rowItems) {
 /******************************************
 Détermine si les hash de la phrase secrète en argument correspond à un compte.
 args = { dpbh, pcbh }
-Retour = compte
+Retour = compte, prefs
 */
 async function connexionCompte (cfg, args) {
   checkSession(args.sessionId)
@@ -376,8 +340,11 @@ async function connexionCompte (cfg, args) {
   if (!c || (c.pcbh !== args.pcbh)) {
     throw new AppExc(X_SRV, 'Compte non authentifié : aucun compte n\'est déclaré avec cette phrase secrète')
   }
-  const it = newItem('compte', c)
-  result.rowItems = [ it ]
+  const p = stmt(cfg, selprefsid).get({ id: c.id })
+  if (!p) {
+    throw new AppExc(X_SRV, 'Compte corrompu : données de préférence absentes')
+  }
+  result.rowItems = [ newItem('compte', c), newItem('prefs', p) ]
   return result
 }
 m1fonctions.connexionCompte = connexionCompte

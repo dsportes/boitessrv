@@ -8,6 +8,7 @@ DELETE FROM invitct;
 DELETE FROM invitgr;
 DELETE FROM membre;
 DELETE FROM parrain;
+DELETE FROM prefs;
 DELETE FROM rencontre;
 DELETE FROM secret;
 DELETE FROM versions;

@@ -22,21 +22,6 @@ CREATE TABLE IF NOT EXISTS "avrsa" (
 	"vsh"	INTEGER,
 	PRIMARY KEY("id")
 ) WITHOUT ROWID;
-CREATE TABLE IF NOT EXISTS "compte" (
-	"id"	INTEGER,
-	"v"	INTEGER,
-	"dds"	INTEGER,
-	"dpbh"	INTEGER,
-	"pcbh"	INTEGER,
-	"kx"	BLOB,
-	"mack"	BLOB,
-	"mmck"	BLOB,
-	"memok"	BLOB,
-	"vsh"	INTEGER,
-	PRIMARY KEY("id")
-) WITHOUT ROWID;
-CREATE INDEX "dds_compte" ON "compte" ( "dds" );
-CREATE UNIQUE INDEX "dpbh_compte" ON "compte" ( "dpbh" );
 CREATE TABLE IF NOT EXISTS "rencontre" (
 	"prh"	INTEGER,
 	"id"	INTEGER,
@@ -175,4 +160,28 @@ CREATE INDEX "id_v_secret" ON "secret" (
 );
 CREATE INDEX "st_secret" ON "secret" (
 	"st"
+);
+CREATE TABLE IF NOT EXISTS "prefs" (
+	"id"	INTEGER,
+	"v"	INTEGER,
+	"mapk"	BLOB,
+	"vsh"	INTEGER,
+	PRIMARY KEY("id")
+);
+CREATE TABLE IF NOT EXISTS "compte" (
+	"id"	INTEGER,
+	"v"	INTEGER,
+	"dds"	INTEGER,
+	"dpbh"	INTEGER,
+	"pcbh"	INTEGER,
+	"kx"	BLOB,
+	"mack"	BLOB,
+	"vsh"	INTEGER,
+	PRIMARY KEY("id")
+) WITHOUT ROWID;
+CREATE INDEX "dds_compte" ON "compte" (
+	"dds"
+);
+CREATE UNIQUE INDEX "dpbh_compte" ON "compte" (
+	"dpbh"
 );

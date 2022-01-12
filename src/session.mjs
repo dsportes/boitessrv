@@ -116,6 +116,10 @@ export class Session {
         if (rowItem.id === this.compteId) msg.rowItems.push(rowItem)
         break
       }
+      case 'prefs' : {
+        if (rowItem.id === this.compteId) msg.rowItems.push(rowItem)
+        break
+      }
       case 'contact' : {
         if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
         break

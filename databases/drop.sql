@@ -8,6 +8,7 @@ DROP TABLE invitct;
 DROP TABLE invitgr;
 DROP TABLE membre;
 DROP TABLE parrain;
+DROP TABLE prefs;
 DROP TABLE rencontre;
 DROP TABLE secret;
 DROP TABLE versions;
