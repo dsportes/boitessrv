@@ -723,7 +723,7 @@ Retour :
 - dh
 Exception : dépassement des quotas 
 */
-const upd1secret = 'UPDATE secret SET v = @v, v1 = @v1, txts = @txts, mc = @mc WHERE id = @id AND ns = @ns'
+const upd1secret = 'UPDATE secret SET v = @v, st = @st, ora = @ora, v1 = @v1, txts = @txts, mc = @mc WHERE id = @id AND ns = @ns'
 
 function maj1Secret (cfg, args) {
   checkSession(args.sessionId)
@@ -764,35 +764,38 @@ function maj1SecretTr (cfg, args, rowItems) {
     throw new AppExc(X_SRV, 'Secret inexistant.')
   }
 
-  let deltav1 = 0, deltavm1 = 0
+  let deltav1 = 0, deltavm1 = 0, deltav2 = 0, deltavm2 = 0
   if (args.temp === 99999 && secret.st === 99999) {
-    // en réalité inchangé
+    // en réalité inchangé, toujours permanent
     args.temp = 0
   }
   if (args.temp > 0 && args.temp < 99999 && secret.st < 99999) {
-    // en réalité inchangé
+    // en réalité inchangé, toujours temporaire
     args.temp = 0
   }
   if (args.temp === 0) {
     // pas de changement perm / temp
     if (secret.st === 99999) {
-      // il était permanent
-      deltav1 = args.v1 - secret.v1
+      deltav1 = args.v1 - secret.v1 // il était permanent
     } else {
       deltavm1 = args.v1 - secret.v1
     }
-  } else if (args.temp === 99999) {
-    // devient permanent
-    deltav1 = secret.v1
-    deltavm1 = -args.v1
+  } else if (args.temp === 99999) { // devient permanent
+    deltav1 = secret.v1 // le volume permanent augmente du nouveau volume
+    deltavm1 = -args.v1 // le volume temporaire diminue de l'ancien volume
+    deltav2 = secret.v2
+    deltavm2 = -secret.v2
     secret.st = 99999
-  } else if (args.temp > 0 && args.temp < 99999) {
-    // (re)devient temporaire
+  } else if (args.temp > 0 && args.temp < 99999) { // (re)devient temporaire
     deltav1 = -args.v1
     deltavm1 = secret.v1
+    deltav2 = -secret.v2
+    deltavm2 = secret.v2
     secret.st = args.temp
   }
   
+  const vchange = deltav1 || deltav2 || deltavm1 || deltavm2
+
   secret.v1 = args.v1
   if (args.txts.length !== 1) secret.txts = args.txts // sinon texte inchangé par convention
   secret.v = args.v
@@ -801,8 +804,9 @@ function maj1SecretTr (cfg, args, rowItems) {
     if (!mcidem(args.mcg)) secret.mc[0] = args.mcg || null
     if (!mcidem(args.mc) && args.im) secret.mc[args.im] = args.mc || null
   } else {
-    if (!mcidem(args.mc)) secret.mc = args.mc [[ null]]
+    if (!mcidem(args.mc)) secret.mc = args.mc
   }
+  secret.ora = args.ora
 
   let secret2
   if (args.ts === 1) {
@@ -812,26 +816,33 @@ function maj1SecretTr (cfg, args, rowItems) {
       secret2.v = args.vb
       secret2.v1 = secret.v1
       secret2.txts = args.txts
+      secret2.ora = args.ora
     }
   }
 
-  const a = stmt(cfg, selavgrvqid).get({ id: args.id })
-  if (a) {
-    a.v1 = a.v1 + deltav1
-    a.vm1 = a.vm1 + deltavm1
-  }
-  if (!a || a.v1 > a.q1 || a.vm1 > a.qm1) {
-    console.log('Quotas d\'espace insuffisants.')
-    throw new AppExc(X_SRV, 'Quotas d\'espace insuffisants.')
-  }
-  stmt(cfg, updavgrvq).run(a)
-
-  if (secret2) {
-    const a = stmt(cfg, selavgrvqid).get({ id: args.id2 })
+  if (vchange) {
+    const a = stmt(cfg, selavgrvqid).get({ id: args.id })
     if (a) {
       a.v1 = a.v1 + deltav1
       a.vm1 = a.vm1 + deltavm1
-      stmt(cfg, updavgrvq).run(a)
+      a.v2 = a.v2 + deltav2
+      a.vm2 = a.vm2 + deltavm2
+    }
+    if (!a || a.v1 > a.q1 || a.vm1 > a.qm1 || a.v2 > a.q2 || a.vm2 > a.qm2) {
+      console.log('Quotas d\'espace insuffisants.')
+      throw new AppExc(X_SRV, 'Quotas d\'espace insuffisants.')
+    }
+    stmt(cfg, updavgrvq).run(a)
+
+    if (secret2) {
+      const a = stmt(cfg, selavgrvqid).get({ id: args.id2 })
+      if (a) {
+        a.v1 = a.v1 + deltav1
+        a.vm1 = a.vm1 + deltavm1
+        a.v2 = a.v2 + deltav2
+        a.vm2 = a.vm2 + deltavm2
+        stmt(cfg, updavgrvq).run(a)
+      }
     }
   }
 
