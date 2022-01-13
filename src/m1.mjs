@@ -632,24 +632,27 @@ function nouveauSecret (cfg, args) {
   setValue(cfg, VERSIONS)
   const v = versions[j]
   let vb
-  if (args.ts ===1) {
+  if (args.ts === 1) {
     const j2 = idx(args.id2)
     versions[j2]++
     setValue(cfg, VERSIONS)
     vb = versions[j2]
   }
 
-  let mc = args.mc || null
+  let mc
   if (args.ts === 2) {
-    mc = { }
-    if (args.mcg) mc[0] = args.mcg
-    if (args.mc && args.im) mc[args.im] = args.mc
+    const x = { }
+    x[0] = args.mcg
+    x[args.im] = args.mc
+    mc = serial(x)
+  } else {
+    mc = args.mc
   }
 
   const secret = { 
     id: args.id,
     ns: args.ns,
-    ic: args.ts === 1 ? args.ic : 0,
+    ic: args.ic,
     v: v,
     st: args.st,
     ora: args.ora,
@@ -670,14 +673,14 @@ function nouveauSecret (cfg, args) {
     ic: args.ic2,
     v: vb,
     st: args.st,
+    ora: args.ora,
     v1: args.v1,
     v2: 0,
-    ora: args.ora,
     mc: null,
     txts: args.txts,
     mpjs: null,
-    dups: args.dups2 || null,
-    refs: args.refs || null,
+    dups: args.dups2,
+    refs: args.refs,
     vsh: 0
   }
 
@@ -702,13 +705,24 @@ function nouveauSecretTr (cfg, secret, secret2) {
     }
   }
   if (!a || a.v1 > a.q1 || a.vm1 > a.qm1) {
-    console.log('Quotas d\'espace insuffisants.')
+    // console.log('Quotas d\'espace insuffisants.')
     throw new AppExc(X_SRV, 'Quotas d\'espace insuffisants.')
   }
-
   stmt(cfg, updavgrvq).run(a)
-  if (secret2) stmt(cfg, inssecret).run(secret2)
   stmt(cfg, inssecret).run(secret)
+
+  if (secret2) {
+    const a = stmt(cfg, selavgrvqid).get({ id: secret2.id })
+    if (a) {
+      if (secret.st === 99999) {
+        a.v1 = a.v1 + secret.v1
+      } else {
+        a.vm1 = a.vm1 + secret.v1
+      }
+    }
+    stmt(cfg, updavgrvq).run(a)
+    stmt(cfg, inssecret).run(secret2)
+  }
 }
 
 /***************************************
@@ -752,61 +766,60 @@ function maj1Secret (cfg, args) {
 }
 m1fonctions.maj1Secret = maj1Secret
 
-function mcidem (mc) {
-  return mc && mc.length === 1 && mc[0] === 0
-}
-
 function maj1SecretTr (cfg, args, rowItems) {
 
   const secret = stmt(cfg, selsecretidns).get({ id: args.id, ns: args.ns }) 
   if (!secret) {
-    console.log('Secret inconnu.')
+    // console.log('Secret inconnu.')
     throw new AppExc(X_SRV, 'Secret inexistant.')
   }
 
   let deltav1 = 0, deltavm1 = 0, deltav2 = 0, deltavm2 = 0
-  if (args.temp === 99999 && secret.st === 99999) {
-    // en réalité inchangé, toujours permanent
-    args.temp = 0
-  }
-  if (args.temp > 0 && args.temp < 99999 && secret.st < 99999) {
-    // en réalité inchangé, toujours temporaire
-    args.temp = 0
-  }
-  if (args.temp === 0) {
+  const pv1 = args.v1 === null ? secret.v1 : args.v1
+  if (args.temp === null) {
     // pas de changement perm / temp
     if (secret.st === 99999) {
-      deltav1 = args.v1 - secret.v1 // il était permanent
+      deltav1 = pv1 - secret.v1 // il était permanent
     } else {
-      deltavm1 = args.v1 - secret.v1
+      deltavm1 = pv1 - secret.v1
     }
   } else if (args.temp === 99999) { // devient permanent
-    deltav1 = secret.v1 // le volume permanent augmente du nouveau volume
-    deltavm1 = -args.v1 // le volume temporaire diminue de l'ancien volume
+    deltav1 = pv1 // le volume permanent augmente du nouveau volume
+    deltavm1 = -secret.v1 // le volume temporaire diminue de l'ancien volume
     deltav2 = secret.v2
     deltavm2 = -secret.v2
     secret.st = 99999
-  } else if (args.temp > 0 && args.temp < 99999) { // (re)devient temporaire
-    deltav1 = -args.v1
-    deltavm1 = secret.v1
+  } else { // (args.temp > 0 && args.temp < 99999) - (re)devient temporaire
+    deltav1 = -secret.v1 // le volume permanent diminue de l'ancien volume
+    deltavm1 = pv1 // le volume temporaire augmente du nouveau volume
     deltav2 = -secret.v2
     deltavm2 = secret.v2
     secret.st = args.temp
   }
   
-  const vchange = deltav1 || deltav2 || deltavm1 || deltavm2
-
-  secret.v1 = args.v1
-  if (args.txts.length !== 1) secret.txts = args.txts // sinon texte inchangé par convention
   secret.v = args.v
-  if (args.ts === 2) {
-    if (!secret.mc) secret.mc = { }
-    if (!mcidem(args.mcg)) secret.mc[0] = args.mcg || null
-    if (!mcidem(args.mc) && args.im) secret.mc[args.im] = args.mc || null
-  } else {
-    if (!mcidem(args.mc)) secret.mc = args.mc
+  secret.v1 = pv1
+  if (args.txts !== null) secret.txts = args.txts // sinon texte inchangé par convention
+  if (args.ts !== 2 && args.mc !== null) secret.mc = args.mc
+  if (args.ts === 2 && (args.mc !== null || args.mcg !== null)) {
+    const mc = secret.mc ? deserial(secret.mc) : { }
+    if (args.mc !== null) {
+      if (args.mc.length) {
+        mc[args.im] = args.mc
+      } else {
+        delete mc[args.im]
+      }
+    }
+    if (args.mcg !== null) {
+      if (args.mc.length) {
+        mc[0] = args.mcg
+      } else {
+        delete mc[0]
+      }
+    }
+    secret.mc = serial(mc)
   }
-  secret.ora = args.ora
+  if (args.ora !== null) secret.ora = args.ora
 
   let secret2
   if (args.ts === 1) {
@@ -814,13 +827,14 @@ function maj1SecretTr (cfg, args, rowItems) {
     secret2 = stmt(cfg, selsecretidns).get({ id: args.id2, ns: args.ns2 }) 
     if (secret2) {
       secret2.v = args.vb
+      secret2.st = secret.st
       secret2.v1 = secret.v1
-      secret2.txts = args.txts
-      secret2.ora = args.ora
+      secret2.txts = secret.txts
+      secret2.ora = secret.ora
     }
   }
 
-  if (vchange) {
+  if (deltav1 || deltav2 || deltavm1 || deltavm2) {
     const a = stmt(cfg, selavgrvqid).get({ id: args.id })
     if (a) {
       a.v1 = a.v1 + deltav1
