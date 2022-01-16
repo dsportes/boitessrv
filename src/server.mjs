@@ -12,6 +12,7 @@ import { encode, decode } from '@msgpack/msgpack'
 import { Session } from './session.mjs'
 import { setSalts } from './webcrypto.mjs'
 import { AppExc, E_SRV, X_SRV, F_SRV, version } from './api.mjs'
+import { getFile /*, putFile */ } from './storage.mjs'
 
 import { m1fonctions } from './m1.mjs'
 const modules = { m1: m1fonctions }
@@ -60,6 +61,7 @@ function er(c) {
     'Fonction inconnue', // 3
     'Organisation inconnue', // 4
     'Version d\'API incompatble', // 5
+    'File not found' // 6
   ]
   throw new AppExc(E_SRV, l[c])
 }
@@ -181,6 +183,7 @@ try {
     const e = cfg.orgs[org]
     e.code = org
     e.isDev = dev
+    e.wwwdir = cfg.wwwdir
     e.db = require('better-sqlite3')(path.resolve(dirs.dbdir, org + '.db3'), options);
   }
 } catch(e) {
@@ -210,6 +213,26 @@ app.get('/favicon.ico', (req, res) => {
 /**** ping du site ****/
 app.get('/ping', (req, res) => {
   setRes(res, 200, 'text/plain').send(new Date().toISOString())
+})
+
+app.use('/www/:org/:secid/:pjid', async (req, res) => {
+  if (!checkOrigin(req)) {
+    setRes(res, 402).send('Origine non autorisée')
+    return
+  }
+  const cfgorg = cfg.orgs[req.params.org]
+  if (!cfgorg) {
+    setRes(res, 402).send('Organisation inconnue')
+    return
+  }
+  const p = req.params
+  const bytes = await getFile(cfg, p.org, p.secid, p.pjid)
+  if (bytes) {
+    // putFile(cfg, p.org, p.secid, p.pjid, bytes) // pour test
+    setRes(res, 200, 'application/octet-stream').send(bytes)
+  } else {
+    setRes(res, 404).send('File not found')
+  }
 })
 
 /**** appels des opérations ****/

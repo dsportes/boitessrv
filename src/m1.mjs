@@ -3,6 +3,7 @@ import { getdhc, sleep, dds, deserial, serial } from './util.mjs'
 import { getSession, syncListQueue, processQueue } from './session.mjs'
 import { AppExc, X_SRV, E_WS, INDEXT } from './api.mjs'
 import { schemas } from './schemas.mjs'
+import { putFile, delFile } from './storage.mjs'
 
 export const m1fonctions = { }
 const MO = 1024 * 1024
@@ -622,7 +623,7 @@ Exception : dépassement des quotas
 const inssecret = 'INSERT INTO secret (id, ns, ic, v, st, ora, v1, v2, mc, txts, mpjs, dups, refs, vsh) ' +
   'VALUES (@id, @ns, @ic, @v, @st, @ora, @v1, @v2, @mc, @txts, @mpjs, @dups, @refs, @vsh)'
 
-function nouveauSecret (cfg, args) {
+async function nouveauSecret (cfg, args) {
   checkSession(args.sessionId)
   const dh = getdhc()
 
@@ -729,8 +730,11 @@ function nouveauSecretTr (cfg, secret, secret2) {
 MAJ secret
 Args : 
 - sessionId
-- ts, id, ns, v1, mc, mcg, im, txts, id2, ns2, ora, temp 
-temp : 0: inchangé, 99999: devient permanent, 780: (re)devient temporaire
+- ts, id, ns, v1, mc, im, mcg, txts, ora, temp, id2, ns2
+temp : null: inchangé, 99999: devient permanent, 780: (re)devient temporaire
+ora : null: inchangé, 0: pas de restriction, nnn: exclusifité à im (ts=2) ou 1/2 (ts=1), 1nnn: archivé et exclusivité ou non (1000)
+txts: null: inchangé
+mcg: null: inchangé (im sert à mettre à jour les motsclés)
 
 Retour :
 - sessionId
@@ -739,7 +743,7 @@ Exception : dépassement des quotas
 */
 const upd1secret = 'UPDATE secret SET v = @v, st = @st, ora = @ora, v1 = @v1, txts = @txts, mc = @mc WHERE id = @id AND ns = @ns'
 
-function maj1Secret (cfg, args) {
+async function maj1Secret (cfg, args) {
   checkSession(args.sessionId)
   const dh = getdhc()
 
@@ -866,5 +870,149 @@ function maj1SecretTr (cfg, args, rowItems) {
   if (secret2) {
     stmt(cfg, upd1secret).run(secret2)
     rowItems.push(newItem('secret', secret2))
+  }
+}
+
+/***************************************
+Pièce jointe d'un secret
+Args : 
+- sessionId
+- { id: s.id, ns: s.ns, cle, idc, buf, lg, id2, ns2 }
+- `cle` : hash court en base64 URL de nom.ext
+- `idc` : id complète de la pièce jointe (nom.txt/type/dh), cryptée par la clé du secret et en base64 URL.
+- buf : contenu binaire crypté
+- lg : taille de la pièce jointe d'origine (non gzippée, non cryptée)
+
+Retour :
+- sessionId
+- dh
+Exception : dépassement des quotas 
+*/
+const upd2secret = 'UPDATE secret SET v = @v, v2 = @v2, mpjs = @mpjs WHERE id = @id AND ns = @ns'
+
+async function pjSecret (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.id)
+  versions[j]++
+  setValue(cfg, VERSIONS)
+  args.v = versions[j]
+
+  if (args.ts ===1) {
+    const j2 = idx(args.id2)
+    versions[j2]++
+    setValue(cfg, VERSIONS)
+    args.vb = versions[j2]
+  }
+
+  const secret = stmt(cfg, selsecretidns).get({ id: args.id, ns: args.ns })
+  if (!secret) {
+    // console.log('Secret inconnu.')
+    throw new AppExc(X_SRV, 'Secret inexistant.')
+  }
+
+  // calcul de v2 et de mpjs
+  const mpjs = !secret.mpjs ? {} : deserial(secret.mpjs)
+  mpjs[args.cle] = [args.idc, args.lg]
+  let v = 0, deltav2 = 0, deltavm2 = 0
+  for (const c in mpjs) v += mpjs[c][1]
+  if (secret.st === 99999) { // permanent
+    deltav2 = v - secret.v2
+    deltavm2 = 0
+  } else {
+    deltav2 = 0
+    deltavm2 = v - secret.v2
+  }
+  if (deltav2 || deltavm2) {
+    const a = stmt(cfg, selavgrvqid).get({ id: args.id })
+    if (a) {
+      a.v2 = a.v2 + deltav2
+      a.vm2 = a.vm2 + deltavm2
+    }
+    if (!a || a.v1 > a.q1 || a.vm1 > a.qm1 || a.v2 > a.q2 || a.vm2 > a.qm2) {
+      console.log('Quotas d\'espace insuffisants.')
+      throw new AppExc(X_SRV, 'Quotas d\'espace insuffisants.')
+    }
+  }
+
+  const secid = crypt.idToSid(args.id) + '@' + crypt.idToSid(args.ns)
+  const pjid = args.cle + '@' + args.idc
+  // stockage nouvelle version
+  await putFile (cfg, cfg.code, secid, pjid, args.buf)
+
+  const rowItems = []
+
+  try {
+    cfg.db.transaction(pjSecretTr)(cfg, args, rowItems)
+    // suppressions des anciennes versions (même clé) mais pas de la nouvelle
+    delFile (cfg, cfg.code, secid, args.cle, pjid)
+    syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+    setImmediate(() => { processQueue() })
+    return { sessionId: args.sessionId, dh: dh }
+  } catch (ex) {
+    // "rollback" sur stockage nouvelle version
+    delFile (cfg, cfg.code, secid, null, pjid) 
+    throw ex
+  }
+}
+m1fonctions.pjSecret = pjSecret
+
+function pjSecretTr (cfg, args, rowItems) {
+
+  const secret = stmt(cfg, selsecretidns).get({ id: args.id, ns: args.ns }) 
+  if (!secret) {
+    // console.log('Secret inconnu.')
+    throw new AppExc(X_SRV, 'Secret inexistant.')
+  }
+
+  secret.v = args.v
+  // calcul de v2 et de mpjs
+  const mpjs = !secret.mpjs ? {} : deserial(secret.mpjs)
+  mpjs[args.cle] = [args.idc, args.lg]
+  let v = 0, deltav2 = 0, deltavm2 = 0
+  for (const c in mpjs) v += mpjs[c][1]
+  secret.mpjs = serial(mpjs)
+  secret.v2 = v
+  rowItems.push(newItem('secret', secret))
+  stmt(cfg, upd2secret).run(secret)
+
+  let secret2
+  if (args.ts === 1) {
+    // secret2 PEUT avoir été détruit
+    secret2 = stmt(cfg, selsecretidns).get({ id: args.id2, ns: args.ns2 }) 
+    if (secret2) {
+      secret2.v = args.vb
+      secret2.v2 = secret.v2
+      secret2.mpjs = secret.mpjs
+      stmt(cfg, upd2secret).run(secret2)
+      rowItems.push(newItem('secret', secret2))
+    }
+  }
+
+  if (secret.st === 99999) { // permanent
+    deltav2 = v - secret.v2
+    deltavm2 = 0
+  } else {
+    deltav2 = 0
+    deltavm2 = v - secret.v2
+  }
+  if (deltav2 || deltavm2) {
+    const a = stmt(cfg, selavgrvqid).get({ id: args.id })
+    if (a) {
+      a.v2 = a.v2 + deltav2
+      a.vm2 = a.vm2 + deltavm2
+      stmt(cfg, updavgrvq).run(a)
+    }
+
+    if (secret2) {
+      const a = stmt(cfg, selavgrvqid).get({ id: args.id2 })
+      if (a) {
+        a.v2 = a.v2 + deltav2
+        a.vm2 = a.vm2 + deltavm2
+        stmt(cfg, updavgrvq).run(a)
+      }
+    }
   }
 }

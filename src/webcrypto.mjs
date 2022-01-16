@@ -46,7 +46,7 @@ export function random (nbytes) { return crypto.randomBytes(nbytes) }
 
 export async function crypter (cle, buffer, idxIV) {
   const k = typeof cle === 'string' ? b64ToU8(cle) : cle
-  const n = !idxIV ? 0 : (idxIV < 0 ? Number(crypto.randomBytes(1)) : idxIV)
+  const n = !idxIV ? Number(crypto.randomBytes(1)) : idxIV
   const cipher = crypto.createCipheriv('aes-256-cbc', k, SALTS[n])
   const x0 = new Uint8Array(1)
   x0[0] = n

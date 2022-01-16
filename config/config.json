@@ -1,9 +1,10 @@
 {
   "port": 8443,
   "https": true,
-  "origins": ["localhost", "https://localhost", "https://test.sportes.fr", "https://192.168.1.10:8080"],
+  "origins": ["localhost", "localhost:8443", "https://localhost", "https://test.sportes.fr", "https://192.168.1.10:8080"],
   "orgs": {
     "doda": { "cle":"BVzv6s7vgPhm266SNp5Avr7MSxLw9epHDfIRvC9tj3w" },
     "super": { "cle":"BVzv6s7vgPhm266SNp5Avr7MSxLw9epHDfIRvC9tj3w" }
-  }
+  },
+  "wwwdir": "./www"
 }
