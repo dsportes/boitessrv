@@ -19,6 +19,10 @@ export async function putFile (cfg, org, secid, pjid, data) {
   await fsp.writeFile(path.resolve(dir, pjid), data)
 }
 
+/*
+Si cle != null: suppression de TOUS les fichiers qui commencent par cle@ ... SAUF pjid si pjid non null
+Si pjid non null et cle null : suppression DU fichier pjid (qui d'ailleurs commen,ce par cle@...)
+*/
 export function delFile (cfg, org, secid, cle, pjid) {
   try {
     const dir = path.resolve(cfg.wwwdir, org, secid)
@@ -28,7 +32,7 @@ export function delFile (cfg, org, secid, cle, pjid) {
       } else {
         const files = fs.readdirSync(dir)
         if (files && files.length) files.forEach(name => {
-          if (name !== pjid && name.startsWith(cle + '@')) fs.unlinkSync(path.resolve(dir, name));
+          if ((!pjid || name !== pjid) && name.startsWith(cle + '@')) fs.unlinkSync(path.resolve(dir, name));
         })
       }
     }

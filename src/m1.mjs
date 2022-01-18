@@ -874,14 +874,16 @@ function maj1SecretTr (cfg, args, rowItems) {
 }
 
 /***************************************
-Pièce jointe d'un secret
+Pièce jointe d'un secret - Ajout / modification / suppression
 Args : 
 - sessionId
 - { id: s.id, ns: s.ns, cle, idc, buf, lg, id2, ns2 }
 - `cle` : hash court en base64 URL de nom.ext
 - `idc` : id complète de la pièce jointe (nom.txt/type/dh), cryptée par la clé du secret et en base64 URL.
-- buf : contenu binaire crypté
+- buf : contenu binaire crypté.
 - lg : taille de la pièce jointe d'origine (non gzippée, non cryptée)
+
+Suppression : buf et idc sont null
 
 Retour :
 - sessionId
@@ -915,7 +917,15 @@ async function pjSecret (cfg, args) {
 
   // calcul de v2 et de mpjs
   const mpjs = !secret.mpjs ? {} : deserial(secret.mpjs)
-  mpjs[args.cle] = [args.idc, args.lg]
+  if (args.idc === null) {
+    if (args.idc === null) {
+      delete mpjs[args.cle]
+    } else {
+      mpjs[args.cle] = [args.idc, args.lg]
+    }
+  } else {
+    mpjs[args.cle] = [args.idc, args.lg]
+  }
   let v = 0, deltav2 = 0, deltavm2 = 0
   for (const c in mpjs) v += mpjs[c][1]
   if (secret.st === 99999) { // permanent
@@ -925,7 +935,7 @@ async function pjSecret (cfg, args) {
     deltav2 = 0
     deltavm2 = v - secret.v2
   }
-  if (deltav2 || deltavm2) {
+  if (deltav2 || deltavm2 && args.buf) {
     const a = stmt(cfg, selavgrvqid).get({ id: args.id })
     if (a) {
       a.v2 = a.v2 + deltav2
@@ -938,22 +948,26 @@ async function pjSecret (cfg, args) {
   }
 
   const secid = crypt.idToSid(args.id) + '@' + crypt.idToSid(args.ns)
-  const pjid = args.cle + '@' + args.idc
-  // stockage nouvelle version
-  await putFile (cfg, cfg.code, secid, pjid, args.buf)
+  const pjid = args.idc ? args.cle + '@' + args.idc : null
+
+  if (args.idc) {
+    // stockage nouvelle version
+    await putFile (cfg, cfg.code, secid, pjid, args.buf)
+  }
 
   const rowItems = []
 
   try {
     cfg.db.transaction(pjSecretTr)(cfg, args, rowItems)
-    // suppressions des anciennes versions (même clé) mais pas de la nouvelle
+    // suppressions des anciennes versions (même clé) mais pas de la nouvelle 
+    // SAUF si pjid est null auquel cas c'est une suppression
     delFile (cfg, cfg.code, secid, args.cle, pjid)
     syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
     setImmediate(() => { processQueue() })
     return { sessionId: args.sessionId, dh: dh }
   } catch (ex) {
-    // "rollback" sur stockage nouvelle version
-    delFile (cfg, cfg.code, secid, null, pjid) 
+    // "rollback" sur stockage nouvelle version SAUF si pjid null (on ne supprime surtout pas)
+    if (pjid !== null) delFile (cfg, cfg.code, secid, null, pjid) 
     throw ex
   }
 }
@@ -970,7 +984,11 @@ function pjSecretTr (cfg, args, rowItems) {
   secret.v = args.v
   // calcul de v2 et de mpjs
   const mpjs = !secret.mpjs ? {} : deserial(secret.mpjs)
-  mpjs[args.cle] = [args.idc, args.lg]
+  if (args.idc === null) {
+    delete mpjs[args.cle]
+  } else {
+    mpjs[args.cle] = [args.idc, args.lg]
+  }
   let v = 0, deltav2 = 0, deltavm2 = 0
   for (const c in mpjs) v += mpjs[c][1]
   secret.mpjs = serial(mpjs)
