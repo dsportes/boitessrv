@@ -143,7 +143,7 @@ function newItem (table, row) {
 /******************************************/
 const inscompte = 'INSERT INTO compte (id, v, dds, dpbh, pcbh, kx, mack, vsh) VALUES (@id, @v, @dds, @dpbh, @pcbh, @kx, @mack, @vsh)'
 const insprefs = 'INSERT INTO prefs (id, v, mapk, vsh) VALUES (@id, @v, @mapk, @vsh)'
-const insavatar = 'INSERT INTO avatar (id, v, st, vcv, dds, cva, lctk, vsh) VALUES (@id, @v, @st, @vcv, @dds, @cva, @lctk, @vsh)'
+const insavatar = 'INSERT INTO avatar (id, v, st, vcv, dds, cva, vsh) VALUES (@id, @v, @st, @vcv, @dds, @cva, @vsh)'
 const insavrsa = 'INSERT INTO avrsa (id, clepub, vsh) VALUES (@id, @clepub, @vsh)'
 const selavgrvqid = 'SELECT * FROM avgrvq WHERE id = @id'
 const insavgrvq = 'INSERT INTO avgrvq (id, q1, q2, qm1, qm2, v1, v2, vm1, vm2, vsh) VALUES (@id, @q1, @q2, @qm1, @qm2, @v1, @v2, @vm1, @vm2, @vsh)'
@@ -287,7 +287,7 @@ Enregistrement de la CV d'un avatar :
 Args : 
 - sessionId
 - id: de l'avatar
-- phinfo : [ph, info] crtpter par la clé de l'avatar et sérialisé]
+- phinfo : [ph, info] crypté par la clé de l'avatar et sérialisé]
 Retour :
 - sessionId
 - dh
@@ -1033,4 +1033,82 @@ function pjSecretTr (cfg, args, rowItems) {
       }
     }
   }
+}
+
+/******************************************************************
+ * Parrainage
+ * - sessionId
+ * - pph : hash de la phrase de parrainge
+ * - dlv : date limite de validité
+ * - id : de l'avatar parrain
+ * - aps : booléen - true si le parrain accepte le partage de secret (false si limitation à l'ardoise)
+ * - q1 q2 qm1 qm2 : quotas donnés par le parrain
+ * - datak : [phrase de parainage (string), clé X (u8)] sérialisé et crypté par la clé K du parrain
+ * - datax : sérialisation et cryptage par la clé X de :
+ *  - nomp, rndp : du parrain
+ *  - nomf, rndf : du filleul
+ *  - cc : u8, clé du couple
+ *  - ic : numéro de contact du filleul chez le parrain
+ * - ardc : mot d'accueil du parrain crypté par la clé du couple
+ * Pour créer le row contact :
+ * - ic : indice de contact du filleul chez le parrain
+ * - data2k : sérialisation et cryptage par la clé K du parrain de :
+ *  - nom, rnd du filleul
+ *  - cc : u8, clé du couple
+ * Pour le transfert de quotas
+ * - idf : id du filleul
+ * Retour :
+ * - dh : 
+ */
+const insparrain = 'INSERT INTO parrain (pph, id, v, dlv, st, q1, q2, qm1, qm2, datak, datax, ardc, vsh) '
+  + 'VALUES (@pph, @id, @v, @dlv, @st, @q1, @q2, @qm1, @qm2, @datak, @datax, @ardc, @vsh)'
+const inscontact = 'INSERT INTO contact (id, ic, v, st, dlv, q1, q2, qm1, qm2, ardc, icbc, datak, mc, infok, vsh) '
+  + 'VALUES (@id, @ic, @v, @st, @dlv, @q1, @q2, @qm1, @qm2, @ardc, @icbc, @datak, @mc, @infok, @vsh)'
+
+async function nouveauParrainage (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+  const rowItems = []
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.id)
+  versions[j]++
+  setValue(cfg, VERSIONS)
+  const v = versions[j] // version des row parrain et contact
+
+  // parrain : ['pph', 'id', 'v', 'dlv', 'st', 'q1', 'q2', 'qm1', 'qm2', 'datak', 'datax', 'ardc', 'vsh']
+  const parrain = { pph: args.pph, id: args.id, v, dlv: args.dlv, st: 0, ...args.quotas, datak: args.datak, datax: args.datax, ardc: args.ardc, vsh: 0 }
+  rowItems.push(newItem('parrain', parrain))
+
+  // contact : ['id', 'ic', 'v', 'st', 'dlv', 'q1', 'q2', 'qm1', 'qm2', 'ardc', 'icbc', 'datak', 'mc', 'infok', 'vsh']
+  const contact = { id: args.id, ic: args.ic, v, st: args.aps ? 31 : 30, ...args.quotas, ardc: args.ardc, icbc: null, datak: args.datak, mc: null, infok: null, vsh: 0 }
+  rowItems.push(newItem('contact', contact))
+
+  // avgrq: ['id', 'q1', 'q2', 'qm1', 'qm2', 'v1', 'v2', 'vm1', 'vm2', 'vsh']
+  const avgrqf = { id: args.idf, ...args.quotas, v1: 0, v2: 0, vm1: 0, vm2: 0, vsh: 0 }
+
+  cfg.db.transaction(nouveauParrainageTr)(cfg, parrain, contact, avgrqf, args.id, args.quotas)
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return { sessionId: args.sessionId, dh: dh }
+}
+m1fonctions.nouveauParrainage = nouveauParrainage
+
+function nouveauParrainageTr (cfg, parrain, contact, avgrqf, id, q) {
+  stmt(cfg, insparrain).run(parrain)
+  stmt(cfg, inscontact).run(contact)
+  // Transfert de quotas
+  const a = stmt(cfg, selavgrvqid).get({ id: id })
+  if (a) {
+    a.q1 = a.q1 - q.q1
+    a.q2 = a.q2 - q.q2
+    a.qm1 = a.qm1 - q.qm1
+    a.qm2 = a.qm2 - q.qm2
+  }
+  if (!a || a.v1 > a.q1 || a.vm1 > a.qm1 || a.v2 > a.q2 || a.vm2 > a.qm2) {
+    console.log('Quotas d\'espace insuffisants.')
+    throw new AppExc(X_SRV, 'Quotas d\'espace insuffisants.')
+  }
+  stmt(cfg, updavgrvq).run(a)
+  stmt(cfg, insavgrvq).run(avgrqf)
 }

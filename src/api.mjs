@@ -61,7 +61,7 @@ _**Tables aussi persistantes sur le client (IDB)**_
 
 schemas.forSchema({
   name: 'rowavatar',
-  cols: ['id', 'v', 'st', 'vcv', 'dds', 'cva', 'lctk', 'lgrk', 'vsh']
+  cols: ['id', 'v', 'st', 'vcv', 'dds', 'cva', 'lgrk', 'vsh']
 })
 /*
   "id"  INTEGER,
@@ -70,7 +70,6 @@ schemas.forSchema({
   "vcv" INTEGER,
   "dds" INTEGER,
   "cva" BLOB,
-  "lctk" BLOB,
   "lgrk" BLOB,
   "vsh" INTEGER,
 */
@@ -120,14 +119,26 @@ schemas.forSchema({
 */
 
 schemas.forSchema({
+  name: 'rowprefs',
+  cols: ['id', 'v', 'mapk', 'vsh']
+})
+/*
+    "id"  INTEGER,
+    "v"   INTEGER,
+    "mapk"  BLOB,
+    "vsh" INTEGER,
+*/
+
+schemas.forSchema({
   name: 'rowcontact',
-  cols: ['id', 'ic', 'v', 'st', 'q1', 'q2', 'qm1', 'qm2', 'ardc', 'icbc', 'datak', 'mc', 'infok', 'vsh']
+  cols: ['id', 'ic', 'v', 'st', 'dlv', 'q1', 'q2', 'qm1', 'qm2', 'ardc', 'icbc', 'datak', 'mc', 'infok', 'vsh']
 })
 /*
     "id"   INTEGER,
     "ic"  INTEGER,
     "v"   INTEGER,
     "st" INTEGER,
+    "dlv" INTEGER,
     "q1" INTEGER,
     "q2" INTEGER,
     "qm1" INTEGER,
@@ -205,7 +216,7 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowparrain',
-  cols: ['pph', 'id', 'v', 'dlv', 'st', 'q1', 'q2', 'qm1', 'qm2', 'datak', 'datax', 'vsh']
+  cols: ['pph', 'id', 'v', 'dlv', 'st', 'q1', 'q2', 'qm1', 'qm2', 'datak', 'datax', 'ardc', 'vsh']
 })
 /*
     "pph"  INTEGER,
