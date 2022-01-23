@@ -536,8 +536,8 @@ Abonnement à l'union des deux listes
     { name: 'lcvmaj', type: arrayIntType },
     { name: 'lcvchargt', type: arrayIntType }
 */
-const selcv1 = 'SELECT id, vcv, st, phinf FROM avatar WHERE id IN @lid AND vcv > @vcv'
-const selcv2 = 'SELECT id, vcv, st, phinf FROM avatar WHERE id IN @lid'
+const selcv1 = 'SELECT id, vcv, st, cva FROM avatar WHERE vcv > @vcv AND id IN ('
+const selcv2 = 'SELECT id, vcv, st, cva FROM avatar WHERE id IN ('
 
 async function chargtCVs (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
@@ -545,20 +545,23 @@ async function chargtCVs (cfg, args) {
   session.cvsIds = new Set(args.lcvmaj.concat(args.lcvchargt))
   const rowItems = []
 
-  let lst = []
   if (args.lcvmaj.length) {
-    args.lcvmaj.forEach((sid) => { lst.push('' + crypt.sidToId(sid)) })
-    const lid = '(' + lst.join(',') + ')'
-    for (const row of stmt(cfg, selcv1).iterate({ lid, vcv: args.vcv})) {
+    const lst = []
+    args.lcvmaj.forEach((sid) => { lst.push(crypt.sidToId(sid)) })
+    // lst.push(3382219599812300) pour tester la syntaxe IN
+    const st = cfg.db.prepare(selcv1 + lst.join(',') + ')')
+    const rows = st.all({ vcv: args.vcv })
+    for (const row of rows) {
       rowItems.push(newItem('cv', row))
     }
   }
   
-  lst = []
   if (args.lcvchargt.length) {
-    args.lcvchargt.forEach((sid) => { lst.push('' + crypt.sidToId(sid)) })
-    const lid = '(' + lst.join(',') + ')'
-    for (const row of stmt(cfg, selcv2).iterate({ lid })) {
+    const lst = []
+    args.lcvchargt.forEach((sid) => { lst.push(crypt.sidToId(sid)) })
+    const st = cfg.db.prepare(selcv2 + lst.join(',') + ')')
+    const rows = st.all()
+    for (const row of rows) {
       rowItems.push(newItem('cv', row))
     }
   }
@@ -1064,6 +1067,7 @@ const insparrain = 'INSERT INTO parrain (pph, id, v, dlv, st, q1, q2, qm1, qm2, 
   + 'VALUES (@pph, @id, @v, @dlv, @st, @q1, @q2, @qm1, @qm2, @datak, @datax, @ardc, @vsh)'
 const inscontact = 'INSERT INTO contact (id, ic, v, st, dlv, q1, q2, qm1, qm2, ardc, icbc, datak, mc, infok, vsh) '
   + 'VALUES (@id, @ic, @v, @st, @dlv, @q1, @q2, @qm1, @qm2, @ardc, @icbc, @datak, @mc, @infok, @vsh)'
+const selpphparrain = 'SELECT * FROM parrain WHERE pph = @pph'
 
 async function nouveauParrainage (cfg, args) {
   checkSession(args.sessionId)
@@ -1081,7 +1085,7 @@ async function nouveauParrainage (cfg, args) {
   rowItems.push(newItem('parrain', parrain))
 
   // contact : ['id', 'ic', 'v', 'st', 'dlv', 'q1', 'q2', 'qm1', 'qm2', 'ardc', 'icbc', 'datak', 'mc', 'infok', 'vsh']
-  const contact = { id: args.id, ic: args.ic, v, st: args.aps ? 31 : 30, ...args.quotas, ardc: args.ardc, icbc: null, datak: args.datak, mc: null, infok: null, vsh: 0 }
+  const contact = { id: args.id, ic: args.ic, v, st: args.aps ? 31 : 30, dlv: args.dlv, ...args.quotas, ardc: args.ardc, icbc: null, datak: args.data2k, mc: null, infok: null, vsh: 0 }
   rowItems.push(newItem('contact', contact))
 
   // avgrq: ['id', 'q1', 'q2', 'qm1', 'qm2', 'v1', 'v2', 'vm1', 'vm2', 'vsh']
@@ -1095,6 +1099,13 @@ async function nouveauParrainage (cfg, args) {
 m1fonctions.nouveauParrainage = nouveauParrainage
 
 function nouveauParrainageTr (cfg, parrain, contact, avgrqf, id, q) {
+  const p = stmt(cfg, selpphparrain).get({ pph: parrain.pph })
+  if (p) {
+    console.log('Parrain : phrase déjà utilisée')
+    const x = p.id === parrain.id ? ' par votre compte.' : ' par un autre compte.'
+    throw new AppExc(X_SRV, 'Cette phrase de parrainage est trop proche d\'une déjà enregistrée' + x)
+  }
+
   stmt(cfg, insparrain).run(parrain)
   stmt(cfg, inscontact).run(contact)
   // Transfert de quotas
