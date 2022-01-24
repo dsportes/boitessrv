@@ -157,31 +157,11 @@ function idx (id) {
   return (id % (nbVersions - 1)) + 1
 }
 
-/* Creation de compte sans parrain
-args: 
-  name: 'creationCompte',
-  type: 'record',
-  fields: [
-    { name: 'sessionId', type: 'string' },
-    { name: 'mdp64', type: 'string' },
-    { name: 'dpbh', type: 'long' },
-    { name: 'q1', type: 'int' },
-    { name: 'q2', type: 'int' },
-    { name: 'qm1', type: 'int' },
-    { name: 'qm2', type: 'int' },
-    { name: 'clePub', type: 'bytes' },
-    { name: 'rowCompte', type: 'bytes' },
-    { name: 'rowAvatar', type: 'bytes' }
-    { name: 'rowPrefs', type: 'bytes' }
-  ]
+/* Creation de compte sans parrain ****************************************
+- sessionId, mdp64, q1, q2, qm1, qm2, clePub rowCompte, rowAvatar, rowPrefs
 Retour :
-  name: 'respBase1',
-  type: 'record',
-  fields: [
-    { name: 'sessionId', type: 'string' },
-    { name: 'dh', type: 'long' },
-    { name: 'rows', type: { type: 'array', items: ['bytes'] } }
-  ]
+- sessionId
+- dh
 */
 function creationCompte (cfg, args) {
   checkSession(args.sessionId)  
@@ -1108,13 +1088,14 @@ function nouveauParrainageTr (cfg, parrain, contact, avgrqf, id, q) {
 
   stmt(cfg, insparrain).run(parrain)
   stmt(cfg, inscontact).run(contact)
-  // Transfert de quotas
+
+  // Retrait de quotas
   const a = stmt(cfg, selavgrvqid).get({ id: id })
   if (a) {
-    a.q1 = a.q1 - q.q1
-    a.q2 = a.q2 - q.q2
-    a.qm1 = a.qm1 - q.qm1
-    a.qm2 = a.qm2 - q.qm2
+    a.q1 = a.q1 - q.q1 * MO
+    a.q2 = a.q2 - q.q2 * MO
+    a.qm1 = a.qm1 - q.qm1 * MO
+    a.qm2 = a.qm2 - q.qm2 * MO
   }
   if (!a || a.v1 > a.q1 || a.vm1 > a.qm1 || a.v2 > a.q2 || a.vm2 > a.qm2) {
     console.log('Quotas d\'espace insuffisants.')
@@ -1122,4 +1103,169 @@ function nouveauParrainageTr (cfg, parrain, contact, avgrqf, id, q) {
   }
   stmt(cfg, updavgrvq).run(a)
   stmt(cfg, insavgrvq).run(avgrqf)
+}
+
+/******************************************************************
+ * Acceptation / refus d'un parrainage
+ * - sessionId
+ * - ok : true si acceptation
+ * - pph : hash de la phrase de parrainage
+ * - idp : de l'avatar parrain
+ * - icp : ic du contact du filleul chez le parrain
+ * - ardc : mot du filleul crypté par la clé du couple
+ * Si acceptation
+ * - idf : id du filleul
+ * - icbc : indice de P comme contact chez F crypté par leur clé cc
+ * - clePub, rowCompte, rowAvatar, rowPrefs : v attribuées par le serveur
+ * - rowContact (du filleul) : st, dlv et quotas attribués par le serveur
+ *  Pour maj de sr des rows contact du parrain / filleul :
+ * - aps : booléen - true si le filleul accepte le partage de secret (false si limitation à l'ardoise)* 
+ * Retour : sessionId, dh
+ */
+
+const upd1contact = 'UPDATE contact SET v = @v, st = @st, dlv = @dlv, icbc = @icbc, q1 = @q1, q2 = @q2, qm1 = @qm1, qm2 = @qm2, ardc = @ardc WHERE id = @id AND ic = @ic'
+const upd1parrain = 'UPDATE parrain SET v = @v, st = @st, dlv = @dlv, ardc = @ardc WHERE pph = @pph'
+const supprcontact = 'UPDATE contact SET v = @v, st = @st, dlv = 0, icbc = null, q1 = 0, q2 = 0, qm1 = 0, qm2 = 0, ardc = null, datak = null, mc = null, infok = null, vsh = 0 WHERE id = @id AND ic = @ic'
+
+async function acceptParrainage (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+  
+  const versions = getValue(cfg, VERSIONS)
+  let j = idx(args.idp)
+  versions[j]++
+  args.vp = versions[j] // version des rows parrain
+  if (args.ok) {
+    j = idx(args.idf)
+    versions[j]++
+    args.vf = versions[j] // version des rows filleul  
+  }
+  setValue(cfg, VERSIONS)
+
+  const compte = args.ok ? schemas.deserialize('rowcompte', args.rowCompte) : null
+  const avatar = args.ok ? schemas.deserialize('rowavatar', args.rowAvatar) : null
+  const prefs = args.ok ? schemas.deserialize('rowprefs', args.rowPrefs) : null
+  const contactf = args.ok ? schemas.deserialize('rowcontact', args.rowContact) : null
+  const items = {}
+
+  cfg.db.transaction(acceptParrainageTr)(cfg, session, args, result, compte, avatar, prefs, contactf, items)
+
+  let rowItems
+  const i1 = newItem('contact', items.contactp)
+  const i2 = newItem('parrain', items.parrain)
+  if (args.ok) {
+    const i3 = newItem('compte', compte)
+    const i4 = newItem('avatar', avatar)
+    const i5 = newItem('prefs', prefs)
+    const i6 = newItem('contact', contactf)
+    rowItems = [i1, i2, i3, i4, i5, i6]
+    result.rowItems = [i3, i4, i5, i6]
+  } else {
+    rowItems = [i1, i2]
+  }
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.acceptParrainage = acceptParrainage
+  
+function acceptParrainageTr (cfg, session, args, result, compte, avatar, prefs, contactf, items) {
+  const p = stmt(cfg, selpphparrain).get({ pph: args.pph })
+  if (!p) {
+    throw new AppExc(X_SRV, 'Phrase de parrainage inconnue')
+  }
+  if (p.st !== 0) {
+    throw new AppExc(X_SRV, 'Ce parrainage a déjà fait l\'objet ' + (p.st === 1 ? 'd\'une acceptation.' : 'd\'un refus'))
+  }
+
+  const contactp = stmt(cfg, selcontact).get({ id: args.idp, ic: args.icp })
+  if (!contactp) {
+    throw new AppExc(X_SRV, 'Contact parrain non trouvé (données corrompues)')
+  }
+
+  if (args.ok) {
+    const c = stmt(cfg, selcomptedpbh).get({ dpbh: compte.dpbh })
+    if (c) {
+      if (c.pcbh === compte.pcbh) {
+        throw new AppExc(X_SRV, 'Phrase secrète probablement déjà utilisée. Vérifier que le compte n\'existe pas déjà en essayant de s\'y connecter avec la phrase secrète')
+      } else {
+        throw new AppExc(X_SRV, 'Une phrase secrète semblable est déjà utilisée. Changer a minima la première ligne de la phrase secrète pour ce nouveau compte')
+      }
+    }
+  
+    // MAJ du row parrain : v, st, ardc
+    p.v = args.vp
+    p.ardc = args.ardc
+    p.st = 2
+    stmt(cfg, upd1parrain).run(p)
+
+    // MAJ des contacts p et f : v, st, dlv, quotas, ardc
+    /* - `st` : statut entier de 2 chiffres, `x y` : **les valeurs < 0 indiquent un row supprimé (les champs après sont null)**.
+    - `x` :
+      - 0 : contact présumé actif,
+      - 1 : contact plus présumé actif,
+      - 2 : invitation à être contact plus en cours (sous contrôle de dlv),
+      - 3 : parrainage en cours (sous contrôle de dlv)
+      - 4 : parrainage refusé (sous contrôle de dlv)
+      - 9 : présumé disparu
+    - `y` : 0 1 2 3 selon que A et B acceptent le partage de secrets
+    */
+    contactp.v = args.vp
+    contactf.v = args.vf
+
+    const pas = (contactp.st % 10) !== 0
+    const fas = args.aps
+    contactp.st = 10 + (pas ? 1: 0) + (fas ? 2 : 0)
+    contactf.st = 10 + (pas ? 2: 0) + (fas ? 1 : 0)
+    contactp.dlv = 0
+    contactf.dlv = 0
+
+    contactp.q1 = contactp.q1 - p.q1*MO
+    contactf.q1 = p.q1*MO
+    contactp.q2 = contactp.q2 - p.q2*MO
+    contactf.q2 = p.q2*MO
+    contactp.qm1 = contactp.qm1 - p.qm1*MO
+    contactf.qm1 = p.qm1*MO
+    contactp.qm2 = contactp.qm2 - p.qm2*MO
+    contactf.qm2 = p.qm2*MO
+    contactp.ardc = args.ardc
+    contactp.icbc = args.icbc
+    stmt(cfg, upd1contact).run(contactp)
+    stmt(cfg, inscontact).run(contactf)
+
+    // Insertion des nouveaux compte, avatar, prefs du filleul
+    compte.v = args.vf
+    avatar.v = args.vf
+    prefs.v = args.vf
+    compte.dds = dds.ddsc(0)
+    avatar.dds = dds.ddsag(0)
+    stmt(cfg, inscompte).run(compte)
+    stmt(cfg, insavatar).run(avatar)
+    stmt(cfg, insprefs).run(prefs)
+
+    // Clé RSA du filleul
+    const avrsa = { id: avatar.id, clepub: args.clePub, vsh: 0 }
+    stmt(cfg, insavrsa).run(avrsa)
+
+    // Quotas du filleul
+    const avgrvq = { id: avatar.id, q1: p.q1*MO, q2: p.q2*MO, qm1: p.qm1*MO, qm2:p.qm2*MO, v1: 0, v2:0, vm1:0, vm2: 0, vsh: 0 }
+    stmt(cfg, insavgrvq).run(avgrvq)
+
+    // Contexte de session du filleul
+    session.compteId = compte.id
+    session.plusAvatars([avatar.id])
+  } else { // Refus
+    // MAJ du row parrain : v, st, ardc
+    p.v = args.vp
+    p.ardc = args.ardc
+    p.st = 1 // refus
+    stmt(cfg, upd1parrain).run(p)
+    
+    // Suppression du contact P
+    contactp.v = args.vp
+    stmt(cfg, supprcontact).run(contactp)
+  }
+  items.parrain = p
+  items.contactp = contactp
 }
