@@ -715,7 +715,7 @@ Args :
 - sessionId
 - ts, id, ns, v1, mc, im, mcg, txts, ora, temp, id2, ns2
 temp : null: inchangé, 99999: devient permanent, 780: (re)devient temporaire
-ora : null: inchangé, 0: pas de restriction, nnn: exclusifité à im (ts=2) ou 1/2 (ts=1), 1nnn: archivé et exclusivité ou non (1000)
+ora : null: inchangé, xxxp (im d'exclusivité, 0/1 libre / protégé)
 txts: null: inchangé
 mcg: null: inchangé (im sert à mettre à jour les motsclés)
 
