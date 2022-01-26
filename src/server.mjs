@@ -130,7 +130,7 @@ async function operation(req, res) {
     const result = await func(cfgorg, args, isGet)
     if (dev) console.log(pfx + ' 200')
     if (isGet)
-      setRes(res, 200, result.type || 'application/octet-stream').send(result.bytes)
+      setRes(res, 200, result.type || 'application/octet-stream').send(Buffer.from(result.bytes))
     else {
       setRes(res, 200).send(Buffer.from(encode(result)))
     }         

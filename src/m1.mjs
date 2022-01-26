@@ -581,7 +581,7 @@ args :
 */
 const selavrsapub = 'SELECT clepub FROM avrsa WHERE id = @id'
 async function getclepub (cfg, args) {
-  checkSession(args.sessionId)
+  // checkSession(args.sessionId)
   try {
     const c = stmt(cfg, selavrsapub).get({ id: crypt.sidToId(args.sid) })
     if (!c) return { bytes0 }
@@ -1269,3 +1269,16 @@ function acceptParrainageTr (cfg, session, args, result, compte, avatar, prefs, 
   items.parrain = p
   items.contactp = contactp
 }
+
+async function getPph (cfg, args) {
+  try {
+    const p = stmt(cfg, selpphparrain).get({ pph: args.pph })
+    if (!p) return { bytes0 }
+    const b = serial(p)
+    return { bytes: b }
+  } catch (e) {
+    console.log(e)
+    return { bytes: bytes0 }
+  }
+}
+m1fonctions.getPph = getPph
