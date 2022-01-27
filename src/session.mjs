@@ -96,7 +96,7 @@ export class Session {
   }
 
   acv (rowItem) {
-    return this.cvIds && this.cvIds.has(rowItem.id)
+    return this.cvsIds && this.cvsIds.has(rowItem.id)
   }
 
   send (data) {

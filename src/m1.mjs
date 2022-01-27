@@ -305,8 +305,8 @@ function cvAvatarTr (cfg, id, v, cva, rowItems) {
   a.vcv = v
   stmt(cfg, updcvavatar).run( { cva, vcv: v, v, id })
   rowItems.push(newItem('avatar', a))
-  // cols: ['id', 'vcv', 'st', 'phinf']
-  rowItems.push(newItem('cv', { id: id, vcv: v, st: a.st, phinf: cva }))
+  // cols: ['id', 'vcv', 'st', 'cva']
+  rowItems.push(newItem('cv', { id: id, vcv: v, st: a.st, cva: cva }))
 }
 
 /******************************************
@@ -528,7 +528,7 @@ async function chargtCVs (cfg, args) {
 
   if (args.lcvmaj.length) {
     const lst = []
-    args.lcvmaj.forEach((sid) => { lst.push(crypt.sidToId(sid)) })
+    args.lcvmaj.forEach((id) => { lst.push(id) })
     // lst.push(3382219599812300) pour tester la syntaxe IN
     const st = cfg.db.prepare(selcv1 + lst.join(',') + ')')
     const rows = st.all({ vcv: args.vcv })
@@ -539,7 +539,7 @@ async function chargtCVs (cfg, args) {
   
   if (args.lcvchargt.length) {
     const lst = []
-    args.lcvchargt.forEach((sid) => { lst.push(crypt.sidToId(sid)) })
+    args.lcvchargt.forEach((id) => { lst.push(id) })
     const st = cfg.db.prepare(selcv2 + lst.join(',') + ')')
     const rows = st.all()
     for (const row of rows) {
@@ -1051,7 +1051,7 @@ const inscontact = 'INSERT INTO contact (id, ic, v, st, dlv, q1, q2, qm1, qm2, a
 const selpphparrain = 'SELECT * FROM parrain WHERE pph = @pph'
 
 async function nouveauParrainage (cfg, args) {
-  checkSession(args.sessionId)
+  const session = checkSession(args.sessionId)
   const dh = getdhc()
   const rowItems = []
 
@@ -1073,6 +1073,7 @@ async function nouveauParrainage (cfg, args) {
   const avgrqf = { id: args.idf, ...args.quotas, v1: 0, v2: 0, vm1: 0, vm2: 0, vsh: 0 }
 
   cfg.db.transaction(nouveauParrainageTr)(cfg, parrain, contact, avgrqf, args.id, args.quotas)
+  session.plusCvs([contact.id])
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
   return { sessionId: args.sessionId, dh: dh }
@@ -1257,6 +1258,7 @@ function acceptParrainageTr (cfg, session, args, result, compte, avatar, prefs, 
     // Contexte de session du filleul
     session.compteId = compte.id
     session.plusAvatars([avatar.id])
+    session.plusCvs([contactp.id])
   } else { // Refus
     // MAJ du row parrain : v, st, ardc
     p.v = args.vp

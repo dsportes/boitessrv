@@ -276,7 +276,7 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowcv',
-  cols: ['id', 'vcv', 'st', 'phinf']
+  cols: ['id', 'vcv', 'st', 'cva']
 })
 
 schemas.forSchema({
