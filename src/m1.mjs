@@ -335,6 +335,7 @@ const selavatar = 'SELECT * FROM avatar WHERE id = @id AND v > @v'
 const selsecret = 'SELECT * FROM secret WHERE id = @id AND v > @v'
 const selinvitgr = 'SELECT * FROM invitgr WHERE id = @id AND v > @v'
 const selcontact = 'SELECT * FROM contact WHERE id = @id AND v > @v'
+const selcontactIdIc = 'SELECT * FROM contact WHERE id = @id AND ic = @ic'
 const selinvitct = 'SELECT * FROM invitct WHERE id = @id AND v > @v'
 const selrencontre = 'SELECT * FROM rencontre WHERE id = @id AND v > @v'
 const selparrain = 'SELECT * FROM parrain WHERE id = @id AND v > @v'
@@ -1061,7 +1062,7 @@ async function nouveauParrainage (cfg, args) {
   const v = versions[j] // version des row parrain et contact
 
   // parrain : ['pph', 'id', 'v', 'dlv', 'st', 'q1', 'q2', 'qm1', 'qm2', 'datak', 'datax', 'ardc', 'vsh']
-  const parrain = { pph: args.pph, id: args.id, v, dlv: args.dlv, st: 0, ...args.quotas, datak: args.datak, datax: args.datax, ardc: args.ardc, vsh: 0 }
+  const parrain = { pph: args.pph, id: args.id, v, dlv: args.dlv, st: args.aps ? 1 : 0, ...args.quotas, datak: args.datak, datax: args.datax, ardc: args.ardc, vsh: 0 }
   rowItems.push(newItem('parrain', parrain))
 
   // contact : ['id', 'ic', 'v', 'st', 'dlv', 'q1', 'q2', 'qm1', 'qm2', 'ardc', 'icbc', 'datak', 'mc', 'infok', 'vsh']
@@ -1118,7 +1119,7 @@ function nouveauParrainageTr (cfg, parrain, contact, avgrqf, id, q) {
  * - icbc : indice de P comme contact chez F crypté par leur clé cc
  * - clePub, rowCompte, rowAvatar, rowPrefs : v attribuées par le serveur
  * - rowContact (du filleul) : st, dlv et quotas attribués par le serveur
- *  Pour maj de sr des rows contact du parrain / filleul :
+ *  Pour maj de st des rows contact du parrain / filleul :
  * - aps : booléen - true si le filleul accepte le partage de secret (false si limitation à l'ardoise)* 
  * Retour : sessionId, dh
  */
@@ -1175,11 +1176,12 @@ function acceptParrainageTr (cfg, session, args, result, compte, avatar, prefs, 
   if (!p) {
     throw new AppExc(X_SRV, 'Phrase de parrainage inconnue')
   }
-  if (p.st !== 0) {
-    throw new AppExc(X_SRV, 'Ce parrainage a déjà fait l\'objet ' + (p.st === 1 ? 'd\'une acceptation.' : 'd\'un refus'))
+  const st = Math.floor(p.st / 10) 
+  if (st!== 0) {
+    throw new AppExc(X_SRV, 'Ce parrainage a déjà fait l\'objet ' + (st === 1 ? 'd\'une acceptation.' : 'd\'un refus'))
   }
 
-  const contactp = stmt(cfg, selcontact).get({ id: args.idp, ic: args.icp })
+  const contactp = stmt(cfg, selcontactIdIc).get({ id: args.idp, ic: args.icp })
   if (!contactp) {
     throw new AppExc(X_SRV, 'Contact parrain non trouvé (données corrompues)')
   }
@@ -1197,7 +1199,7 @@ function acceptParrainageTr (cfg, session, args, result, compte, avatar, prefs, 
     // MAJ du row parrain : v, st, ardc
     p.v = args.vp
     p.ardc = args.ardc
-    p.st = 2
+    p.st = p.st + 20
     stmt(cfg, upd1parrain).run(p)
 
     // MAJ des contacts p et f : v, st, dlv, quotas, ardc
