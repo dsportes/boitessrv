@@ -4,7 +4,6 @@ DELETE FROM avrsa;
 DELETE FROM compte;
 DELETE FROM contact;
 DELETE FROM groupe;
-DELETE FROM invitct;
 DELETE FROM invitgr;
 DELETE FROM membre;
 DELETE FROM parrain;

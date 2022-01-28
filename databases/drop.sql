@@ -4,7 +4,6 @@ DROP TABLE avrsa;
 DROP TABLE compte;
 DROP TABLE contact;
 DROP TABLE groupe;
-DROP TABLE invitct;
 DROP TABLE invitgr;
 DROP TABLE membre;
 DROP TABLE parrain;

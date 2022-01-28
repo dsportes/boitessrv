@@ -1286,3 +1286,83 @@ async function getPph (cfg, args) {
   }
 }
 m1fonctions.getPph = getPph
+
+/* Régularisation Groupe *****************************************/
+/* args
+- id : de l'avatar
+- ni : numéro d'invitation du groupe à inscrire
+- nomck : [nom, rnd] du groupe à inscrire
+*/
+
+const upd1avatar = 'UPDATE avatar SET v = @v, lgrk = @lgrk WHERE id = @id'
+const delinvitgr = 'DELETE from invitgr WHERE id = @id AND ni = @ni'
+
+async function regulGr (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+  
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.id)
+  versions[j]++
+  args.v = versions[j] // version des rows parrain
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(regulGrTr)(cfg, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.regulGR = regulGr
+
+function regulGrTr (cfg, args, rowItems) {
+  const a = stmt(cfg, selavatarid).get({ id: args.id })
+  if (!a) return // étrange
+  const map = deserial(a.lgrk)
+  if (map[args.ni]) return // déjà fait
+  map[args.ni] = args.nomck
+  a.v = args.v
+  stmt(cfg, upd1avatar).run(a)
+  rowItems.push(newItem('avatar', a))
+  stmt(cfg, delinvitgr).run({ id: args.id, ni: args.ni })
+}
+
+/* Régularisation Contact *****************************************/
+/* args
+- id : de l'avatar
+- ic : index du contact
+- datak : datak à insrire et mise à null de datap
+*/
+
+const upd2contact = 'UPDATE contact SET v = @v, datak = @datak, datap = null WHERE id = @id AND ic = @ic'
+
+async function regulCt (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+  
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.id)
+  versions[j]++
+  args.v = versions[j] // version des rows parrain
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(regulCtTr)(cfg, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.regulCt = regulCt
+
+function regulCtTr (cfg, args, rowItems) {
+  const c = stmt(cfg, selcontactIdIc).get({ id: args.id, ic: args.ic })
+  if (!c || c.datap === null) return // étrange ou déjà fait
+  c.c = args.v
+  c.datak = args.datak
+  stmt(cfg, upd2contact).run(c)
+  rowItems.push(newItem('contact', c))
+}
