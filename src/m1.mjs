@@ -4,6 +4,7 @@ import { getSession, syncListQueue, processQueue } from './session.mjs'
 import { AppExc, X_SRV, E_WS, INDEXT } from './api.mjs'
 import { schemas } from './schemas.mjs'
 import { putFile, delFile } from './storage.mjs'
+import { ids } from 'webpack'
 
 export const m1fonctions = { }
 const MO = 1024 * 1024
@@ -333,7 +334,6 @@ m1fonctions.connexionCompte = connexionCompte
 /**************************************** */
 const selavatar = 'SELECT * FROM avatar WHERE id = @id AND v > @v'
 const selsecret = 'SELECT * FROM secret WHERE id = @id AND v > @v'
-const selinvitgr = 'SELECT * FROM invitgr WHERE id = @id AND v > @v'
 const selcontact = 'SELECT * FROM contact WHERE id = @id AND v > @v'
 const selcontactIdIc = 'SELECT * FROM contact WHERE id = @id AND ic = @ic'
 const selinvitct = 'SELECT * FROM invitct WHERE id = @id AND v > @v'
@@ -363,12 +363,52 @@ async function chargerAv (cfg, args) {
 m1fonctions.chargerAv = chargerAv
 
 /*****************************************
+Chargement des invitGr des avatars d'un compte
+- sessionId, ids (array des ids des avatars)
+*/
+const selinvitgr = 'SELECT * FROM invitgr WHERE id = @id'
+
+async function chargerInvitGr (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc(), rowItems: [] }
+  for (let i = 0; i < ids.length; i++) {
+    const rows = stmt(cfg, selinvitgr).all({ id: ids[i] })
+    rows.forEach((row) => {
+      result.rowItems.push(newItem('invitgr', row))
+    })
+  }
+  return result
+}
+m1fonctions.chargerInvitGr = chargerInvitGr
+
+/*****************************************
+Création d'un invitGr
+- sessionId, id, ni, nomcp
+*/
+const insinvitgr = 'INSERT INTO invitgr (id, ni, nomcp) VALUES (@id, @ni, @nomcp)'
+
+async function creerInvitGr (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const row = { id: args.id, ni: args.id, nomcp: args.nomcp }
+  const rowItems = [row]
+  cfg.db.transaction(creerInvitGrTr)(cfg, row)
+  syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.creerInvitGr = creerInvitGr
+
+function creerInvitGrTr (cfg, row) {
+  stmt(cfg, insinvitgr).run(row)
+}
+
+/*****************************************
 Chargement des rows d'un avatar 
     { name: 'sessionId', type: 'string' },
     { name: 'avgr', type: 'long' },
     { name: 'lv', type: arrayIntType } 7 compteurs pour les versions des 7 tables
 */
-
 async function syncAv (cfg, args) {
   checkSession(args.sessionId)
   const result = { sessionId: args.sessionId, dh: getdhc() }
@@ -389,10 +429,6 @@ async function syncAv (cfg, args) {
   rows = stmt(cfg, selinvitct).all({ id, v: args.lv[INDEXT.INVITCT] })
   rows.forEach((row) => {
     rowItems.push(newItem('invitvt', row))
-  })
-  rows = stmt(cfg, selinvitgr).all({ id, v: args.lv[INDEXT.INVITGR] })
-  rows.forEach((row) => {
-    rowItems.push(newItem('invitgr', row))
   })
   rows = stmt(cfg, selrencontre).all({ id, v: args.lv[INDEXT.RENCONTRE] })
   rows.forEach((row) => {
@@ -433,28 +469,6 @@ async function syncGr (cfg, args) {
   return result
 }
 m1fonctions.syncGr = syncGr
-
-/*****************************************
-Chargement des rows invitgr de la liste fournie
-{ name: 'sessionId', type: 'string' },
-{ name: 'lvav', type: mapIntType } key: sid de l'avatar, value: version
-
-async function syncInvitgr (cfg, args) {
-  const result = { sessionId: args.sessionId, dh: getdhc() }
-  const rowItems = []
-  for(const sid in args.lvav) {
-    const v = args.lvav[sid]
-    const id = crypt.sidToId(sid)
-    const rows = stmt(cfg, selinvitgr).all({ id, v })
-    rows.forEach((row) => {
-      rowItems.push(newItem('invitgr', row))
-    })
-  }
-  result.rowItems = rowItems
-  return result
-}
-m1fonctions.syncInvitgr = syncInvitgr
-*/
 
 /******************************************
 Abonnement de la session aux compte et listes d'avatars et de groupes et signatures
