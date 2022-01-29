@@ -4,7 +4,6 @@ import { getSession, syncListQueue, processQueue } from './session.mjs'
 import { AppExc, X_SRV, E_WS, INDEXT } from './api.mjs'
 import { schemas } from './schemas.mjs'
 import { putFile, delFile } from './storage.mjs'
-import { ids } from 'webpack'
 
 export const m1fonctions = { }
 const MO = 1024 * 1024
@@ -370,8 +369,8 @@ const selinvitgr = 'SELECT * FROM invitgr WHERE id = @id'
 async function chargerInvitGr (cfg, args) {
   checkSession(args.sessionId)
   const result = { sessionId: args.sessionId, dh: getdhc(), rowItems: [] }
-  for (let i = 0; i < ids.length; i++) {
-    const rows = stmt(cfg, selinvitgr).all({ id: ids[i] })
+  for (let i = 0; i < args.ids.length; i++) {
+    const rows = stmt(cfg, selinvitgr).all({ id: args.ids[i] })
     rows.forEach((row) => {
       result.rowItems.push(newItem('invitgr', row))
     })
