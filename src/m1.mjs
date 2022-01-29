@@ -336,7 +336,6 @@ const selavatar = 'SELECT * FROM avatar WHERE id = @id AND v > @v'
 const selsecret = 'SELECT * FROM secret WHERE id = @id AND v > @v'
 const selcontact = 'SELECT * FROM contact WHERE id = @id AND v > @v'
 const selcontactIdIc = 'SELECT * FROM contact WHERE id = @id AND ic = @ic'
-const selinvitct = 'SELECT * FROM invitct WHERE id = @id AND v > @v'
 const selrencontre = 'SELECT * FROM rencontre WHERE id = @id AND v > @v'
 const selparrain = 'SELECT * FROM parrain WHERE id = @id AND v > @v'
 const selgroupe = 'SELECT * FROM groupe WHERE id = @id AND v > @v'
@@ -383,14 +382,14 @@ m1fonctions.chargerInvitGr = chargerInvitGr
 
 /*****************************************
 Création d'un invitGr
-- sessionId, id, ni, nomcp
+- sessionId, id, ni, datap
 */
-const insinvitgr = 'INSERT INTO invitgr (id, ni, nomcp) VALUES (@id, @ni, @nomcp)'
+const insinvitgr = 'INSERT INTO invitgr (id, ni, datap) VALUES (@id, @ni, @datap)'
 
 async function creerInvitGr (cfg, args) {
   checkSession(args.sessionId)
   const result = { sessionId: args.sessionId, dh: getdhc() }
-  const row = { id: args.id, ni: args.id, nomcp: args.nomcp }
+  const row = { id: args.id, ni: args.id, nomcp: args.datap }
   const rowItems = [row]
   cfg.db.transaction(creerInvitGrTr)(cfg, row)
   syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
@@ -425,10 +424,6 @@ async function syncAv (cfg, args) {
   rows = stmt(cfg, selcontact).all({ id, v: args.lv[INDEXT.CONTACT] })
   rows.forEach((row) => {
     rowItems.push(newItem('contact', row))
-  })
-  rows = stmt(cfg, selinvitct).all({ id, v: args.lv[INDEXT.INVITCT] })
-  rows.forEach((row) => {
-    rowItems.push(newItem('invitvt', row))
   })
   rows = stmt(cfg, selrencontre).all({ id, v: args.lv[INDEXT.RENCONTRE] })
   rows.forEach((row) => {
@@ -1305,7 +1300,7 @@ m1fonctions.getPph = getPph
 /* args
 - id : de l'avatar
 - ni : numéro d'invitation du groupe à inscrire
-- nomck : [nom, rnd] du groupe à inscrire
+- datak : [nom, rnd, im] du groupe à inscrire
 */
 
 const upd1avatar = 'UPDATE avatar SET v = @v, lgrk = @lgrk WHERE id = @id'
@@ -1336,7 +1331,7 @@ function regulGrTr (cfg, args, rowItems) {
   if (!a) return // étrange
   const map = deserial(a.lgrk)
   if (map[args.ni]) return // déjà fait
-  map[args.ni] = args.nomck
+  map[args.ni] = args.datak
   a.v = args.v
   stmt(cfg, upd1avatar).run(a)
   rowItems.push(newItem('avatar', a))
