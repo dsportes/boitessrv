@@ -106,7 +106,7 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowparrain',
-  cols: ['pph', 'id', 'v', 'dlv', 'st', 'q1', 'q2', 'qm1', 'qm2', 'datak', 'datax', 'ardc', 'vsh']
+  cols: ['pph', 'id', 'v', 'dlv', 'st', 'q1', 'q2', 'qm1', 'qm2', 'datak', 'datax', 'data2k', 'ardc', 'vsh']
 })
 
 schemas.forSchema({

@@ -84,7 +84,7 @@ export class Session {
   }
 
   plusCvs (ar) {
-    if (ar && ar.length) ar.forEach(id => { this.cvIds.add(id) })
+    if (ar && ar.length) ar.forEach(id => { this.cvsIds.add(id) })
   }
 
   aavatar (rowItem) {

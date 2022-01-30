@@ -1028,67 +1028,35 @@ function pjSecretTr (cfg, args, rowItems) {
 }
 
 /******************************************************************
- * Parrainage
- * - sessionId
- * - pph : hash de la phrase de parrainge
- * - dlv : date limite de validité
- * - id : de l'avatar parrain
- * - aps : booléen - true si le parrain accepte le partage de secret (false si limitation à l'ardoise)
- * - q1 q2 qm1 qm2 : quotas donnés par le parrain
- * - datak : [phrase de parainage (string), clé X (u8)] sérialisé et crypté par la clé K du parrain
- * - datax : sérialisation et cryptage par la clé X de :
- *  - nomp, rndp : du parrain
- *  - nomf, rndf : du filleul
- *  - cc : u8, clé du couple
- *  - ic : numéro de contact du filleul chez le parrain
- * - ardc : mot d'accueil du parrain crypté par la clé du couple
- * Pour créer le row contact :
- * - ic : indice de contact du filleul chez le parrain
- * - data2k : sérialisation et cryptage par la clé K du parrain de :
- *  - nom, rnd du filleul
- *  - cc : u8, clé du couple
- * Pour le transfert de quotas
- * - idf : id du filleul
+ * Parrainage : args de m1/nouveauParrainage
+  sessionId: data.sessionId,
+  rowParrain: serial(rowParrain)
  * Retour :
- * - dh : 
+ * dh :
  */
-const insparrain = 'INSERT INTO parrain (pph, id, v, dlv, st, q1, q2, qm1, qm2, datak, datax, ardc, vsh) '
-  + 'VALUES (@pph, @id, @v, @dlv, @st, @q1, @q2, @qm1, @qm2, @datak, @datax, @ardc, @vsh)'
-const inscontact = 'INSERT INTO contact (id, ic, v, st, dlv, q1, q2, qm1, qm2, ardc, icbc, datak, mc, infok, vsh) '
-  + 'VALUES (@id, @ic, @v, @st, @dlv, @q1, @q2, @qm1, @qm2, @ardc, @icbc, @datak, @mc, @infok, @vsh)'
+const insparrain = 'INSERT INTO parrain (pph, id, v, st, dlv, q1, q2, qm1, qm2, datak, datax, data2k, ardc, vsh) '
+  + 'VALUES (@pph, @id, @v, @st, @dlv, @q1, @q2, @qm1, @qm2, @datak, @datax, @data2k, @ardc, @vsh)'
 const selpphparrain = 'SELECT * FROM parrain WHERE pph = @pph'
 
 async function nouveauParrainage (cfg, args) {
-  const session = checkSession(args.sessionId)
+  checkSession(args.sessionId)
   const dh = getdhc()
-  const rowItems = []
+  const parrain = deserial(args.rowParrain)
 
   const versions = getValue(cfg, VERSIONS)
-  const j = idx(args.id)
+  const j = idx(parrain.id)
   versions[j]++
   setValue(cfg, VERSIONS)
-  const v = versions[j] // version des row parrain et contact
+  parrain.v = versions[j] // version du row parrain
 
-  // parrain : ['pph', 'id', 'v', 'dlv', 'st', 'q1', 'q2', 'qm1', 'qm2', 'datak', 'datax', 'ardc', 'vsh']
-  const parrain = { pph: args.pph, id: args.id, v, dlv: args.dlv, st: args.aps ? 1 : 0, ...args.quotas, datak: args.datak, datax: args.datax, ardc: args.ardc, vsh: 0 }
-  rowItems.push(newItem('parrain', parrain))
-
-  // contact : ['id', 'ic', 'v', 'st', 'dlv', 'q1', 'q2', 'qm1', 'qm2', 'ardc', 'icbc', 'datak', 'mc', 'infok', 'vsh']
-  const contact = { id: args.id, ic: args.ic, v, st: args.aps ? 31 : 30, dlv: args.dlv, ...args.quotas, ardc: args.ardc, icbc: null, datak: args.data2k, mc: null, infok: null, vsh: 0 }
-  rowItems.push(newItem('contact', contact))
-
-  // avgrq: ['id', 'q1', 'q2', 'qm1', 'qm2', 'v1', 'v2', 'vm1', 'vm2', 'vsh']
-  const avgrqf = { id: args.idf, ...args.quotas, v1: 0, v2: 0, vm1: 0, vm2: 0, vsh: 0 }
-
-  cfg.db.transaction(nouveauParrainageTr)(cfg, parrain, contact, avgrqf, args.id, args.quotas)
-  session.plusCvs([contact.id])
-  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  cfg.db.transaction(nouveauParrainageTr)(cfg, parrain)
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: [newItem('parrain', parrain)] })
   setImmediate(() => { processQueue() })
   return { sessionId: args.sessionId, dh: dh }
 }
 m1fonctions.nouveauParrainage = nouveauParrainage
 
-function nouveauParrainageTr (cfg, parrain, contact, avgrqf, id, q) {
+function nouveauParrainageTr (cfg, parrain) {
   const p = stmt(cfg, selpphparrain).get({ pph: parrain.pph })
   if (p) {
     console.log('Parrain : phrase déjà utilisée')
@@ -1097,45 +1065,44 @@ function nouveauParrainageTr (cfg, parrain, contact, avgrqf, id, q) {
   }
 
   stmt(cfg, insparrain).run(parrain)
-  stmt(cfg, inscontact).run(contact)
 
   // Retrait de quotas
-  const a = stmt(cfg, selavgrvqid).get({ id: id })
+  const a = stmt(cfg, selavgrvqid).get({ id: parrain.id })
   if (a) {
-    a.q1 = a.q1 - q.q1 * MO
-    a.q2 = a.q2 - q.q2 * MO
-    a.qm1 = a.qm1 - q.qm1 * MO
-    a.qm2 = a.qm2 - q.qm2 * MO
+    a.q1 = a.q1 - parrain.q1 * MO
+    a.q2 = a.q2 - parrain.q2 * MO
+    a.qm1 = a.qm1 - parrain.qm1 * MO
+    a.qm2 = a.qm2 - parrain.qm2 * MO
   }
   if (!a || a.v1 > a.q1 || a.vm1 > a.qm1 || a.v2 > a.q2 || a.vm2 > a.qm2) {
     console.log('Quotas d\'espace insuffisants.')
     throw new AppExc(X_SRV, 'Quotas d\'espace insuffisants.')
   }
   stmt(cfg, updavgrvq).run(a)
-  stmt(cfg, insavgrvq).run(avgrqf)
 }
 
 /******************************************************************
  * Acceptation / refus d'un parrainage
- * - sessionId
- * - ok : true si acceptation
- * - pph : hash de la phrase de parrainage
- * - idp : de l'avatar parrain
- * - icp : ic du contact du filleul chez le parrain
- * - ardc : mot du filleul crypté par la clé du couple
- * Si acceptation
- * - idf : id du filleul
- * - icbc : indice de P comme contact chez F crypté par leur clé cc
- * - clePub, rowCompte, rowAvatar, rowPrefs : v attribuées par le serveur
- * - rowContact (du filleul) : st, dlv et quotas attribués par le serveur
- *  Pour maj de st des rows contact du parrain / filleul :
- * - aps : booléen - true si le filleul accepte le partage de secret (false si limitation à l'ardoise)* 
- * Retour : sessionId, dh
+    sessionId: data.sessionId,
+    ok: true / false
+    pph: arg.pph,
+    idp: parrain.id,
+    icp: parrain.data.ic,
+  Si acceptation
+    idf: parrain.naf.id,
+    clePub: kp.publicKey,
+    rowCompte,
+    rowPrefs,
+    rowAvatar,
+    rowContactP,
+    rowContactF
+  Si refus
+    ardc
+ * Retour : sessionId, dh, si ok : rowItems : compte, prefs, avatar, contactf
  */
-
-const upd1contact = 'UPDATE contact SET v = @v, st = @st, dlv = @dlv, icbc = @icbc, q1 = @q1, q2 = @q2, qm1 = @qm1, qm2 = @qm2, ardc = @ardc WHERE id = @id AND ic = @ic'
-const upd1parrain = 'UPDATE parrain SET v = @v, st = @st, dlv = @dlv, ardc = @ardc WHERE pph = @pph'
-const supprcontact = 'UPDATE contact SET v = @v, st = @st, dlv = 0, icbc = null, q1 = 0, q2 = 0, qm1 = 0, qm2 = 0, ardc = null, datak = null, mc = null, infok = null, vsh = 0 WHERE id = @id AND ic = @ic'
+const inscontact = 'INSERT INTO contact (id, ic, v, st, q1, q2, qm1, qm2, ardc, datak, datap, mc, infok, vsh) '
+ + 'VALUES (@id, @ic, @v, @st, @q1, @q2, @qm1, @qm2, @ardc, @datak, @datap, @mc, @infok, @vsh)'
+const upd1parrain = 'UPDATE parrain SET v = @v, st = @st, ardc = @ardc WHERE pph = @pph'
 
 async function acceptParrainage (cfg, args) {
   const session = checkSession(args.sessionId)
@@ -1156,23 +1123,24 @@ async function acceptParrainage (cfg, args) {
   const compte = args.ok ? schemas.deserialize('rowcompte', args.rowCompte) : null
   const avatar = args.ok ? schemas.deserialize('rowavatar', args.rowAvatar) : null
   const prefs = args.ok ? schemas.deserialize('rowprefs', args.rowPrefs) : null
-  const contactf = args.ok ? schemas.deserialize('rowcontact', args.rowContact) : null
-  const items = {}
+  const contactf = args.ok ? schemas.deserialize('rowcontact', args.rowContactF) : null
+  const contactp = args.ok ? schemas.deserialize('rowcontact', args.rowContactP) : null
+  const items = {} // ne contient que parrain
 
-  cfg.db.transaction(acceptParrainageTr)(cfg, session, args, result, compte, avatar, prefs, contactf, items)
+  cfg.db.transaction(acceptParrainageTr)(cfg, session, args, compte, avatar, prefs, contactf, contactp, items)
 
   let rowItems
-  const i1 = newItem('contact', items.contactp)
-  const i2 = newItem('parrain', items.parrain)
+  const i0 = newItem('parrain', items.parrain)
   if (args.ok) {
+    const i1 = newItem('contact', contactp)
+    const i2 = newItem('contact', contactf)
     const i3 = newItem('compte', compte)
     const i4 = newItem('avatar', avatar)
     const i5 = newItem('prefs', prefs)
-    const i6 = newItem('contact', contactf)
-    rowItems = [i1, i2, i3, i4, i5, i6]
-    result.rowItems = [i3, i4, i5, i6]
+    rowItems = [i0, i1, i2, i3, i4, i5]
+    result.rowItems = [i3, i4, i5, i2]
   } else {
-    rowItems = [i1, i2]
+    rowItems = [i0]
   }
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
@@ -1180,7 +1148,7 @@ async function acceptParrainage (cfg, args) {
 }
 m1fonctions.acceptParrainage = acceptParrainage
   
-function acceptParrainageTr (cfg, session, args, result, compte, avatar, prefs, contactf, items) {
+function acceptParrainageTr (cfg, session, args, compte, avatar, prefs, contactf, contactp, items) {
   const p = stmt(cfg, selpphparrain).get({ pph: args.pph })
   if (!p) {
     throw new AppExc(X_SRV, 'Phrase de parrainage inconnue')
@@ -1188,11 +1156,6 @@ function acceptParrainageTr (cfg, session, args, result, compte, avatar, prefs, 
   const st = Math.floor(p.st / 10) 
   if (st!== 0) {
     throw new AppExc(X_SRV, 'Ce parrainage a déjà fait l\'objet ' + (st === 1 ? 'd\'une acceptation.' : 'd\'un refus'))
-  }
-
-  const contactp = stmt(cfg, selcontactIdIc).get({ id: args.idp, ic: args.icp })
-  if (!contactp) {
-    throw new AppExc(X_SRV, 'Contact parrain non trouvé (données corrompues)')
   }
 
   if (args.ok) {
@@ -1204,45 +1167,13 @@ function acceptParrainageTr (cfg, session, args, result, compte, avatar, prefs, 
         throw new AppExc(X_SRV, 'Une phrase secrète semblable est déjà utilisée. Changer a minima la première ligne de la phrase secrète pour ce nouveau compte')
       }
     }
-  
-    // MAJ du row parrain : v, st, ardc
-    p.v = args.vp
-    p.ardc = args.ardc
-    p.st = p.st + 20
-    stmt(cfg, upd1parrain).run(p)
-
-    // MAJ des contacts p et f : v, st, dlv, quotas, ardc
-    /* - `st` : statut entier de 2 chiffres, `x y` : **les valeurs < 0 indiquent un row supprimé (les champs après sont null)**.
-    - `x` :
-      - 0 : contact présumé actif,
-      - 1 : contact plus présumé actif,
-      - 2 : invitation à être contact plus en cours (sous contrôle de dlv),
-      - 3 : parrainage en cours (sous contrôle de dlv)
-      - 4 : parrainage refusé (sous contrôle de dlv)
-      - 9 : présumé disparu
-    - `y` : 0 1 2 3 selon que A et B acceptent le partage de secrets
-    */
+ 
+    // insertion des contacts p et f : v
     contactp.v = args.vp
+    contactp.datap = null
+    stmt(cfg, inscontact).run(contactp)
     contactf.v = args.vf
-
-    const pas = (contactp.st % 10) !== 0
-    const fas = args.aps
-    contactp.st = 10 + (pas ? 1: 0) + (fas ? 2 : 0)
-    contactf.st = 10 + (pas ? 2: 0) + (fas ? 1 : 0)
-    contactp.dlv = 0
-    contactf.dlv = 0
-
-    contactp.q1 = contactp.q1 - p.q1*MO
-    contactf.q1 = p.q1*MO
-    contactp.q2 = contactp.q2 - p.q2*MO
-    contactf.q2 = p.q2*MO
-    contactp.qm1 = contactp.qm1 - p.qm1*MO
-    contactf.qm1 = p.qm1*MO
-    contactp.qm2 = contactp.qm2 - p.qm2*MO
-    contactf.qm2 = p.qm2*MO
-    contactp.ardc = args.ardc
-    contactp.icbc = args.icbc
-    stmt(cfg, upd1contact).run(contactp)
+    contactf.datap = null
     stmt(cfg, inscontact).run(contactf)
 
     // Insertion des nouveaux compte, avatar, prefs du filleul
@@ -1267,19 +1198,23 @@ function acceptParrainageTr (cfg, session, args, result, compte, avatar, prefs, 
     session.compteId = compte.id
     session.plusAvatars([avatar.id])
     session.plusCvs([contactp.id])
-  } else { // Refus
-    // MAJ du row parrain : v, st, ardc
-    p.v = args.vp
-    p.ardc = args.ardc
-    p.st = 1 // refus
-    stmt(cfg, upd1parrain).run(p)
-    
-    // Suppression du contact P
-    contactp.v = args.vp
-    stmt(cfg, supprcontact).run(contactp)
+  } else {
+    // Rétablir les quotas du parrain
+    const a = stmt(cfg, selavgrvqid).get({ id: p.id })
+    if (a) {
+      a.q1 = a.q1 + p.q1 * MO
+      a.q2 = a.q2 + p.q2 * MO
+      a.qm1 = a.qm1 + p.qm1 * MO
+      a.qm2 = a.qm2 + p.qm2 * MO
+    }
+    stmt(cfg, updavgrvq).run(a)
   }
+  // MAJ du row parrain : v, st, ardc
+  p.v = args.vp
+  p.ardc = args.ok ? contactf.ardc : args.ardc
+  p.st = args.ok ? 1 : 2
+  stmt(cfg, upd1parrain).run(p)
   items.parrain = p
-  items.contactp = contactp
 }
 
 async function getPph (cfg, args) {
