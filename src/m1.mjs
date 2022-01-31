@@ -869,7 +869,7 @@ function maj1SecretTr (cfg, args, rowItems) {
 Pièce jointe d'un secret - Ajout / modification / suppression
 Args : 
 - sessionId
-- { id: s.id, ns: s.ns, cle, idc, buf, lg, id2, ns2 }
+- { ts, id: s.id, ns: s.ns, cle, idc, buf, lg, id2, ns2 }
 - `cle` : hash court en base64 URL de nom.ext
 - `idc` : id complète de la pièce jointe (nom.txt/type/dh), cryptée par la clé du secret et en base64 URL.
 - buf : contenu binaire crypté.
@@ -939,7 +939,9 @@ async function pjSecret (cfg, args) {
     }
   }
 
-  const secid = crypt.idToSid(args.id) + '@' + crypt.idToSid(args.ns)
+  let secid = crypt.idToSid(args.id) + '@' + crypt.idToSid(args.ns)
+  if (args.ts === 1 && args.id2 < args.id) secid = crypt.idToSid(args.id2) + '@' + crypt.idToSid(args.ns2)
+
   const pjid = args.idc ? args.cle + '@' + args.idc : null
 
   if (args.idc) {
