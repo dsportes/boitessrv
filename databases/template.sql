@@ -110,28 +110,6 @@ CREATE INDEX "id_v_contact" ON "contact" (
 	"id",
 	"v"
 );
-CREATE TABLE IF NOT EXISTS "parrain" (
-	"pph"	INTEGER,
-	"id"	INTEGER,
-	"v"	INTEGER,
-	"dlv"	INTEGER,
-	"st"	REAL,
-	"q1"	INTEGER,
-	"q2"	INTEGER,
-	"qm1"	INTEGER,
-	"qm2"	INTEGER,
-	"datak"	BLOB,
-	"datax"	BLOB,
-	"ardc"	BLOB,
-	"vsh"	INTEGER,
-	PRIMARY KEY("pph")
-) WITHOUT ROWID;
-CREATE INDEX "dlv_parrain" ON "parrain" (
-	"dlv"
-);
-CREATE INDEX "id_parrain" ON "parrain" (
-	"id"
-);
 CREATE TABLE IF NOT EXISTS "rencontre" (
 	"prh"	INTEGER,
 	"id"	INTEGER,
@@ -146,19 +124,6 @@ CREATE TABLE IF NOT EXISTS "rencontre" (
 ) WITHOUT ROWID;
 CREATE INDEX "dlv_rencontre" ON "rencontre" ( "dlv" );
 CREATE INDEX "id_rencontre" ON "rencontre" ( "id" );
-CREATE TABLE IF NOT EXISTS "groupe" (
-	"id"	INTEGER,
-	"v"	INTEGER,
-	"dds"	INTEGER,
-	"st"	INTEGER,
-	"stxy"	INTEGER,
-	"cvg"	BLOB,
-	"mcg"	BLOB,
-	"vsh"	INTEGER,
-	PRIMARY KEY("id")
-) WITHOUT ROWID;
-CREATE INDEX "dds_groupe" ON "groupe" ( "dds" );
-CREATE INDEX "id_v_groupe" ON "groupe" ( "id", "v" );
 CREATE TABLE IF NOT EXISTS "invitgr" (
 	"id"	INTEGER,
 	"ni"	INTEGER,
@@ -187,12 +152,48 @@ CREATE INDEX "st_avatar" ON "avatar" (
 CREATE INDEX "st_contact" ON "contact" (
 	"st"
 ) WHERE "st" < 0;
-CREATE INDEX "st_groupe" ON "groupe" (
-	"st"
-) WHERE st < 0;
 CREATE INDEX "st_membre" ON "membre" (
 	"st"
 ) WHERE st < 0;
 CREATE INDEX "st_secret" ON "secret" (
 	"st"
 ) WHERE "st" < 0;
+CREATE TABLE IF NOT EXISTS "groupe" (
+	"id"	INTEGER,
+	"v"	INTEGER,
+	"dds"	INTEGER,
+	"st"	INTEGER,
+	"stxy"	INTEGER,
+	"cvg"	BLOB,
+	"mcg"	BLOB,
+	"vsh"	INTEGER,
+	PRIMARY KEY("id")
+) WITHOUT ROWID;
+CREATE INDEX "dds_groupe" ON "groupe" ( "dds" );
+CREATE INDEX "id_v_groupe" ON "groupe" ( "id", "v" );
+CREATE INDEX "st_groupe" ON "groupe" (
+	"st"
+) WHERE st < 0;
+CREATE TABLE IF NOT EXISTS "parrain" (
+	"pph"	INTEGER,
+	"id"	INTEGER,
+	"v"	INTEGER,
+	"dlv"	INTEGER,
+	"st"	REAL,
+	"q1"	INTEGER,
+	"q2"	INTEGER,
+	"qm1"	INTEGER,
+	"qm2"	INTEGER,
+	"datak"	BLOB,
+	"datax"	BLOB,
+	"data2k"	BLOB,
+	"ardc"	BLOB,
+	"vsh"	INTEGER,
+	PRIMARY KEY("pph")
+) WITHOUT ROWID;
+CREATE INDEX "dlv_parrain" ON "parrain" (
+	"dlv"
+);
+CREATE INDEX "id_parrain" ON "parrain" (
+	"id"
+);
