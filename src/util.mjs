@@ -32,8 +32,19 @@ const j0 = Math.floor(new Date('2020-01-01T00:00:00').getTime() / 86400000)
 
 class Dds {  
   // jour courant (nombre de jours écoulés) depuis le 1/1/2020
-  jourJ () {
-    return Math.floor(new Date().getTime() / 86400000) - j0
+  jourJ (date) {
+    const d = date || new Date()
+    return Math.floor(d.getTime() / 86400000) - j0
+  }
+
+  semaine (j) {
+    const ns = Math.floor((j + 1) / 7) + 1
+    const nj = ((j + 1) % 7) + 1
+    return [ns, nj]
+  }
+
+  aaaammjj (j) {
+    return new Date((j0 + j) * 86400000).toISOString().substring(0, 10)
   }
 
   /* 
@@ -56,6 +67,9 @@ class Dds {
 }
 export const dds = new Dds()
 
+export const j99 = dds.jourJ(new Date('2099-12-31T23:59:59')) // 29220 = 365 * 80 + 20 (années bisextiles)
+// console.log('j99 = ' + j99)
+
 /* Mois courant depuis janvier 2020 */
 // eslint-disable-next-line no-unused-vars
 function getMois () {
@@ -64,3 +78,14 @@ function getMois () {
   const mo = d.getUTCMonth()
   return ( (an * 12) + mo)
 }
+
+/*
+let j1 = 1
+console.log(dds.aaaammjj(j1))
+const [ns, nj] = dds.semaine(j1)
+console.log(ns + ' / ' + nj)
+j1 = 367
+console.log(dds.aaaammjj(j1))
+const [ns2, nj2] = dds.semaine(j1)
+console.log(ns2 + ' / ' + nj2)
+*/
