@@ -10,9 +10,10 @@ const express = require('express')
 const WebSocket = require('ws')
 import { encode, decode } from '@msgpack/msgpack'
 import { Session } from './session.mjs'
-import { setSalts } from './webcrypto.mjs'
 import { AppExc, E_SRV, X_SRV, F_SRV, version } from './api.mjs'
 import { getFile /*, putFile */ } from './storage.mjs'
+import { ALLSALTS } from './salts.mjs'
+import { decrypterSync } from './webcrypto.mjs'
 
 import { m1fonctions } from './m1.mjs'
 const modules = { m1: m1fonctions }
@@ -165,7 +166,6 @@ console.log('dbdir=' + path.resolve(dirs.dbdir))
 Récupération de la configuration
 Dans la configuration de chaque environnement, son code est inséré
 */
-setSalts (fs.readFileSync(path.resolve(dirs.configdir, './salts')))
 
 const lastSql = []
 function trapSql (msg) {
@@ -174,7 +174,15 @@ function trapSql (msg) {
   if (lastSql.length > 3) lastSql.length = 3
 }
 
-const configjson = fs.readFileSync(path.resolve(dirs.configdir, './config.json'))
+const p1 = path.resolve(dirs.configdir, './config.bin')
+let configjson
+if (!fs.existsSync(p1)) {
+  configjson = fs.readFileSync(path.resolve(dirs.configdir, './config.json'))
+} else {
+  const dcrypt = decrypterSync(ALLSALTS.slice(32, 64), fs.readFileSync(p1))
+  configjson = new TextDecoder().decode(dcrypt)
+}
+
 let cfg
 try {
   const options = { fileMustExist: true, verbose: trapSql }

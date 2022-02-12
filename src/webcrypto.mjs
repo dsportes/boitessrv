@@ -10,13 +10,7 @@ import { toByteArray, fromByteArray } from './base64.mjs'
 
 const dec = new TextDecoder()
 
-export const SALTS = new Array(256)
-export function setSalts (a) {
-  const b = new Uint8Array(a)
-  for (let i = 0; i < 256; i++) {
-    SALTS[i] = Uint8Array.prototype.slice.call(b, i * 16, (i + 1) * 16)
-  }
-}
+import { SALTS } from './salts.mjs'
 
 export function u8ToB64 (u8, url) {
   const s = fromByteArray(u8)
@@ -46,7 +40,18 @@ export function random (nbytes) { return crypto.randomBytes(nbytes) }
 
 export async function crypter (cle, buffer, idxIV) {
   const k = typeof cle === 'string' ? b64ToU8(cle) : cle
-  const n = !idxIV ? Number(crypto.randomBytes(1)) : idxIV
+  const n = !idxIV ? Number(crypto.randomBytes(1)[0]) : idxIV
+  const cipher = crypto.createCipheriv('aes-256-cbc', k, SALTS[n])
+  const x0 = new Uint8Array(1)
+  x0[0] = n
+  const x1 = cipher.update(buffer)
+  const x2 = cipher.final()
+  return Buffer.concat([x0, x1, x2])
+}
+
+export function crypterSync (cle, buffer, idxIV) {
+  const k = typeof cle === 'string' ? b64ToU8(cle) : cle
+  const n = !idxIV ? Number(crypto.randomBytes(1)[0]) : idxIV
   const cipher = crypto.createCipheriv('aes-256-cbc', k, SALTS[n])
   const x0 = new Uint8Array(1)
   x0[0] = n
@@ -56,6 +61,14 @@ export async function crypter (cle, buffer, idxIV) {
 }
 
 export async function decrypter (cle, buffer) {
+  const k = typeof cle === 'string' ? b64ToU8(cle) : cle
+  const decipher = crypto.createDecipheriv('aes-256-cbc', k, SALTS[Number(buffer[0])])
+  const x1 = decipher.update(buffer.slice(1))
+  const x2 = decipher.final()
+  return Buffer.concat([x1, x2])
+}
+
+export function decrypterSync (cle, buffer) {
   const k = typeof cle === 'string' ? b64ToU8(cle) : cle
   const decipher = crypto.createDecipheriv('aes-256-cbc', k, SALTS[Number(buffer[0])])
   const x1 = decipher.update(buffer.slice(1))

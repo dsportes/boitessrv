@@ -1,15 +1,16 @@
-Passage à msgpack OK
+salts : a été intégré dans les sources, module salts.mjs
 
-La distribution "simple" est le zip des fichiers :
+Build webpack : npm run build
 
-config.json favicon.ico package.json README.md server.js
+Résultat dans dist
 
-Cette distribution, par exemple déployée chez o2switch, requiert d'effectruer "npm install" pour charger les node_modules.
+Il faut y adjoindre le répertoire config/ (et un databases/)
 
-La distribution "full" ajoute au zip du simple le répertoire node_modules.
+    fulchain.pem
+    privkey.pem
+    favicon.ico
+    config.json OU config.bin
 
- test.html est un simle test "client" ne demanadant pas de server HTTP pour le servir.
+Pour produire un config.bin (crypté) depuis un config.json :
 
- Cloné P le 15 avril 2021
- 
- await new Promise((resolve) => setImmediate(() => resolve()))
+    node cryptconfig.mjs
