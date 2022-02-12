@@ -1,13 +1,14 @@
 DELETE FROM avatar;
-DELETE FROM avgrvq;
 DELETE FROM avrsa;
 DELETE FROM compte;
+DELETE FROM compta;
+DELETE FROM prefs;
+DELETE FROM ardoise;
 DELETE FROM contact;
 DELETE FROM groupe;
 DELETE FROM invitgr;
 DELETE FROM membre;
 DELETE FROM parrain;
-DELETE FROM prefs;
 DELETE FROM rencontre;
 DELETE FROM secret;
 DELETE FROM versions;
