@@ -1,5 +1,5 @@
 import { serial, deserial } from './util.mjs'
-export const schemas = { forSchema, serialize, deserialize, test }
+export const schemas = { forSchema, serialize, deserialize }
 
 /* Gestion des schémas **************************************************/
 const allTypes = {}
@@ -34,14 +34,4 @@ function deserialize (s, buf, dest) {
     }
   })
   return dest || x
-}
-
-function test () {
-  const sch = { name: 'test', cols: ['nom', 'age'] }
-  const obj1 = { nom: 'Daniel', age: 62, taille: 182 }
-
-  forSchema(sch)
-  const buf2 = serialize('test', obj1)
-  const obj2b = deserialize('test', buf2)
-  console.log(JSON.stringify(obj2b))
 }
