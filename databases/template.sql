@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS "compte" (
 	"dpbh"	INTEGER,
 	"pcbh"	INTEGER,
 	"kx"	BLOB,
-	"cpriv"	BLOB,
+	"cprivk"	BLOB,
 	"mack"	BLOB,
 	"vsh"	INTEGER,
 	PRIMARY KEY("id")

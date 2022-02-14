@@ -28,6 +28,7 @@ export function sleep (delai) {
   return new Promise((resolve) => { setTimeout(() => resolve(), delai) })
 }
 
+/*
 const j0 = Math.floor(new Date('2020-01-01T00:00:00').getTime() / 86400000)
 
 class Dds {  
@@ -47,19 +48,11 @@ class Dds {
     return new Date((j0 + j) * 86400000).toISOString().substring(0, 10)
   }
 
-  /* 
-  Si la dds actuelle du compte n'a pas plus de 28 jours, elle convient encore.
-  Sinon il faut en réattribuer une qui ait entre 14 et 28 jours d'âge.
-  */
   ddsc (dds) {
     const j = this.jourJ()
     return ((j - dds) > 28) ? j - 14 - Math.floor(Math.random() * 14) : dds
   }
 
-  /* 
-  Si la dds actuelle de l'avatar ou du groupe n'a pas plus de 14 jours, elle convient encore.
-  Sinon il faut en réattribuer une qui ait entre 0 et 14 d'âge.
-  */
   ddsag (dds) {
     const j = this.jourJ()
     return ((j - dds) > 14) ? j - Math.floor(Math.random() * 14) : dds
@@ -68,9 +61,10 @@ class Dds {
 export const dds = new Dds()
 
 export const j99 = dds.jourJ(new Date('2099-12-31T23:59:59')) // 29220 = 365 * 80 + 20 (années bisextiles)
+*/
 // console.log('j99 = ' + j99)
 
-/* Mois courant depuis janvier 2020 */
+/* Mois courant depuis janvier 2020 
 // eslint-disable-next-line no-unused-vars
 function getMois () {
   const d = new Date()
@@ -78,7 +72,7 @@ function getMois () {
   const mo = d.getUTCMonth()
   return ( (an * 12) + mo)
 }
-
+*/
 /*
 let j1 = 1
 console.log(dds.aaaammjj(j1))

@@ -1,7 +1,7 @@
 import { crypt } from './crypto.mjs'
-import { getdhc, sleep, dds, deserial, serial } from './util.mjs'
+import { getdhc, sleep, deserial, serial } from './util.mjs'
 import { getSession, syncListQueue, processQueue } from './session.mjs'
-import { AppExc, X_SRV, E_WS, INDEXT } from './api.mjs'
+import { AppExc, X_SRV, E_WS, INDEXT, DateJour } from './api.mjs'
 import { schemas } from './schemas.mjs'
 import { putFile, delFile } from './storage.mjs'
 
@@ -96,6 +96,14 @@ function stmt (cfg, sql) {
   return c[sql]
 }
 
+/******************************************
+Si la dds actuelle de l'avatar ou du groupe n'a pas plus de 14 jours, elle convient encore.
+Sinon il faut en réattribuer une qui ait entre 0 et 14 d'âge.
+*/
+function ddsAvatarGroupe (dds) {
+  const j = new DateJour().nbj
+  return ((j - dds) > 14) ? j - Math.floor(Math.random() * 14) : dds
+}
 /******************************************/
 const selvalues = 'SELECT v FROM versions WHERE id = @id'
 const insvalues = 'INSERT INTO versions (id, v) VALUES (@id, @v)'
@@ -141,15 +149,17 @@ function newItem (table, row) {
 }
 
 /******************************************/
-const inscompte = 'INSERT INTO compte (id, v, dds, dpbh, pcbh, kx, mack, vsh) VALUES (@id, @v, @dds, @dpbh, @pcbh, @kx, @mack, @vsh)'
+const inscompte = 'INSERT INTO compte (id, v, dpbh, pcbh, kx, cprivk, mack, vsh) VALUES (@id, @v, @dpbh, @pcbh, @kx, @cprivk, @mack, @vsh)'
+const inscompta = 'INSERT INTO compta (id, idp, v, dds, st, data, vsh) VALUES (@id, @idp, @v, @dds, @st, @data, @vsh)'
 const insprefs = 'INSERT INTO prefs (id, v, mapk, vsh) VALUES (@id, @v, @mapk, @vsh)'
-const insavatar = 'INSERT INTO avatar (id, v, st, vcv, dds, cva, vsh) VALUES (@id, @v, @st, @vcv, @dds, @cva, @vsh)'
+const insavatar = 'INSERT INTO avatar (id, v, st, vcv, dds, cva, lgrk, vsh) VALUES (@id, @v, @st, @vcv, @dds, @cva, @lgrk, @vsh)'
 const insavrsa = 'INSERT INTO avrsa (id, clepub, vsh) VALUES (@id, @clepub, @vsh)'
 const selavgrvqid = 'SELECT * FROM avgrvq WHERE id = @id'
 const insavgrvq = 'INSERT INTO avgrvq (id, q1, q2, qm1, qm2, v1, v2, vm1, vm2, vsh) VALUES (@id, @q1, @q2, @qm1, @qm2, @v1, @v2, @vm1, @vm2, @vsh)'
 const updavgrvq = 'UPDATE avgrvq SET q1 = @q1, q2 = @q2, qm1 = @qm1, qm2 = @qm2, v1 = @v1, v2 = @v2, vm1 = @vm1, vm2 = @vm2 WHERE id = @id'
 const selcomptedpbh = 'SELECT * FROM compte WHERE dpbh = @dpbh'
 const selprefsid = 'SELECT * FROM prefs WHERE id = @id'
+const selcomptasid = 'SELECT * FROM compta WHERE id = @id'
 const selavatarid = 'SELECT * FROM avatar WHERE id = @id'
 const selsecretidns = 'SELECT * FROM secret WHERE id = @id AND ns = @ns'
 
@@ -157,20 +167,22 @@ function idx (id) {
   return (id % (nbVersions - 1)) + 1
 }
 
-/* Creation de compte sans parrain ****************************************
-- sessionId, mdp64, q1, q2, qm1, qm2, clePub rowCompte, rowAvatar, rowPrefs
+/* Creation du compte d'un comptable ****************************************
+- sessionId, clePubAv, clePubC, rowCompte, rowCompta, rowAvatar, rowPrefs
 Retour :
 - sessionId
 - dh
 */
 function creationCompte (cfg, args) {
-  checkSession(args.sessionId)  
-  const result = { sessionId: args.sessionId, dh: getdhc() }
-  if (cfg.cle !== args.mdp64) {
-    throw new AppExc(X_SRV, 'Mot de passe de l\'organisation non reconnu. Pour créer un compte privilégié, le mot de passe de l\'organisation est requis')
-  }
   const session = checkSession(args.sessionId)
   const compte = schemas.deserialize('rowcompte', args.rowCompte)
+
+  if (cfg.comptables.indexOf(compte.pcbh) === -1) {
+    throw new AppExc(X_SRV, 'Cette phrase secrète n\'est reconnue comme étant l\'une des comptables de l\'organisation')
+  }
+
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const compta = schemas.deserialize('rowcompta', args.rowCompta)
   const avatar = schemas.deserialize('rowavatar', args.rowAvatar)
   const prefs = schemas.deserialize('rowprefs', args.rowPrefs)
 
@@ -178,6 +190,7 @@ function creationCompte (cfg, args) {
   let j = idx(compte.id)
   versions[j]++
   compte.v = versions[j]
+  compta.v = versions[j]
   prefs.v = versions[j]
 
   j = idx(avatar.id)
@@ -185,19 +198,19 @@ function creationCompte (cfg, args) {
   avatar.v = versions[j]
   setValue(cfg, VERSIONS)
 
-  compte.dds = dds.ddsc(0)
-  avatar.dds = dds.ddsag(0)
-  const avrsa = { id: avatar.id, clepub: args.clePub, vsh: 0 }
-  const avgrvq = { id: avatar.id, q1: args.q1*MO, q2: args.q2*MO, qm1: args.qm1*MO, qm2:args.qm2*MO, v1: 0, v2:0, vm1:0, vm2: 0, vsh: 0 }
+  compta.dds = new DateJour().nbj
+  avatar.dds = ddsAvatarGroupe(0)
+  const avrsa1 = { id: avatar.id, clepub: args.clePubAv, vsh: 0 }
+  const avrsa2 = { id: compte.id, clepub: args.clePubC, vsh: 0 }
 
-  cfg.db.transaction(creationCompteTr)(cfg, session, compte, avatar, prefs, avrsa, avgrvq)
+  cfg.db.transaction(creationCompteTr)(cfg, session, compte, compta, prefs, avatar, avrsa1, avrsa2)
 
-  result.rowItems = [ newItem('compte', compte), newItem('avatar', avatar), newItem('prefs', prefs) ]    
+  result.rowItems = [newItem('compte', compte), newItem('compta', compta), newItem('prefs', prefs), newItem('avatar', avatar)]    
   return result
 }
 m1fonctions.creationCompte = creationCompte
 
-function creationCompteTr (cfg, session, compte, avatar, prefs, avrsa, avgrvq) {
+function creationCompteTr (cfg, session, compte, compta, prefs, avatar, avrsa1, avrsa2) {
   const c = stmt(cfg, selcomptedpbh).get({ dpbh: compte.dpbh })
   if (c) {
     if (c.pcbh === compte.pcbh) {
@@ -206,11 +219,14 @@ function creationCompteTr (cfg, session, compte, avatar, prefs, avrsa, avgrvq) {
       throw new AppExc(X_SRV, 'Une phrase secrète semblable est déjà utilisée. Changer a minima la première ligne de la phrase secrète pour ce nouveau compte')
     }
   }
+
   stmt(cfg, inscompte).run(compte)
+  stmt(cfg, inscompta).run(compta)
   stmt(cfg, insavatar).run(avatar)
   stmt(cfg, insprefs).run(prefs)
-  stmt(cfg, insavrsa).run(avrsa)
-  stmt(cfg, insavgrvq).run(avgrvq)
+  stmt(cfg, insavrsa).run(avrsa1)
+  stmt(cfg, insavrsa).run(avrsa2)
+
   session.compteId = compte.id
   session.plusAvatars([avatar.id])
 }
@@ -325,7 +341,13 @@ async function connexionCompte (cfg, args) {
   if (!p) {
     throw new AppExc(X_SRV, 'Compte corrompu : données de préférence absentes')
   }
-  result.rowItems = [ newItem('compte', c), newItem('prefs', p) ]
+  const compta = stmt(cfg, selcomptasid).get({ id: c.id })
+  if (!compta) {
+    throw new AppExc(X_SRV, 'Compte corrompu : données de comptabilité absentes')
+  }
+  result.compte = newItem('compte', c)
+  result.prefs = newItem('prefs', p)
+  result.compta = newItem('compta', compta)
   return result
 }
 m1fonctions.connexionCompte = connexionCompte
@@ -470,7 +492,6 @@ Abonnement de la session aux compte et listes d'avatars et de groupes et signatu
 - idc : id du compte
 - lav : array des ids des avatars
 - lgr : array des ids des groupes
-- sign : true s'il faut signer
 */
 async function syncAbo (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
@@ -489,28 +510,28 @@ async function syncAbo (cfg, args) {
   return result
 }
 
-const updddsc = 'UPDATE compte SET dds = @dds WHERE id = @id'
+const updddsc = 'UPDATE compta SET dds = @dds WHERE id = @id'
 const updddsa= 'UPDATE avatar SET dds = @dds WHERE id = @id'
 const updddsg = 'UPDATE groupe SET dds = @dds WHERE id = @id'
-const ddsc = 'SELECT dds FROM compte WHERE id = @id'
+const ddsc = 'SELECT dds FROM compta WHERE id = @id'
 const ddsa = 'SELECT dds FROM avatar WHERE id = @id'
 const ddsg = 'SELECT dds FROM groupe WHERE id = @id'
 
 function signaturesTr (cfg, idc, lav, lgr) {
   const a = stmt(cfg, ddsc).get({ id: idc })
-  const n = dds.ddsc(a)
-  if (a > n) stmt(cfg, updddsc).run({ id: idc, dds:a })
+  const j = new DateJour().nbj
+  if (a < j) stmt(cfg, updddsc).run({ id: idc, dds:j })
 
   lav.forEach((id) => {
     const a = stmt(cfg, ddsa).get({ id: id })
-    const n = dds.ddsag(a)
-    if (a > n) stmt(cfg, updddsa).run({ id: id, dds: a })
+    const j = ddsAvatarGroupe(a)
+    if (a < j) stmt(cfg, updddsa).run({ id: id, dds: j })
   })
 
   lgr.forEach((id) => {
     const a = stmt(cfg, ddsg).get({ id: id })
-    const n = dds.ddsag(a)
-    if (a > n) stmt(cfg, updddsg).run({ id: id, dds: a })
+    const j = ddsAvatarGroupe(a)
+    if (a < j) stmt(cfg, updddsg).run({ id: id, dds: j })
   })
 }
 m1fonctions.syncAbo = syncAbo
@@ -1182,8 +1203,8 @@ function acceptParrainageTr (cfg, session, args, compte, avatar, prefs, contactf
     compte.v = args.vf
     avatar.v = args.vf
     prefs.v = args.vf
-    compte.dds = dds.ddsc(0)
-    avatar.dds = dds.ddsag(0)
+    compte.dds = new DateJour().nbj
+    avatar.dds = ddsAvatarGroupe(0)
     stmt(cfg, inscompte).run(compte)
     stmt(cfg, insavatar).run(avatar)
     stmt(cfg, insprefs).run(prefs)
