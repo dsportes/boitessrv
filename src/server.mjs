@@ -12,8 +12,7 @@ import { encode, decode } from '@msgpack/msgpack'
 import { Session } from './session.mjs'
 import { AppExc, E_SRV, X_SRV, F_SRV, version } from './api.mjs'
 import { getFile /*, putFile */ } from './storage.mjs'
-import { ALLSALTS } from './salts.mjs'
-import { decrypterSync } from './webcrypto.mjs'
+import { decryptersoft } from './webcrypto.mjs'
 
 import { m1fonctions } from './m1.mjs'
 const modules = { m1: m1fonctions }
@@ -179,7 +178,7 @@ let configjson
 if (!fs.existsSync(p1)) {
   configjson = fs.readFileSync(path.resolve(dirs.configdir, './config.json'))
 } else {
-  const dcrypt = decrypterSync(ALLSALTS.slice(32, 64), fs.readFileSync(p1))
+  const dcrypt = decryptersoft(fs.readFileSync(p1))
   configjson = new TextDecoder().decode(dcrypt)
 }
 

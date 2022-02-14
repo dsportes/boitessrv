@@ -10,7 +10,7 @@ import { toByteArray, fromByteArray } from './base64.mjs'
 
 const dec = new TextDecoder()
 
-import { SALTS } from './salts.mjs'
+import { ALLSALTS, SALTS } from './salts.mjs'
 
 export function u8ToB64 (u8, url) {
   const s = fromByteArray(u8)
@@ -49,6 +49,7 @@ export async function crypter (cle, buffer, idxIV) {
   return Buffer.concat([x0, x1, x2])
 }
 
+export function cryptersoft (buffer) { return crypterSync(ALLSALTS.slice(32, 64), buffer, 1) }
 export function crypterSync (cle, buffer, idxIV) {
   const k = typeof cle === 'string' ? b64ToU8(cle) : cle
   const n = !idxIV ? Number(crypto.randomBytes(1)[0]) : idxIV
@@ -68,6 +69,7 @@ export async function decrypter (cle, buffer) {
   return Buffer.concat([x1, x2])
 }
 
+export function decryptersoft (buffer) { return decrypterSync(ALLSALTS.slice(32, 64), buffer) }
 export function decrypterSync (cle, buffer) {
   const k = typeof cle === 'string' ? b64ToU8(cle) : cle
   const decipher = crypto.createDecipheriv('aes-256-cbc', k, SALTS[Number(buffer[0])])

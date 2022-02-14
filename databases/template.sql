@@ -111,7 +111,7 @@ CREATE INDEX "dds_compta" ON "compta" (
 ) WHERE "st" > 0;
 CREATE TABLE IF NOT EXISTS "ardoise" (
 	"id"	INTEGER,
-	"dh"	INTEGER,
+	"v"	INTEGER,
 	"data"	BLOB,
 	"vsh"	INTEGER,
 	PRIMARY KEY("id")

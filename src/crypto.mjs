@@ -1,8 +1,8 @@
 import { toByteArray, fromByteArray } from './base64.mjs'
 
-import { pbkfd, sha256, random, crypter, decrypter, decrypterStr, genKeyPair, crypterRSA, decrypterRSA, concat } from './webcrypto.mjs'
+import { pbkfd, sha256, random, crypter, decrypter, cryptersoft, decryptersoft, decrypterStr, genKeyPair, crypterRSA, decrypterRSA, concat } from './webcrypto.mjs'
 
-export const crypt = { pbkfd, sha256, random, crypter, decrypter, decrypterStr, genKeyPair, crypterRSA, decrypterRSA, concat, u8ToB64, b64ToU8, rnd6, hash, hashBin, int2base64, bigToU8, u8ToBig, u8ToInt, intToU8, sidToId, idToSid, test1, test2 }
+export const crypt = { pbkfd, sha256, random, crypter, decrypter, cryptersoft, decryptersoft, decrypterStr, genKeyPair, crypterRSA, decrypterRSA, concat, u8ToB64, b64ToU8, rnd6, hash, hashBin, int2base64, bigToU8, u8ToBig, u8ToInt, intToU8, sidToId, idToSid, test1, test2 }
 
 export function u8ToB64 (u8, url) {
   const s = fromByteArray(u8)

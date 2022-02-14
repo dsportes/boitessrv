@@ -8,6 +8,8 @@ import { putFile, delFile } from './storage.mjs'
 export const m1fonctions = { }
 const MO = 1024 * 1024
 const VERSIONS = 1
+const NBEARD = 10
+const ANCARD = 86400000 * 56
 
 // eslint-disable-next-line no-unused-vars
 const dev = process.env.NODE_ENV === 'development'
@@ -154,12 +156,11 @@ const inscompta = 'INSERT INTO compta (id, idp, v, dds, st, data, vsh) VALUES (@
 const insprefs = 'INSERT INTO prefs (id, v, mapk, vsh) VALUES (@id, @v, @mapk, @vsh)'
 const insavatar = 'INSERT INTO avatar (id, v, st, vcv, dds, cva, lgrk, vsh) VALUES (@id, @v, @st, @vcv, @dds, @cva, @lgrk, @vsh)'
 const insavrsa = 'INSERT INTO avrsa (id, clepub, vsh) VALUES (@id, @clepub, @vsh)'
-const selavgrvqid = 'SELECT * FROM avgrvq WHERE id = @id'
-const insavgrvq = 'INSERT INTO avgrvq (id, q1, q2, qm1, qm2, v1, v2, vm1, vm2, vsh) VALUES (@id, @q1, @q2, @qm1, @qm2, @v1, @v2, @vm1, @vm2, @vsh)'
-const updavgrvq = 'UPDATE avgrvq SET q1 = @q1, q2 = @q2, qm1 = @qm1, qm2 = @qm2, v1 = @v1, v2 = @v2, vm1 = @vm1, vm2 = @vm2 WHERE id = @id'
+const insardoise = 'INSERT INTO ardoise (id, v, data, vsh) VALUES (@id, @v, @data, @vsh)'
 const selcomptedpbh = 'SELECT * FROM compte WHERE dpbh = @dpbh'
 const selprefsid = 'SELECT * FROM prefs WHERE id = @id'
-const selcomptasid = 'SELECT * FROM compta WHERE id = @id'
+const selcomptaid = 'SELECT * FROM compta WHERE id = @id'
+const selardoiseid = 'SELECT * FROM ardoise WHERE id = @id'
 const selavatarid = 'SELECT * FROM avatar WHERE id = @id'
 const selsecretidns = 'SELECT * FROM secret WHERE id = @id AND ns = @ns'
 
@@ -202,15 +203,16 @@ function creationCompte (cfg, args) {
   avatar.dds = ddsAvatarGroupe(0)
   const avrsa1 = { id: avatar.id, clepub: args.clePubAv, vsh: 0 }
   const avrsa2 = { id: compte.id, clepub: args.clePubC, vsh: 0 }
+  const ardoise = { id: compte.id, v: new Date().getTime(), data: null, vsh: 0 }
 
-  cfg.db.transaction(creationCompteTr)(cfg, session, compte, compta, prefs, avatar, avrsa1, avrsa2)
+  cfg.db.transaction(creationCompteTr)(cfg, session, compte, compta, prefs, ardoise, avatar, avrsa1, avrsa2)
 
-  result.rowItems = [newItem('compte', compte), newItem('compta', compta), newItem('prefs', prefs), newItem('avatar', avatar)]    
+  result.rowItems = [newItem('compte', compte), newItem('compta', compta), newItem('ardoise', ardoise), newItem('prefs', prefs), newItem('avatar', avatar)]    
   return result
 }
 m1fonctions.creationCompte = creationCompte
 
-function creationCompteTr (cfg, session, compte, compta, prefs, avatar, avrsa1, avrsa2) {
+function creationCompteTr (cfg, session, compte, compta, prefs, ardoise, avatar, avrsa1, avrsa2) {
   const c = stmt(cfg, selcomptedpbh).get({ dpbh: compte.dpbh })
   if (c) {
     if (c.pcbh === compte.pcbh) {
@@ -223,6 +225,7 @@ function creationCompteTr (cfg, session, compte, compta, prefs, avatar, avrsa1, 
   stmt(cfg, inscompte).run(compte)
   stmt(cfg, inscompta).run(compta)
   stmt(cfg, insavatar).run(avatar)
+  stmt(cfg, insardoise).run(ardoise)
   stmt(cfg, insprefs).run(prefs)
   stmt(cfg, insavrsa).run(avrsa1)
   stmt(cfg, insavrsa).run(avrsa2)
@@ -341,26 +344,86 @@ async function connexionCompte (cfg, args) {
   if (!p) {
     throw new AppExc(X_SRV, 'Compte corrompu : données de préférence absentes')
   }
-  const compta = stmt(cfg, selcomptasid).get({ id: c.id })
+  const compta = stmt(cfg, selcomptaid).get({ id: c.id })
   if (!compta) {
     throw new AppExc(X_SRV, 'Compte corrompu : données de comptabilité absentes')
+  }
+  const ardoise = stmt(cfg, selardoiseid).get({ id: c.id })
+  if (!ardoise) {
+    throw new AppExc(X_SRV, 'Compte corrompu : données des échanges avec parrain / comptable absentes')
   }
   result.compte = newItem('compte', c)
   result.prefs = newItem('prefs', p)
   result.compta = newItem('compta', compta)
+  result.ardoise = newItem('compta', ardoise)
   return result
 }
 m1fonctions.connexionCompte = connexionCompte
 
 /**************************************** */
+const selavgrvqid = ''
+const updavgrvq = ''
+const insavgrvq = ''
+
 const selavatar = 'SELECT * FROM avatar WHERE id = @id AND v > @v'
 const selsecret = 'SELECT * FROM secret WHERE id = @id AND v > @v'
 const selcontact = 'SELECT * FROM contact WHERE id = @id AND v > @v'
+const selardoise = 'SELECT * FROM ardoise WHERE id = @id '
 const selcontactIdIc = 'SELECT * FROM contact WHERE id = @id AND ic = @ic'
 const selrencontre = 'SELECT * FROM rencontre WHERE id = @id AND v > @v'
 const selparrain = 'SELECT * FROM parrain WHERE id = @id AND v > @v'
 const selgroupe = 'SELECT * FROM groupe WHERE id = @id AND v > @v'
 const selmembre = 'SELECT * FROM membre WHERE id = @id AND v > @v'
+
+const updardoise = 'UPDATE ardoise SET v = @v, data = @data, vsh = @vsh WHERE id = @id'
+
+/****************************************
+Echange sur l'ardoise : args
+- `idp` : id du parrain
+- `idf` : id du filleul
+- `em` : émis par, 0 - le compte, 1 - son parrain, 2 - le comptable
+- `texte` : court.
+Ecriture de 1 ou 2 rows (voire 0 !étrange!) selon que le parrain et/ou le filleul existe
+Ardoise.data : serial crypté soft de [ {dh, idf, idp, em, texte} ]
+*/
+async function echangeArdoise (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const rowItems = []
+  cfg.db.transaction(echangeArdoiseTr)(cfg, args, rowItems)
+  syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.echangeArdoise = echangeArdoise
+
+function echangeArdoiseTr (cfg, args, rowItems) {
+  const dh = new Date().getTime()
+  if (args.idf) {
+    const row= stmt(cfg, selardoise).get({ id: args.idf })
+    if (row) {
+      const x = row.data ? deserial(crypt.decryptersoft(row.data)) : []
+      const y = [{ dh: dh, idp: args.idp, idf: args.idf, em: args.em, texte: args.texte}]
+      x.forEach(e => { if (y.length < NBEARD || (dh - e.dh < ANCARD)) y.push(e) })
+      row.data = crypt.cryptersoft(serial(y))
+      row.v = dh
+      stmt(cfg, updardoise).run(row)
+      rowItems.push(newItem('ardoise', row))
+    }
+  }
+  if (args.idp) {
+    const row= stmt(cfg, selardoise).get({ id: args.idp })
+    if (row) {
+      const x = row.data ? deserial(crypt.decryptersoft(row.data)) : []
+      const y = [{ dh: dh, idp: args.idp, idf: args.idf, em: args.em, texte: args.texte}]
+      x.forEach(e => { if (y.length < NBEARD || (dh - e.dh < ANCARD)) y.push(e) })
+      row.data = crypt.cryptersoft(serial(y))
+      row.v = dh
+      stmt(cfg, updardoise).run(row)
+      rowItems.push(newItem('ardoise', row))
+    }
+  }
+}
 
 /*****************************************
 Chargement des avatars d'un compte
