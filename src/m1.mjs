@@ -356,6 +356,7 @@ async function connexionCompte (cfg, args) {
   result.prefs = newItem('prefs', p)
   result.compta = newItem('compta', compta)
   result.ardoise = newItem('compta', ardoise)
+  if (cfg.comptables.indexOf(c.pcbh) !== -1) result.estComptable = true
   return result
 }
 m1fonctions.connexionCompte = connexionCompte
