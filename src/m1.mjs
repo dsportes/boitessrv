@@ -1118,11 +1118,10 @@ function pjSecretTr (cfg, args, rowItems) {
  * Parrainage : args de m1/nouveauParrainage
   sessionId: data.sessionId,
   rowParrain: serial(rowParrain)
- * Retour :
- * dh :
+ Retour : dh
  */
-const insparrain = 'INSERT INTO parrain (pph, id, v, st, dlv, q1, q2, qm1, qm2, datak, datax, data2k, ardc, vsh) '
-  + 'VALUES (@pph, @id, @v, @st, @dlv, @q1, @q2, @qm1, @qm2, @datak, @datax, @data2k, @ardc, @vsh)'
+const insparrain = 'INSERT INTO parrain (pph, id, v, st, dlv, datak, datax, data2k, ardc, vsh) '
+  + 'VALUES (@pph, @id, @v, @st, @dlv, @datak, @datax, @data2k, @ardc, @vsh)'
 const selpphparrain = 'SELECT * FROM parrain WHERE pph = @pph'
 
 async function nouveauParrainage (cfg, args) {
@@ -1150,22 +1149,7 @@ function nouveauParrainageTr (cfg, parrain) {
     const x = p.id === parrain.id ? ' par votre compte.' : ' par un autre compte.'
     throw new AppExc(X_SRV, 'Cette phrase de parrainage est trop proche d\'une déjà enregistrée' + x)
   }
-
   stmt(cfg, insparrain).run(parrain)
-
-  // Retrait de quotas
-  const a = stmt(cfg, selavgrvqid).get({ id: parrain.id })
-  if (a) {
-    a.q1 = a.q1 - parrain.q1 * MO
-    a.q2 = a.q2 - parrain.q2 * MO
-    a.qm1 = a.qm1 - parrain.qm1 * MO
-    a.qm2 = a.qm2 - parrain.qm2 * MO
-  }
-  if (!a || a.v1 > a.q1 || a.vm1 > a.qm1 || a.v2 > a.q2 || a.vm2 > a.qm2) {
-    console.log('Quotas d\'espace insuffisants.')
-    throw new AppExc(X_SRV, 'Quotas d\'espace insuffisants.')
-  }
-  stmt(cfg, updavgrvq).run(a)
 }
 
 /******************************************************************

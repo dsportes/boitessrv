@@ -90,7 +90,7 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'ardoise',
-  cols: ['id', 'dh', 'data', 'vsh']
+  cols: ['id', 'v', 'data', 'vsh']
 })
 
 schemas.forSchema({
@@ -115,7 +115,7 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowparrain',
-  cols: ['pph', 'id', 'v', 'dlv', 'st', 'f1', 'f2', 'datak', 'datax', 'data2k', 'ardc', 'vsh']
+  cols: ['pph', 'id', 'v', 'dlv', 'st', 'datak', 'datax', 'data2k', 'ardc', 'vsh']
 })
 
 schemas.forSchema({
@@ -285,7 +285,7 @@ export class Compteurs {
       this.tr.fill(0, 0, NTRJ)
     } else {
       // eslint-disable-next-line for-direction
-      for (let i = NTRJ - 1; i >= 0; i++) this.tr[i] = i > nj ? this.tr[i - nj] : 0
+      for (let i = NTRJ - 1; i >= 0; i--) this.tr[i] = i > nj ? this.tr[i - nj] : 0
     }
     let s = 0
     this.tr.forEach(n => { s += n })
@@ -348,6 +348,7 @@ export class Compteurs {
         }
       }
     }
+    this.j = this.dj.nbj
     return this
   }
 }

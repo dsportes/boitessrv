@@ -1,9 +1,5 @@
-DROP TABLE avatar;
-DROP TABLE avrsa;
-DROP TABLE compte;
-DROP TABLE prefs;
-DROP TABLE compta;
-DROP TABLE ardoise;
+
+
 DROP TABLE contact;
 DROP TABLE groupe;
 DROP TABLE invitgr;
