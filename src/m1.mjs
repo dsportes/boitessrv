@@ -1,12 +1,11 @@
 import { crypt } from './crypto.mjs'
 import { getdhc, sleep, deserial, serial } from './util.mjs'
 import { getSession, syncListQueue, processQueue } from './session.mjs'
-import { AppExc, X_SRV, E_WS, INDEXT, DateJour } from './api.mjs'
+import { AppExc, X_SRV, E_WS, INDEXT, DateJour, Compteurs } from './api.mjs'
 import { schemas } from './schemas.mjs'
 import { putFile, delFile } from './storage.mjs'
 
 export const m1fonctions = { }
-const MO = 1024 * 1024
 const VERSIONS = 1
 const NBEARD = 10
 const ANCARD = 86400000 * 56
@@ -355,7 +354,7 @@ async function connexionCompte (cfg, args) {
   result.compte = newItem('compte', c)
   result.prefs = newItem('prefs', p)
   result.compta = newItem('compta', compta)
-  result.ardoise = newItem('compta', ardoise)
+  result.ardoise = newItem('ardoise', ardoise)
   if (cfg.comptables.indexOf(c.pcbh) !== -1) result.estComptable = true
   return result
 }
@@ -364,7 +363,6 @@ m1fonctions.connexionCompte = connexionCompte
 /**************************************** */
 const selavgrvqid = ''
 const updavgrvq = ''
-const insavgrvq = ''
 
 const selavatar = 'SELECT * FROM avatar WHERE id = @id AND v > @v'
 const selsecret = 'SELECT * FROM secret WHERE id = @id AND v > @v'
@@ -1153,73 +1151,92 @@ function nouveauParrainageTr (cfg, parrain) {
 }
 
 /******************************************************************
- * Acceptation / refus d'un parrainage
+ * Acceptation
     sessionId: data.sessionId,
-    ok: true / false
+    ok: true,
     pph: arg.pph,
-    idp: parrain.id,
-    icp: parrain.data.ic,
-  Si acceptation
     idf: parrain.naf.id,
-    clePub: kp.publicKey,
+    idp: parrain.id, // id avatar parrain
+    idcp: parrain.data.idcp, // id compte parrain
+    forfaits: parrain.data.f, // A déduire des ressources du row compta du parrain
+    clePubAv: kpav.publicKey,
+    clePubC: kpc.publicKey,
     rowCompte,
     rowPrefs,
     rowAvatar,
+    rowCompta,
     rowContactP,
     rowContactF
-  Si refus
-    ardc
+  Refus
+    sessionId: data.sessionId,
+    ok: false,
+    pph: parrain.pph,
+    idp: parrain.id,
+    icp: parrain.ic,
+    ardc: await crypt.crypter(parrain.data.cc, serial([new Date().getTime(), arg.ard]))
  * Retour : sessionId, dh, si ok : rowItems : compte, prefs, avatar, contactf
  */
-const inscontact = 'INSERT INTO contact (id, ic, v, st, q1, q2, qm1, qm2, ardc, datak, datap, mc, infok, vsh) '
- + 'VALUES (@id, @ic, @v, @st, @q1, @q2, @qm1, @qm2, @ardc, @datak, @datap, @mc, @infok, @vsh)'
+const inscontact = 'INSERT INTO contact (id, ic, v, st, ardc, datak, datap, mc, infok, vsh) '
+ + 'VALUES (@id, @ic, @v, @st, @ardc, @datak, @datap, @mc, @infok, @vsh)'
 const upd1parrain = 'UPDATE parrain SET v = @v, st = @st, ardc = @ardc WHERE pph = @pph'
+const updcompta = 'UPDATE compta SET v = @v, data = @data WHERE id = @id'
 
 async function acceptParrainage (cfg, args) {
   const session = checkSession(args.sessionId)
   const dh = getdhc()
   const result = { sessionId: args.sessionId, dh: dh }
-  
+
+  const compte = schemas.deserialize('rowcompte', args.rowCompte)
+  const avatar = schemas.deserialize('rowavatar', args.rowAvatar)
+  const compta = schemas.deserialize('rowavatar', args.rowCompta)
+  const prefs = schemas.deserialize('rowprefs', args.rowPrefs)
+  const contactf = schemas.deserialize('rowcontact', args.rowContactF)
+  const contactp = schemas.deserialize('rowcontact', args.rowContactP)
+
   const versions = getValue(cfg, VERSIONS)
   let j = idx(args.idp)
   versions[j]++
-  args.vp = versions[j] // version des rows parrain
-  if (args.ok) {
-    j = idx(args.idf)
-    versions[j]++
-    args.vf = versions[j] // version des rows filleul  
-  }
+  args.vp = versions[j] // version du contact parrain
+  j = idx(args.idf)
+  versions[j]++
+  args.vf = versions[j] // version du contact filleul 
+  j = idx(args.idcp)
+  versions[j]++
+  args.vcp = versions[j] // version du compte parrain 
+  j = idx(compte.id)
+  versions[j]++
+  args.vcf = versions[j] // version du compte filleul 
   setValue(cfg, VERSIONS)
 
-  const compte = args.ok ? schemas.deserialize('rowcompte', args.rowCompte) : null
-  const avatar = args.ok ? schemas.deserialize('rowavatar', args.rowAvatar) : null
-  const prefs = args.ok ? schemas.deserialize('rowprefs', args.rowPrefs) : null
-  const contactf = args.ok ? schemas.deserialize('rowcontact', args.rowContactF) : null
-  const contactp = args.ok ? schemas.deserialize('rowcontact', args.rowContactP) : null
-  const items = {} // ne contient que parrain
+  const items = {} // contiendra après l'appel : parrain et comptaP (du parrain)
 
-  cfg.db.transaction(acceptParrainageTr)(cfg, session, args, compte, avatar, prefs, contactf, contactp, items)
+  cfg.db.transaction(acceptParrainageTr)(cfg, session, args, compte, compta, prefs, avatar, contactf, contactp, items)
 
-  let rowItems
-  const i0 = newItem('parrain', items.parrain)
-  if (args.ok) {
-    const i1 = newItem('contact', contactp)
-    const i2 = newItem('contact', contactf)
-    const i3 = newItem('compte', compte)
-    const i4 = newItem('avatar', avatar)
-    const i5 = newItem('prefs', prefs)
-    rowItems = [i0, i1, i2, i3, i4, i5]
-    result.rowItems = [i3, i4, i5, i2]
-  } else {
-    rowItems = [i0]
-  }
-  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  const i10 = newItem('parrain', items.parrain)
+  const i11 = newItem('parrain', items.comptaP)
+  const i1 = newItem('contact', contactp)
+  const i2 = newItem('contact', contactf)
+  const i3 = newItem('compte', compte)
+  const i4 = newItem('avatar', avatar)
+  const i5 = newItem('prefs', prefs)
+  const i6 = newItem('compta', compta)
+  result.rowItems = [i3, i4, i5, i6, i2] // à retourner en résultat
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: [i10, i11, i1, i2, i3, i4, i5, i6] }) // à synchroniser
   setImmediate(() => { processQueue() })
   return result
 }
 m1fonctions.acceptParrainage = acceptParrainage
   
-function acceptParrainageTr (cfg, session, args, compte, avatar, prefs, contactf, contactp, items) {
+function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, contactf, contactp, items) {
+  const c = stmt(cfg, selcomptedpbh).get({ dpbh: compte.dpbh })
+  if (c) {
+    if (c.pcbh === compte.pcbh) {
+      throw new AppExc(X_SRV, 'Phrase secrète probablement déjà utilisée. Vérifier que le compte n\'existe pas déjà en essayant de s\'y connecter avec la phrase secrète')
+    } else {
+      throw new AppExc(X_SRV, 'Une phrase secrète semblable est déjà utilisée. Changer a minima la première ligne de la phrase secrète pour ce nouveau compte')
+    }
+  }
+
   const p = stmt(cfg, selpphparrain).get({ pph: args.pph })
   if (!p) {
     throw new AppExc(X_SRV, 'Phrase de parrainage inconnue')
@@ -1228,64 +1245,57 @@ function acceptParrainageTr (cfg, session, args, compte, avatar, prefs, contactf
   if (st!== 0) {
     throw new AppExc(X_SRV, 'Ce parrainage a déjà fait l\'objet ' + (st === 1 ? 'd\'une acceptation.' : 'd\'un refus'))
   }
-
-  if (args.ok) {
-    const c = stmt(cfg, selcomptedpbh).get({ dpbh: compte.dpbh })
-    if (c) {
-      if (c.pcbh === compte.pcbh) {
-        throw new AppExc(X_SRV, 'Phrase secrète probablement déjà utilisée. Vérifier que le compte n\'existe pas déjà en essayant de s\'y connecter avec la phrase secrète')
-      } else {
-        throw new AppExc(X_SRV, 'Une phrase secrète semblable est déjà utilisée. Changer a minima la première ligne de la phrase secrète pour ce nouveau compte')
-      }
-    }
- 
-    // insertion des contacts p et f : v
-    contactp.v = args.vp
-    contactp.datap = null
-    stmt(cfg, inscontact).run(contactp)
-    contactf.v = args.vf
-    contactf.datap = null
-    stmt(cfg, inscontact).run(contactf)
-
-    // Insertion des nouveaux compte, avatar, prefs du filleul
-    compte.v = args.vf
-    avatar.v = args.vf
-    prefs.v = args.vf
-    compte.dds = new DateJour().nbj
-    avatar.dds = ddsAvatarGroupe(0)
-    stmt(cfg, inscompte).run(compte)
-    stmt(cfg, insavatar).run(avatar)
-    stmt(cfg, insprefs).run(prefs)
-
-    // Clé RSA du filleul
-    const avrsa = { id: avatar.id, clepub: args.clePub, vsh: 0 }
-    stmt(cfg, insavrsa).run(avrsa)
-
-    // Quotas du filleul
-    const avgrvq = { id: avatar.id, q1: p.q1*MO, q2: p.q2*MO, qm1: p.qm1*MO, qm2:p.qm2*MO, v1: 0, v2:0, vm1:0, vm2: 0, vsh: 0 }
-    stmt(cfg, insavgrvq).run(avgrvq)
-
-    // Contexte de session du filleul
-    session.compteId = compte.id
-    session.plusAvatars([avatar.id])
-    session.plusCvs([contactp.id])
-  } else {
-    // Rétablir les quotas du parrain
-    const a = stmt(cfg, selavgrvqid).get({ id: p.id })
-    if (a) {
-      a.q1 = a.q1 + p.q1 * MO
-      a.q2 = a.q2 + p.q2 * MO
-      a.qm1 = a.qm1 + p.qm1 * MO
-      a.qm2 = a.qm2 + p.qm2 * MO
-    }
-    stmt(cfg, updavgrvq).run(a)
-  }
   // MAJ du row parrain : v, st, ardc
   p.v = args.vp
-  p.ardc = args.ok ? contactf.ardc : args.ardc
-  p.st = args.ok ? 1 : 2
+  p.ardc = contactf.ardc
+  p.st = 1
   stmt(cfg, upd1parrain).run(p)
   items.parrain = p
+
+  const comptaP = stmt(cfg, selcomptaid).get({ id: args.idcp })
+  if (!compta) {
+    throw new AppExc(X_SRV, 'Compte parrain corrompu : données de comptabilité absentes')
+  }
+  const compteurs = new Compteurs(comptaP.data)
+  const ok = compteurs.setRes(-args.forfaits[0], -args.forfaits[1])
+  if (!ok) {
+    throw new AppExc(X_SRV, 'Réserves de volume insuffisantes du parrain pour attribuer ces forfaits')
+  }
+  comptaP.v = args.vcp
+  comptaP.data = compteurs.serial
+  stmt(cfg, updcompta).run(comptaP)
+  items.comptaP = comptaP
+
+  // insertion des contacts p et f : v
+  contactp.v = args.vp
+  contactp.datap = null
+  stmt(cfg, inscontact).run(contactp)
+  contactf.v = args.vf
+  contactf.datap = null
+  stmt(cfg, inscontact).run(contactf)
+
+  // Insertion des nouveaux compte, avatar, prefs du filleul
+  compte.v = args.vcf
+  compta.v = args.vcf
+  compte.dds = new DateJour().nbj
+  prefs.v = args.vcf
+  avatar.v = args.vf
+  avatar.dds = ddsAvatarGroupe(0)
+  stmt(cfg, inscompte).run(compte)
+  stmt(cfg, inscompta).run(compta)
+  stmt(cfg, insavatar).run(avatar)
+  stmt(cfg, insprefs).run(prefs)
+
+  // Clé RSA du filleul
+  const avrsaAv = { id: avatar.id, clepub: args.clePubAv, vsh: 0 }
+  stmt(cfg, insavrsa).run(avrsaAv)
+  const avrsaC = { id: compte.id, clepub: args.clePubC, vsh: 0 }
+  stmt(cfg, insavrsa).run(avrsaC)
+
+  // Contexte de session du filleul
+  session.compteId = compte.id
+  session.plusAvatars([avatar.id])
+  session.plusCvs([contactp.id])
 }
 
 async function getPph (cfg, args) {
