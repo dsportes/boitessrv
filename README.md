@@ -14,3 +14,6 @@ Il faut y adjoindre le répertoire config/ (et un databases/)
 Pour produire un config.bin (crypté) depuis un config.json :
 
     node cryptconfig.mjs
+
+
+!!! m1.mjs echangeArdoise à reprendre !!!

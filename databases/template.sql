@@ -64,24 +64,6 @@ CREATE INDEX "st_avatar" ON "avatar" (
 CREATE INDEX "st_secret" ON "secret" (
 	"st"
 ) WHERE "st" < 0;
-CREATE TABLE IF NOT EXISTS "compte" (
-	"id"	INTEGER,
-	"v"	INTEGER,
-	"dds"	INTEGER,
-	"dpbh"	INTEGER,
-	"pcbh"	INTEGER,
-	"kx"	BLOB,
-	"cprivk"	BLOB,
-	"mack"	BLOB,
-	"vsh"	INTEGER,
-	PRIMARY KEY("id")
-) WITHOUT ROWID;
-CREATE INDEX "dds_compte" ON "compte" (
-	"dds"
-);
-CREATE UNIQUE INDEX "dpbh_compte" ON "compte" (
-	"dpbh"
-);
 CREATE TABLE IF NOT EXISTS "prefs" (
 	"id"	INTEGER,
 	"v"	INTEGER,
@@ -109,13 +91,6 @@ CREATE INDEX "st_compta" ON "compta" (
 CREATE INDEX "dds_compta" ON "compta" (
 	"dds"
 ) WHERE "st" > 0;
-CREATE TABLE IF NOT EXISTS "ardoise" (
-	"id"	INTEGER,
-	"v"	INTEGER,
-	"data"	BLOB,
-	"vsh"	INTEGER,
-	PRIMARY KEY("id")
-) WITHOUT ROWID;
 CREATE TABLE IF NOT EXISTS "contact" (
 	"id"	INTEGER,
 	"ic"	INTEGER,
@@ -136,25 +111,6 @@ CREATE INDEX "id_v_contact" ON "contact" (
 CREATE INDEX "st_contact" ON "contact" (
 	"st"
 ) WHERE "st" < 0;
-CREATE TABLE IF NOT EXISTS "parrain" (
-	"pph"	INTEGER,
-	"id"	INTEGER,
-	"v"	INTEGER,
-	"dlv"	INTEGER,
-	"st"	INTEGER,
-	"datak"	BLOB,
-	"datax"	BLOB,
-	"data2k"	BLOB,
-	"ardc"	BLOB,
-	"vsh"	INTEGER,
-	PRIMARY KEY("pph")
-) WITHOUT ROWID;
-CREATE INDEX "dlv_parrain" ON "parrain" (
-	"dlv"
-);
-CREATE INDEX "id_parrain" ON "parrain" (
-	"id"
-);
 CREATE TABLE IF NOT EXISTS "rencontre" (
 	"prh"	INTEGER,
 	"id"	INTEGER,
@@ -221,3 +177,58 @@ CREATE INDEX "id_v_membre" ON "membre" (
 CREATE INDEX "st_membre" ON "membre" (
 	"st"
 ) WHERE "st" < 0;
+CREATE TABLE IF NOT EXISTS "compte" (
+	"id"	INTEGER,
+	"v"	INTEGER,
+	"dds"	INTEGER,
+	"dpbh"	INTEGER,
+	"pcbh"	INTEGER,
+	"kx"	BLOB,
+	"cprivk"	BLOB,
+	"mack"	BLOB,
+	"vsh"	INTEGER,
+	PRIMARY KEY("id")
+) WITHOUT ROWID;
+CREATE INDEX "dds_compte" ON "compte" (
+	"dds"
+);
+CREATE UNIQUE INDEX "dpbh_compte" ON "compte" (
+	"dpbh"
+);
+CREATE TABLE IF NOT EXISTS "parrain" (
+	"pph"	INTEGER,
+	"id"	INTEGER,
+	"v"	INTEGER,
+	"dlv"	INTEGER,
+	"st"	INTEGER,
+	"datak"	BLOB,
+	"datax"	BLOB,
+	"data2k"	BLOB,
+	"ardc"	BLOB,
+	"vsh"	INTEGER,
+	PRIMARY KEY("pph")
+) WITHOUT ROWID;
+CREATE INDEX "dlv_parrain" ON "parrain" (
+	"dlv"
+);
+CREATE INDEX "id_parrain" ON "parrain" (
+	"id"
+);
+CREATE TABLE IF NOT EXISTS "ardoise" (
+	"id"	INTEGER,
+	"v"	INTEGER,
+	"dhl"	INTEGER,
+	"mcp"	TEXT,
+	"mcc"	TEXT,
+	"data"	BLOB,
+	"vsh"	INTEGER,
+	PRIMARY KEY("id")
+) WITHOUT ROWID;
+CREATE INDEX "id_mcp_ardoise" ON "ardoise" (
+	"id",
+	"mcp"
+) WHERE mcp NOTNULL;
+CREATE INDEX "v_mcc_ardoise" ON "ardoise" (
+	"v",
+	"mcc"
+) WHERE mcc NOTNULL;

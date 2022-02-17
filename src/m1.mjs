@@ -155,7 +155,7 @@ const inscompta = 'INSERT INTO compta (id, idp, v, dds, st, data, vsh) VALUES (@
 const insprefs = 'INSERT INTO prefs (id, v, mapk, vsh) VALUES (@id, @v, @mapk, @vsh)'
 const insavatar = 'INSERT INTO avatar (id, v, st, vcv, dds, cva, lgrk, vsh) VALUES (@id, @v, @st, @vcv, @dds, @cva, @lgrk, @vsh)'
 const insavrsa = 'INSERT INTO avrsa (id, clepub, vsh) VALUES (@id, @clepub, @vsh)'
-const insardoise = 'INSERT INTO ardoise (id, v, data, vsh) VALUES (@id, @v, @data, @vsh)'
+const insardoise = 'INSERT INTO ardoise (id, v, dhl, mcc, mcp, data, vsh) VALUES (@id, @v, @data, @vsh)'
 const selcomptedpbh = 'SELECT * FROM compte WHERE dpbh = @dpbh'
 const selprefsid = 'SELECT * FROM prefs WHERE id = @id'
 const selcomptaid = 'SELECT * FROM compta WHERE id = @id'
@@ -202,7 +202,8 @@ function creationCompte (cfg, args) {
   avatar.dds = ddsAvatarGroupe(0)
   const avrsa1 = { id: avatar.id, clepub: args.clePubAv, vsh: 0 }
   const avrsa2 = { id: compte.id, clepub: args.clePubC, vsh: 0 }
-  const ardoise = { id: compte.id, v: new Date().getTime(), data: null, vsh: 0 }
+  const dh = new Date().getTime()
+  const ardoise = { id: compte.id, v: dh, dhl:dh, mcp: null, mcc: null, data: null, vsh: 0 }
 
   cfg.db.transaction(creationCompteTr)(cfg, session, compte, compta, prefs, ardoise, avatar, avrsa1, avrsa2)
 
@@ -1263,7 +1264,8 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
   stmt(cfg, updcompta).run(comptaP)
   items.comptaP = comptaP
 
-  const ardoise = { id: compte.id, v: new Date().getTime(), data: null, vsh: 0 }
+  const dh = new Date().getTime()
+  const ardoise = { id: compte.id, v: dh, dhl:dh, mcp: null, mcc: null, data: null, vsh: 0 }
   stmt(cfg, insardoise).run(ardoise)
   items.ardoise = ardoise
 
