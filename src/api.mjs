@@ -29,6 +29,20 @@ export class AppExc {
 export const EXBRK = new AppExc(E_BRK, 'Interruption volontaire')
 export const EXPS = new AppExc(F_BRO, 'La phrase secrète a changé depuis l\'authentification du comptE Déconnexion et reconnexion requise')
 
+export const MC = {
+  NOUVEAU: 255,
+  LISTENOIRE: 254,
+  PARRAIN: 253,
+  FILLEUL: 252,
+  INTRODUCTEUR: 251,
+  INTRODUIT: 250,
+  FAVORI: 249,
+  IMPORTANT: 248,
+  OBSOLETE: 247,
+  ALIRE: 246,
+  ATRAITER: 245
+}
+
 export const SIZEAV = 5
 export const SIZEGR = 3
 
@@ -90,7 +104,7 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'ardoise',
-  cols: ['id', 'v', 'data', 'vsh']
+  cols: ['id', 'v', 'dhe', 'dhl', 'mcp', 'mcc', 'data', 'vsh']
 })
 
 schemas.forSchema({
@@ -261,10 +275,10 @@ export class Compteurs {
     return true
   }
 
-  setRes (delta1, delta2) { // maj réserve de forfaits à attribués aux dilleuls
+  setRes (delta) { // maj réserve de forfaits à attribués aux dilleuls
     this.calculauj()
-    this.res1 = this.res1 + delta1
-    this.res2 = this.res2 + delta2
+    this.res1 = this.res1 + delta[0]
+    this.res2 = this.res2 + delta[1]
     this.maj = true
     return true
   }
