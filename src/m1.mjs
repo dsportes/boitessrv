@@ -1294,6 +1294,8 @@ function pjSecretTr (cfg, args, rowItems) {
  */
 const insparrain = 'INSERT INTO parrain (pph, id, v, st, dlv, datak, datax, data2k, ardc, vsh) '
   + 'VALUES (@pph, @id, @v, @st, @dlv, @datak, @datax, @data2k, @ardc, @vsh)'
+const upd9parrain = 'UPDATE parrain SET id = @id, v = @v, st = @st, dlv = @dlv, '
+  + 'datak = @datak, datax = @datax, data2k = @data2k, ardc = @ardc, vsh = @vsh WHERE pph = @pph'
 const selpphparrain = 'SELECT * FROM parrain WHERE pph = @pph'
 
 async function nouveauParrainage (cfg, args) {
@@ -1317,11 +1319,14 @@ m1fonctions.nouveauParrainage = nouveauParrainage
 function nouveauParrainageTr (cfg, parrain) {
   const p = stmt(cfg, selpphparrain).get({ pph: parrain.pph })
   if (p) {
-    console.log('Parrain : phrase déjà utilisée')
-    const x = p.id === parrain.id ? ' par votre compte.' : ' par un autre compte.'
-    throw new AppExc(X_SRV, 'Cette phrase de parrainage est trop proche d\'une déjà enregistrée' + x)
+    if (p.st >= 0) {
+      const x = p.id === parrain.id ? ' par votre compte.' : ' par un autre compte.'
+      throw new AppExc(X_SRV, 'Cette phrase de parrainage est trop proche d\'une déjà enregistrée' + x)
+    }
+    stmt(cfg, upd9parrain).run(parrain)
+  } else {
+    stmt(cfg, insparrain).run(parrain)
   }
-  stmt(cfg, insparrain).run(parrain)
 }
 
 /******************************************************************
@@ -1350,6 +1355,8 @@ const inscontact = 'INSERT INTO contact (id, ic, v, st, ardc, datak, datap, mc, 
  + 'VALUES (@id, @ic, @v, @st, @ardc, @datak, @datap, @mc, @infok, @vsh)'
 const upd1parrain = 'UPDATE parrain SET v = @v, st = @st, ardc = @ardc WHERE pph = @pph'
 const updcompta = 'UPDATE compta SET v = @v, data = @data WHERE id = @id'
+const upd2parrain = 'UPDATE parrain SET v = @v, st = @st, dlv = 0, ardc = null, datax = null, datak = null, data2k = null WHERE pph = @pph'
+const upd3parrain = 'UPDATE parrain SET v = @v, dlv = @dlv WHERE pph = @pph'
 
 async function acceptParrainage (cfg, args) {
   const session = checkSession(args.sessionId)
@@ -1412,14 +1419,13 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
   if (!p) {
     throw new AppExc(X_SRV, 'Phrase de parrainage inconnue')
   }
-  const st = Math.floor(p.st / 10) 
-  if (st !== 0) {
-    throw new AppExc(X_SRV, 'Ce parrainage a déjà fait l\'objet ' + (st === 1 ? 'd\'une acceptation.' : 'd\'un refus'))
+  if (p.st !== 0) {
+    throw new AppExc(X_SRV, 'Ce parrainage a déjà fait l\'objet ' + (p.st !== 1 ? 'd\'une acceptation.' : 'd\'un refus'))
   }
   // MAJ du row parrain : v, st, ardc
   p.v = args.vp
   p.ardc = contactf.ardc
-  p.st = 1
+  p.st = contactp.st % 10 === 0 ? 2 : 3
   stmt(cfg, upd1parrain).run(p)
   items.parrain = p
 
@@ -1494,16 +1500,15 @@ async function refusParrainage (cfg, args) {
   if (!parrain) {
     throw new AppExc(X_SRV, 'Phrase de parrainage inconnue')
   }
-  const st = Math.floor(parrain.st / 10) 
-  if (st !== 0) {
-    throw new AppExc(X_SRV, 'Ce parrainage a déjà fait l\'objet ' + (st === 1 ? 'd\'une acceptation.' : 'd\'un refus'))
+  if (parrain.st !== 0) {
+    throw new AppExc(X_SRV, 'Ce parrainage a déjà fait l\'objet ' + (parrain.st !== 1 ? 'd\'une acceptation.' : 'd\'un refus'))
   }
 
   const versions = getValue(cfg, VERSIONS)
   const j = idx(parrain.id)
   versions[j]++
   parrain.v = versions[j] // version du compte parrain
-  parrain.st = 2
+  parrain.st = 1
   parrain.ardc = args.ardc
 
   cfg.db.transaction(refusParrainageTr)(cfg, parrain)
@@ -1516,6 +1521,49 @@ m1fonctions.refusParrainage = refusParrainage
   
 function refusParrainageTr (cfg, parrain) {
   stmt(cfg, upd1parrain).run(parrain)
+}
+
+/******************************************************************
+Suppression / prolongation parrainage
+  sessionId: data.sessionId,
+  pph: parrain.pph,
+  ardc: await crypt.crypter(parrain.data.cc, serial([new Date().getTime(), arg.ard]))
+ Retour : sessionId, dh
+*/
+
+async function supprParrainage (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+
+  const parrain = stmt(cfg, selpphparrain).get({ pph: args.pph })
+  if (!parrain) {
+    throw new AppExc(X_SRV, 'Phrase de parrainage inconnue')
+  }
+  if (parrain.st !== 0) {
+    throw new AppExc(X_SRV, 'Ce parrainage a déjà fait l\'objet ' + (parrain.st !== 1 ? 'd\'une acceptation.' : 'd\'un refus'))
+  }
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(parrain.id)
+  versions[j]++
+  parrain.v = versions[j] // version du compte parrain
+  if (args.dlv) {
+    parrain.dlv = args.dlv
+  } else {
+    parrain.st = new DateJour().dateSuppr
+  }
+
+  cfg.db.transaction(supprParrainageTr)(cfg, parrain)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: [newItem('parrain', parrain)] }) // à synchroniser
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.supprParrainage = supprParrainage
+  
+function supprParrainageTr (cfg, parrain) {
+  stmt(cfg, parrain.st < 0 ? upd2parrain : upd3parrain).run(parrain)
 }
 
 /* row parrain depuis la phrase de parrainage */
