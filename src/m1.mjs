@@ -1335,7 +1335,7 @@ function nouveauParrainageTr (cfg, parrain) {
     pph: arg.pph,
     idf: parrain.naf.id,
     idp: parrain.id, // id avatar parrain
-    idcp: parrain.data.idcp, // id compte parrain
+    idcp: parrain.data.idcp, // id compte parrain : pour maj de son row compta
     forfaits: parrain.data.f, // A déduire des ressources du row compta du parrain
     clePubAv: kpav.publicKey,
     clePubC: kpc.publicKey,
@@ -1371,18 +1371,23 @@ async function acceptParrainage (cfg, args) {
   const contactp = schemas.deserialize('rowcontact', args.rowContactP)
 
   const versions = getValue(cfg, VERSIONS)
+
   let j = idx(args.idp)
   versions[j]++
   args.vp = versions[j] // version du contact parrain
+
   j = idx(args.idf)
   versions[j]++
-  args.vf = versions[j] // version du contact filleul 
+  args.vf = versions[j] // version du contact filleul
+
   j = idx(args.idcp)
   versions[j]++
-  args.vcp = versions[j] // version du compte parrain 
+  args.vcp = versions[j] // version du compte parrain (L'AUTRE)
+
   j = idx(compte.id)
   versions[j]++
-  args.vcf = versions[j] // version du compte filleul 
+  args.vcf = versions[j] // version du compte filleul (MOI)
+
   setValue(cfg, VERSIONS)
 
   const items = {} // contiendra après l'appel : parrain, comptaP (du parrain), ardoise (du filleul)
@@ -1510,6 +1515,7 @@ async function refusParrainage (cfg, args) {
   parrain.v = versions[j] // version du compte parrain
   parrain.st = 1
   parrain.ardc = args.ardc
+  setValue(cfg, VERSIONS)
 
   cfg.db.transaction(refusParrainageTr)(cfg, parrain)
 
@@ -1548,6 +1554,8 @@ async function supprParrainage (cfg, args) {
   const j = idx(parrain.id)
   versions[j]++
   parrain.v = versions[j] // version du compte parrain
+  setValue(cfg, VERSIONS)
+
   if (args.dlv) {
     parrain.dlv = args.dlv
   } else {
@@ -1579,6 +1587,68 @@ async function getPph (cfg, args) {
   }
 }
 m1fonctions.getPph = getPph
+
+/******************************************************************
+Maj Contact
+  sessionId: data.sessionId,
+  id: contact.id,
+  ic: contact.ic,
+  idb: contact.id2,
+  icb: contact.ic2,
+  nccc,
+  ardc,
+  infok: arg.info === contact.info ? null : await crypt.crypter(data.clek, arg.info),
+  mc: arg.mc
+ Retour : sessionId, dh
+*/
+
+async function majContact (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+
+  const parrain = stmt(cfg, selpphparrain).get({ pph: args.pph })
+  if (!parrain) {
+    throw new AppExc(X_SRV, 'Phrase de parrainage inconnue')
+  }
+  if (parrain.st !== 0) {
+    throw new AppExc(X_SRV, 'Ce parrainage a déjà fait l\'objet ' + (parrain.st !== 1 ? 'd\'une acceptation.' : 'd\'un refus'))
+  }
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.id)
+  versions[j]++
+  args.va = versions[j] // version du contact A
+
+  const j = idx(args.id2)
+  versions[j]++
+  args.vb = versions[j] // version du contact B
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(majContactTr)(cfg, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems }) // à synchroniser
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.majContact = majContact
+  
+function majContactTr (cfg, args, rowItems) {
+  const ca = stmt(cfg, selcontactIdIc).get({ id: args.id, ic: args.ic })
+  if (ca) {
+    ca.v = args.va
+    stmt(cfg, upd2contact).run(ca)
+    rowItems.push(newItem('contact', ca))
+  }
+
+  const cb = stmt(cfg, selcontactIdIc).get({ id: args.id, ic: args.ic })
+  if (cb) {
+    cb.v = args.vb
+    stmt(cfg, upd2contact).run(cb)
+    rowItems.push(newItem('contact', cb))
+  }
+}
 
 /* Régularisation Groupe *****************************************/
 /* args
