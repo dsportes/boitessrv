@@ -1607,20 +1607,12 @@ async function majContact (cfg, args) {
   const dh = getdhc()
   const result = { sessionId: args.sessionId, dh: dh }
 
-  const parrain = stmt(cfg, selpphparrain).get({ pph: args.pph })
-  if (!parrain) {
-    throw new AppExc(X_SRV, 'Phrase de parrainage inconnue')
-  }
-  if (parrain.st !== 0) {
-    throw new AppExc(X_SRV, 'Ce parrainage a déjà fait l\'objet ' + (parrain.st !== 1 ? 'd\'une acceptation.' : 'd\'un refus'))
-  }
-
   const versions = getValue(cfg, VERSIONS)
-  const j = idx(args.id)
+  let j = idx(args.id)
   versions[j]++
   args.va = versions[j] // version du contact A
 
-  const j = idx(args.id2)
+  j = idx(args.idb)
   versions[j]++
   args.vb = versions[j] // version du contact B
   setValue(cfg, VERSIONS)
@@ -1633,19 +1625,39 @@ async function majContact (cfg, args) {
   return result
 }
 m1fonctions.majContact = majContact
-  
+
+const upd3contact = 'UPDATE contact SET v = @v, nccc = @nccc, ardc = @ardc, st = @st, infok = @infok WHERE id = @id AND ic = @ic'
+
 function majContactTr (cfg, args, rowItems) {
   const ca = stmt(cfg, selcontactIdIc).get({ id: args.id, ic: args.ic })
-  if (ca) {
+  if (ca && ca.st >= 0) {
     ca.v = args.va
-    stmt(cfg, upd2contact).run(ca)
+    if (args.ardc) ca.ardc = args.ardc
+    if (args.mc) ca.mc = args.mc
+    if (args.infok) ca.infok = args.infok
+    const sty = ca.st % 10
+    if (args.nccc) {
+      ca.st = 10 + sty
+    } else {
+      ca.st = sty
+    }
+    stmt(cfg, upd3contact).run(ca)
     rowItems.push(newItem('contact', ca))
   }
 
-  const cb = stmt(cfg, selcontactIdIc).get({ id: args.id, ic: args.ic })
-  if (cb) {
+  const cb = stmt(cfg, selcontactIdIc).get({ id: args.idb, ic: args.icb })
+  if (cb && cb.st >= 0) {
     cb.v = args.vb
-    stmt(cfg, upd2contact).run(cb)
+    if (args.ardc) cb.ardc = args.ardc
+    const stx = Math.floor(cb.st / 10) * 10
+    if (args.nccc) {
+      cb.st = stx + 1
+      cb.nccc = args.nccc
+    } else {
+      cb.st = stx
+      cb.nccc = null
+    }
+    stmt(cfg, upd3contact).run(cb)
     rowItems.push(newItem('contact', cb))
   }
 }
