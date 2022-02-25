@@ -161,6 +161,7 @@ const selprefsid = 'SELECT * FROM prefs WHERE id = @id'
 const selcomptaid = 'SELECT * FROM compta WHERE id = @id'
 const selavatarid = 'SELECT * FROM avatar WHERE id = @id'
 const selsecretidns = 'SELECT * FROM secret WHERE id = @id AND ns = @ns'
+const selcompteid = 'SELECT * FROM compte WHERE id = @id'
 
 function idx (id) {
   return (id % (nbVersions - 1)) + 1
@@ -195,6 +196,9 @@ function creationCompte (cfg, args) {
   j = idx(avatar.id)
   versions[j]++
   avatar.v = versions[j]
+
+  versions[0]++
+  avatar.vcv = versions[0]
   setValue(cfg, VERSIONS)
 
   compta.dds = new DateJour().nbj
@@ -230,6 +234,71 @@ function creationCompteTr (cfg, session, compte, compta, prefs, ardoise, avatar,
   stmt(cfg, insavrsa).run(avrsa2)
 
   session.compteId = compte.id
+  session.plusAvatars([avatar.id])
+}
+
+/* Creation nouvel avatar ****************************************
+- sessionId, clePub, idc (numéro du compte), vcav, mack, rowAvatar
+Retour :
+- sessionId
+- dh
+- statut : 0:OK, 1:retry (version compte ayant évolué)
+*/
+function creationAvatar (cfg, args) {
+  const session = checkSession(args.sessionId)
+
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const avatar = schemas.deserialize('rowavatar', args.rowAvatar)
+
+  const versions = getValue(cfg, VERSIONS)
+  let j = idx(args.idc)
+  versions[j]++
+  args.vc2 = versions[j]
+
+  j = idx(avatar.id)
+  versions[j]++
+  avatar.v = versions[j]
+
+  versions[0]++
+  avatar.vcv = versions[0]
+  setValue(cfg, VERSIONS)
+
+  avatar.dds = ddsAvatarGroupe(0)
+  const avrsa = { id: avatar.id, clepub: args.clePub, vsh: 0 }
+
+  const rowItems = []
+  cfg.db.transaction(creationAvatarTr)(cfg, session, args, avatar, avrsa, rowItems)
+
+  if (args.statut === 1) {
+    result.statut = 1
+    return result
+  }
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  result.statut = 0
+  return result
+}
+m1fonctions.creationAvatar = creationAvatar
+
+const upd1compte = 'UPDATE compte SET v = @v, mack = @mack WHERE id = @id'
+
+function creationAvatarTr (cfg, session, args, avatar, avrsa, rowItems) {
+  const c = stmt(cfg, selcompteid).get({ id: args.idc })
+  if (!c) throw new AppExc(X_SRV, 'Compte non trouvé. Ne devrait pas arriver (bug)')
+  if (c && c.v !== args.vcav) {
+    args.statut = 1
+    return
+  }
+  c.v = args.vc2
+  c.mack = args.mack
+
+  stmt(cfg, upd1compte).run(c)
+  stmt(cfg, insavatar).run(avatar)
+  stmt(cfg, insavrsa).run(avrsa)
+
+  rowItems.push(newItem('compte', c))
+  rowItems.push(newItem('avatar', avatar))
   session.plusAvatars([avatar.id])
 }
 
