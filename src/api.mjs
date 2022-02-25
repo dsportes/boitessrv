@@ -13,6 +13,7 @@ export const E_SRV = -5 // Erreur inattendue trappée sur le serveur
 export const X_SRV = -6 // Erreur fonctionnelle trappée sur le serveur transmise en exception
 export const F_BRO = -7 // Erreur fonctionnelle trappée sur le browser
 export const F_SRV = -8 // Erreur fonctionnelle trappée sur le serveur transmise en résultat
+export const A_SRV = -9 // Situation inattendue : assertion trappée sur le serveur
 
 export class AppExc {
   constructor (code, message, stack) {

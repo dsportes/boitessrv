@@ -1,7 +1,7 @@
 import { crypt } from './crypto.mjs'
 import { getdhc, sleep, deserial, serial, mcsToU8, u8ToMcs } from './util.mjs'
 import { getSession, syncListQueue, processQueue } from './session.mjs'
-import { AppExc, X_SRV, E_WS, INDEXT, DateJour, Compteurs, MC } from './api.mjs'
+import { AppExc, X_SRV, E_WS, A_SRV, INDEXT, DateJour, Compteurs, MC } from './api.mjs'
 import { schemas } from './schemas.mjs'
 import { putFile, delFile } from './storage.mjs'
 
@@ -54,7 +54,7 @@ Exception :
 
 function checkSession (sessionId) {
   const session = getSession(sessionId)
-  if (!session) throw new AppExc(E_WS, 'Session interrompue. Se déconnecter et tenter de se reconnecter')
+  if (!session) throw new AppExc(E_WS, '01-Session interrompue. Se déconnecter et tenter de se reconnecter')
   return session
 }
 
@@ -178,7 +178,7 @@ function creationCompte (cfg, args) {
   const compte = schemas.deserialize('rowcompte', args.rowCompte)
 
   if (cfg.comptables.indexOf(compte.pcbh) === -1) {
-    throw new AppExc(X_SRV, 'Cette phrase secrète n\'est reconnue comme étant l\'une des comptables de l\'organisation')
+    throw new AppExc(X_SRV, '02-Cette phrase secrète n\'est pas reconnue comme étant l\'une des comptables de l\'organisation')
   }
 
   const result = { sessionId: args.sessionId, dh: getdhc() }
@@ -219,9 +219,9 @@ function creationCompteTr (cfg, session, compte, compta, prefs, ardoise, avatar,
   const c = stmt(cfg, selcomptedpbh).get({ dpbh: compte.dpbh })
   if (c) {
     if (c.pcbh === compte.pcbh) {
-      throw new AppExc(X_SRV, 'Phrase secrète probablement déjà utilisée. Vérifier que le compte n\'existe pas déjà en essayant de s\'y connecter avec la phrase secrète')
+      throw new AppExc(X_SRV, '03-Phrase secrète probablement déjà utilisée. Vérifier que le compte n\'existe pas déjà en essayant de s\'y connecter avec la phrase secrète')
     } else {
-      throw new AppExc(X_SRV, 'Une phrase secrète semblable est déjà utilisée. Changer a minima la première ligne de la phrase secrète pour ce nouveau compte')
+      throw new AppExc(X_SRV, '04-Une phrase secrète semblable est déjà utilisée. Changer a minima la première ligne de la phrase secrète pour ce nouveau compte')
     }
   }
 
@@ -285,7 +285,7 @@ const upd1compte = 'UPDATE compte SET v = @v, mack = @mack WHERE id = @id'
 
 function creationAvatarTr (cfg, session, args, avatar, avrsa, rowItems) {
   const c = stmt(cfg, selcompteid).get({ id: args.idc })
-  if (!c) throw new AppExc(X_SRV, 'Compte non trouvé. Ne devrait pas arriver (bug)')
+  if (!c) throw new AppExc(A_SRV, '06-Compte non trouvé')
   if (c && c.v !== args.vcav) {
     args.statut = 1
     return
@@ -338,9 +338,8 @@ m1fonctions.prefCompte = prefCompte
 
 function prefCompteTr (cfg, id, v, code, datak, rowItems) {
   const p = stmt(cfg, selprefsid).get({ id: id })
-  if (!p) {
-    throw new AppExc(X_SRV, 'Compte inexistant. Bug probable.')
-  }
+  if (!p) throw new AppExc(X_SRV, '06-Compte non trouvé')
+
   const x = deserial(p.mapk)
   x[code] = datak
   p.mapk = serial(x)
@@ -384,9 +383,8 @@ m1fonctions.cvAvatar = cvAvatar
 
 function cvAvatarTr (cfg, id, v, cva, rowItems) {
   const a = stmt(cfg, selavatarid).get({ id: id })
-  if (!a) {
-    throw new AppExc(X_SRV, 'Avatar inexistant. Bug probable.')
-  }
+  if (!a) throw new AppExc(A_SRV, '07-Avatar non trouvé')
+
   a.cva = cva
   a.v = v
   a.vcv = v
@@ -406,20 +404,16 @@ async function connexionCompte (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const c = stmt(cfg, selcomptedpbh).get({ dpbh: args.dpbh })
   if (!c || (c.pcbh !== args.pcbh)) {
-    throw new AppExc(X_SRV, 'Compte non authentifié : aucun compte n\'est déclaré avec cette phrase secrète')
+    throw new AppExc(X_SRV, '08-Compte non authentifié : aucun compte n\'est déclaré avec cette phrase secrète')
   }
   const p = stmt(cfg, selprefsid).get({ id: c.id })
-  if (!p) {
-    throw new AppExc(X_SRV, 'Compte corrompu : données de préférence absentes')
-  }
+  if (!p) throw new AppExc(A_SRV, '09-Données de préférence absentes')
+
   const compta = stmt(cfg, selcomptaid).get({ id: c.id })
-  if (!compta) {
-    throw new AppExc(X_SRV, 'Compte corrompu : données de comptabilité absentes')
-  }
+  if (!compta) throw new AppExc(A_SRV, '10-Données de comptabilité absentes')
   const ardoise = stmt(cfg, selardoise).get({ id: c.id })
-  if (!ardoise) {
-    throw new AppExc(X_SRV, 'Compte corrompu : données des échanges avec parrain / comptable absentes')
-  }
+  if (!ardoise) throw new AppExc(A_SRV, '11-Données des échanges avec parrain / comptable absentes')
+
   result.compte = newItem('compte', c)
   result.prefs = newItem('prefs', p)
   result.compta = newItem('compta', compta)
@@ -1023,10 +1017,8 @@ function nouveauSecretTr (cfg, secret, secret2) {
       a.vm1 = a.vm1 + secret.v1
     }
   }
-  if (!a || a.v1 > a.q1 || a.vm1 > a.qm1) {
-    // console.log('Quotas d\'espace insuffisants.')
-    throw new AppExc(X_SRV, 'Quotas d\'espace insuffisants.')
-  }
+  if (!a || a.v1 > a.q1 || a.vm1 > a.qm1) throw new AppExc(X_SRV, '12-Forfait dépassé')
+
   stmt(cfg, updavgrvq).run(a)
   stmt(cfg, inssecret).run(secret)
 
@@ -1091,10 +1083,7 @@ m1fonctions.maj1Secret = maj1Secret
 function maj1SecretTr (cfg, args, rowItems) {
 
   const secret = stmt(cfg, selsecretidns).get({ id: args.id, ns: args.ns }) 
-  if (!secret) {
-    // console.log('Secret inconnu.')
-    throw new AppExc(X_SRV, 'Secret inexistant.')
-  }
+  if (!secret) throw new AppExc(A_SRV, '13-Secret inexistant')
 
   let deltav1 = 0, deltavm1 = 0, deltav2 = 0, deltavm2 = 0
   const pv1 = args.v1 === null ? secret.v1 : args.v1
@@ -1165,8 +1154,7 @@ function maj1SecretTr (cfg, args, rowItems) {
       a.vm2 = a.vm2 + deltavm2
     }
     if (!a || a.v1 > a.q1 || a.vm1 > a.qm1 || a.v2 > a.q2 || a.vm2 > a.qm2) {
-      console.log('Quotas d\'espace insuffisants.')
-      throw new AppExc(X_SRV, 'Quotas d\'espace insuffisants.')
+      throw new AppExc(X_SRV, '12-Forfait dépassé')
     }
     stmt(cfg, updavgrvq).run(a)
 
@@ -1228,10 +1216,7 @@ async function pjSecret (cfg, args) {
   }
 
   const secret = stmt(cfg, selsecretidns).get({ id: args.id, ns: args.ns })
-  if (!secret) {
-    // console.log('Secret inconnu.')
-    throw new AppExc(X_SRV, 'Secret inexistant.')
-  }
+  if (!secret) throw new AppExc(A_SRV, '13-Secret inexistant')
 
   // calcul de v2 et de mpjs
   const mpjs = !secret.mpjs ? {} : deserial(secret.mpjs)
@@ -1260,8 +1245,7 @@ async function pjSecret (cfg, args) {
       a.vm2 = a.vm2 + deltavm2
     }
     if (!a || a.v1 > a.q1 || a.vm1 > a.qm1 || a.v2 > a.q2 || a.vm2 > a.qm2) {
-      console.log('Quotas d\'espace insuffisants.')
-      throw new AppExc(X_SRV, 'Quotas d\'espace insuffisants.')
+      throw new AppExc(X_SRV, '12-Forfait dépassé')
     }
   }
 
@@ -1296,10 +1280,7 @@ m1fonctions.pjSecret = pjSecret
 function pjSecretTr (cfg, args, rowItems) {
 
   const secret = stmt(cfg, selsecretidns).get({ id: args.id, ns: args.ns }) 
-  if (!secret) {
-    // console.log('Secret inconnu.')
-    throw new AppExc(X_SRV, 'Secret inexistant.')
-  }
+  if (!secret) throw new AppExc(A_SRV, '13-Secret inexistant')
 
   secret.v = args.v
   // calcul de v2 et de mpjs
@@ -1390,7 +1371,7 @@ function nouveauParrainageTr (cfg, parrain) {
   if (p) {
     if (p.st >= 0) {
       const x = p.id === parrain.id ? ' par votre compte.' : ' par un autre compte.'
-      throw new AppExc(X_SRV, 'Cette phrase de parrainage est trop proche d\'une déjà enregistrée' + x)
+      throw new AppExc(X_SRV, '14-Cette phrase de parrainage est trop proche d\'une déjà enregistrée' + x)
     }
     stmt(cfg, upd9parrain).run(parrain)
   } else {
@@ -1483,19 +1464,17 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
   const c = stmt(cfg, selcomptedpbh).get({ dpbh: compte.dpbh })
   if (c) {
     if (c.pcbh === compte.pcbh) {
-      throw new AppExc(X_SRV, 'Phrase secrète probablement déjà utilisée. Vérifier que le compte n\'existe pas déjà en essayant de s\'y connecter avec la phrase secrète')
+      throw new AppExc(X_SRV, '03-Phrase secrète probablement déjà utilisée. Vérifier que le compte n\'existe pas déjà en essayant de s\'y connecter avec la phrase secrète')
     } else {
-      throw new AppExc(X_SRV, 'Une phrase secrète semblable est déjà utilisée. Changer a minima la première ligne de la phrase secrète pour ce nouveau compte')
+      throw new AppExc(X_SRV, '04-Une phrase secrète semblable est déjà utilisée. Changer a minima la première ligne de la phrase secrète pour ce nouveau compte')
     }
   }
 
   const p = stmt(cfg, selpphparrain).get({ pph: args.pph })
-  if (!p) {
-    throw new AppExc(X_SRV, 'Phrase de parrainage inconnue')
-  }
-  if (p.st !== 0) {
-    throw new AppExc(X_SRV, 'Ce parrainage a déjà fait l\'objet ' + (p.st !== 1 ? 'd\'une acceptation.' : 'd\'un refus'))
-  }
+  if (!p) throw new AppExc(X_SRV, '15-Phrase de parrainage inconnue')
+
+  if (p.st !== 0) throw new AppExc(X_SRV, '16-Ce parrainage a déjà fait l\'objet ' + (p.st !== 1 ? 'd\'une acceptation.' : 'd\'un refus'))
+
   // MAJ du row parrain : v, st, ardc
   p.v = args.vp
   p.ardc = contactf.ardc
@@ -1505,13 +1484,12 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
 
   const comptaP = stmt(cfg, selcomptaid).get({ id: args.idcp })
   if (!comptaP) {
-    throw new AppExc(X_SRV, 'Compte parrain corrompu : données de comptabilité absentes')
+    throw new AppExc(A_SRV, '17-Compte parrain : données de comptabilité absentes')
   }
   const compteurs = new Compteurs(comptaP.data)
   const ok = compteurs.setRes(-args.forfaits[0], -args.forfaits[1])
-  if (!ok) {
-    throw new AppExc(X_SRV, 'Réserves de volume insuffisantes du parrain pour attribuer ces forfaits')
-  }
+  if (!ok) throw new AppExc(X_SRV, '18-Réserves de volume insuffisantes du parrain pour attribuer ces forfaits')
+
   comptaP.v = args.vcp
   comptaP.data = compteurs.serial
   stmt(cfg, updcompta).run(comptaP)
@@ -1571,12 +1549,9 @@ async function refusParrainage (cfg, args) {
   const result = { sessionId: args.sessionId, dh: dh }
 
   const parrain = stmt(cfg, selpphparrain).get({ pph: args.pph })
-  if (!parrain) {
-    throw new AppExc(X_SRV, 'Phrase de parrainage inconnue')
-  }
-  if (parrain.st !== 0) {
-    throw new AppExc(X_SRV, 'Ce parrainage a déjà fait l\'objet ' + (parrain.st !== 1 ? 'd\'une acceptation.' : 'd\'un refus'))
-  }
+  if (!parrain) throw new AppExc(X_SRV, '15-Phrase de parrainage inconnue')
+
+  if (parrain.st !== 0) throw new AppExc(X_SRV, '16-Ce parrainage a déjà fait l\'objet ' + (parrain.st !== 1 ? 'd\'une acceptation.' : 'd\'un refus'))
 
   const versions = getValue(cfg, VERSIONS)
   const j = idx(parrain.id)
@@ -1612,12 +1587,9 @@ async function supprParrainage (cfg, args) {
   const result = { sessionId: args.sessionId, dh: dh }
 
   const parrain = stmt(cfg, selpphparrain).get({ pph: args.pph })
-  if (!parrain) {
-    throw new AppExc(X_SRV, 'Phrase de parrainage inconnue')
-  }
-  if (parrain.st !== 0) {
-    throw new AppExc(X_SRV, 'Ce parrainage a déjà fait l\'objet ' + (parrain.st !== 1 ? 'd\'une acceptation.' : 'd\'un refus'))
-  }
+  if (!parrain) throw new AppExc(X_SRV, '15-Phrase de parrainage inconnue')
+
+  if (parrain.st !== 0) throw new AppExc(X_SRV, '16-Ce parrainage a déjà fait l\'objet ' + (parrain.st !== 1 ? 'd\'une acceptation.' : 'd\'un refus'))
 
   const versions = getValue(cfg, VERSIONS)
   const j = idx(parrain.id)
