@@ -10,7 +10,7 @@ const express = require('express')
 const WebSocket = require('ws')
 import { encode, decode } from '@msgpack/msgpack'
 import { Session } from './session.mjs'
-import { AppExc, E_SRV, X_SRV, F_SRV, version } from './api.mjs'
+import { AppExc, E_SRV, X_SRV, F_SRV, A_SRV, version } from './api.mjs'
 import { getFile /*, putFile */ } from './storage.mjs'
 import { decryptersoft } from './webcrypto.mjs'
 
@@ -139,7 +139,7 @@ async function operation(req, res) {
     let s
     // exception non prévue ou prévue
     if (e instanceof AppExc) { // erreur trappée déjà mise en forme en tant que AppExc 
-      httpst = e.code === F_SRV ? 400 : (e.code === X_SRV ? 401 : 402)
+      httpst = e.code === F_SRV ? 400 : (e.code === X_SRV || e.code === A_SRV ? 401 : 402)
       s = e.toString() // JSON
     } else {
       // erreur non trappée : mise en forme en AppExc
