@@ -481,7 +481,7 @@ async function getArdoisesFilleuls (cfg, args) {
 }
 m1fonctions.getArdoisesFilleuls = getArdoisesFilleuls
 
-/****************************************
+/** Echange ardoise **************************************
 - `id` : du compte.
 - `v` :
 - `dhe` : date-heure de dernière mise à jour.
@@ -661,18 +661,21 @@ function mccArdoiseTr (cfg, args, rowItems) {
   stmt(cfg, updardoise4).run(row)
   rowItems.push(newItem('ardoise', row))
 }
-/* Régularisation Groupe *****************************************/
-/* args
+
+/* Régularisation Groupe ****************************************
+Mise à jour de lgck dans l'avatar et suppression du row invitgr
+args
 - id : de l'avatar
+- idg: id du groupe
 - ni : numéro d'invitation du groupe à inscrire
-- datak : [nom, rnd, im] du groupe à inscrire
+- datak : [nom, rnd, im] du groupe à inscrire dans lgrk de l'avatar
 */
 
 const upd1avatar = 'UPDATE avatar SET v = @v, lgrk = @lgrk WHERE id = @id'
 const delinvitgr = 'DELETE from invitgr WHERE id = @id AND ni = @ni'
 
 async function regulGr (cfg, args) {
-  checkSession(args.sessionId)
+  const session = checkSession(args.sessionId)
   const dh = getdhc()
   const result = { sessionId: args.sessionId, dh: dh }
   
@@ -683,7 +686,7 @@ async function regulGr (cfg, args) {
   setValue(cfg, VERSIONS)
 
   const rowItems = []
-  cfg.db.transaction(regulGrTr)(cfg, args, rowItems)
+  cfg.db.transaction(regulGrTr)(cfg, session, args, rowItems)
 
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
@@ -691,16 +694,18 @@ async function regulGr (cfg, args) {
 }
 m1fonctions.regulGR = regulGr
 
-function regulGrTr (cfg, args, rowItems) {
+function regulGrTr (cfg, session, args, rowItems) {
   const a = stmt(cfg, selavatarid).get({ id: args.id })
-  if (!a) return // étrange
+  if (!a) return // avatar supprimé depuis (?)
   const map = deserial(a.lgrk)
   if (map[args.ni]) return // déjà fait
   map[args.ni] = args.datak
   a.v = args.v
+  a.lgrk = serial(map)
   stmt(cfg, upd1avatar).run(a)
   rowItems.push(newItem('avatar', a))
   stmt(cfg, delinvitgr).run({ id: args.id, ni: args.ni })
+  session.plusGroupes([args.idg])
 }
 
 /* Régularisation Contact *****************************************/
@@ -1781,4 +1786,72 @@ function majContactTr (cfg, args, rowItems) {
     stmt(cfg, upd3contact).run(cb)
     rowItems.push(newItem('contact', cb))
   }
+}
+
+/* Création d'un groupe ****************************************
+a) insertion d'un row groupe
+b) insertion d'un membre animateur pour le créateur
+c) inscription du groupe dans lgrk de l'avatar créateur
+args :
+- sessionId
+- ida : id de l'avatar créateur
+- ni : numéro d'inscription
+- datak : [] du terme de lgrk
+- rowGroupe
+- rowMembre
+Retour: sessionId, dh
+*/
+
+async function creationGroupe (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+  const groupe = deserial(args.rowGroupe)
+  const membre = deserial(args.rowMembre)
+
+  const versions = getValue(cfg, VERSIONS)
+  let j = idx(args.groupe.id)
+  versions[j]++
+  groupe.v = versions[j] // version du groupe
+  groupe.dds = ddsAvatarGroupe(0)
+  membre.v = versions[j]
+
+  j = idx(args.ida)
+  versions[j]++
+  args.v = versions[j] // version de l'avatar
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(creationGroupeTr)(cfg, session, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems }) // à synchroniser
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.creationGroupe = creationGroupe
+
+const insgroupe = 'INSERT INTO groupe (id, v, dds, st, stxy, cvg, v1, v2, f1, f2, mcg, vsh)'
+  + 'VALUES (@id, @v, @dds, @st, @stxy, @cvg, @v1, @v2, @f1, @f2, @mcg, @vsh)'
+const insmembre = 'INSERT INTO groupe (id, im, v, st, vote, mc, infok, datag, ardg, vsh)'
+  + 'VALUES (@id, @im, @v, @st, @vote, @mc, @infok, @datag, @ardg, @vsh)'
+
+function creationGroupeTr (cfg, session, args, groupe, membre, rowItems) {
+  const a = stmt(cfg, selavatarid).get({ id: args.ida })
+  if (!a) throw new AppExc(A_SRV, '17-Avatar non trouvé')
+  const map = deserial(a.lgrk)
+  if (!map[args.ni]) {
+    map[args.ni] = args.datak
+    a.v = args.v
+    a.lgrk = serial(map)
+    stmt(cfg, upd1avatar).run(a)
+    rowItems.push(newItem('avatar', a))
+  }
+
+  stmt(cfg, insgroupe).run(groupe)
+  rowItems.push(newItem('groupe', groupe))
+
+  stmt(cfg, insmembre).run(membre)
+  rowItems.push(newItem('membre', membre))
+
+  session.plusGroupes([groupe.id])
 }
