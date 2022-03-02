@@ -91,26 +91,6 @@ CREATE INDEX "st_compta" ON "compta" (
 CREATE INDEX "dds_compta" ON "compta" (
 	"dds"
 ) WHERE "st" > 0;
-CREATE TABLE IF NOT EXISTS "contact" (
-	"id"	INTEGER,
-	"ic"	INTEGER,
-	"v"	INTEGER,
-	"st"	INTEGER,
-	"ardc"	BLOB,
-	"datap"	BLOB,
-	"datak"	BLOB,
-	"mc"	BLOB,
-	"infok"	BLOB,
-	"vsh"	INTEGER,
-	PRIMARY KEY("id","ic")
-);
-CREATE INDEX "id_v_contact" ON "contact" (
-	"id",
-	"v"
-);
-CREATE INDEX "st_contact" ON "contact" (
-	"st"
-) WHERE "st" < 0;
 CREATE TABLE IF NOT EXISTS "rencontre" (
 	"prh"	INTEGER,
 	"id"	INTEGER,
@@ -131,32 +111,6 @@ CREATE INDEX "id_v_rencontre" ON "rencontre" (
 	"id",
 	"v"
 );
-CREATE TABLE IF NOT EXISTS "groupe" (
-	"id"	INTEGER,
-	"v"	INTEGER,
-	"dds"	INTEGER,
-	"st"	INTEGER,
-	"stxy"	INTEGER,
-	"cvg"	BLOB,
-	"idhg"	BLOB,
-	"v1"	INTEGER,
-	"v2"	INTEGER,
-	"f1"	INTEGER,
-	"f2"	INTEGER,
-	"mcg"	BLOB,
-	"vsh"	INTEGER,
-	PRIMARY KEY("id")
-) WITHOUT ROWID;
-CREATE INDEX "dds_groupe" ON "groupe" (
-	"dds"
-);
-CREATE INDEX "id_v_groupe" ON "groupe" (
-	"id",
-	"v"
-);
-CREATE INDEX "st_groupe" ON "groupe" (
-	"st"
-) WHERE "st" < 0;
 CREATE TABLE IF NOT EXISTS "membre" (
 	"id"	INTEGER,
 	"im"	INTEGER,
@@ -217,6 +171,7 @@ CREATE INDEX "id_parrain" ON "parrain" (
 CREATE TABLE IF NOT EXISTS "ardoise" (
 	"id"	INTEGER,
 	"v"	INTEGER,
+	"dhe"	INTEGER,
 	"dhl"	INTEGER,
 	"mcp"	TEXT,
 	"mcc"	TEXT,
@@ -232,3 +187,51 @@ CREATE INDEX "v_mcc_ardoise" ON "ardoise" (
 	"v",
 	"mcc"
 ) WHERE mcc NOTNULL;
+CREATE TABLE IF NOT EXISTS "contact" (
+	"id"	INTEGER,
+	"ic"	INTEGER,
+	"v"	INTEGER,
+	"st"	INTEGER,
+	"nccc"	BLOB,
+	"ardc"	BLOB,
+	"datap"	BLOB,
+	"datak"	BLOB,
+	"mc"	BLOB,
+	"infok"	BLOB,
+	"vsh"	INTEGER,
+	PRIMARY KEY("id","ic")
+);
+CREATE INDEX "id_v_contact" ON "contact" (
+	"id",
+	"v"
+);
+CREATE INDEX "st_contact" ON "contact" (
+	"st"
+) WHERE "st" < 0;
+CREATE TABLE IF NOT EXISTS "groupe" (
+	"id"	INTEGER,
+	"v"	INTEGER,
+	"dds"	INTEGER,
+	"st"	INTEGER,
+	"stxy"	INTEGER,
+	"cvg"	BLOB,
+	"idhg"	BLOB,
+	"imh"	INTEGER,
+	"v1"	INTEGER,
+	"v2"	INTEGER,
+	"f1"	INTEGER,
+	"f2"	INTEGER,
+	"mcg"	BLOB,
+	"vsh"	INTEGER,
+	PRIMARY KEY("id")
+) WITHOUT ROWID;
+CREATE INDEX "dds_groupe" ON "groupe" (
+	"dds"
+);
+CREATE INDEX "id_v_groupe" ON "groupe" (
+	"id",
+	"v"
+);
+CREATE INDEX "st_groupe" ON "groupe" (
+	"st"
+) WHERE "st" < 0;

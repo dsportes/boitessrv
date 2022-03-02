@@ -1810,7 +1810,7 @@ async function creationGroupe (cfg, args) {
   const membre = deserial(args.rowMembre)
 
   const versions = getValue(cfg, VERSIONS)
-  let j = idx(args.groupe.id)
+  let j = idx(groupe.id)
   versions[j]++
   groupe.v = versions[j] // version du groupe
   groupe.dds = ddsAvatarGroupe(0)
@@ -1822,7 +1822,7 @@ async function creationGroupe (cfg, args) {
   setValue(cfg, VERSIONS)
 
   const rowItems = []
-  cfg.db.transaction(creationGroupeTr)(cfg, session, args, rowItems)
+  cfg.db.transaction(creationGroupeTr)(cfg, session, args, groupe, membre, rowItems)
 
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems }) // à synchroniser
   setImmediate(() => { processQueue() })
@@ -1832,7 +1832,7 @@ m1fonctions.creationGroupe = creationGroupe
 
 const insgroupe = 'INSERT INTO groupe (id, v, dds, st, stxy, cvg, v1, v2, f1, f2, mcg, vsh)'
   + 'VALUES (@id, @v, @dds, @st, @stxy, @cvg, @v1, @v2, @f1, @f2, @mcg, @vsh)'
-const insmembre = 'INSERT INTO groupe (id, im, v, st, vote, mc, infok, datag, ardg, vsh)'
+const insmembre = 'INSERT INTO membre (id, im, v, st, vote, mc, infok, datag, ardg, vsh)'
   + 'VALUES (@id, @im, @v, @st, @vote, @mc, @infok, @datag, @ardg, @vsh)'
 
 function creationGroupeTr (cfg, session, args, groupe, membre, rowItems) {
