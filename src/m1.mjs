@@ -435,6 +435,7 @@ const selcontactIdIc = 'SELECT * FROM contact WHERE id = @id AND ic = @ic'
 const selrencontre = 'SELECT * FROM rencontre WHERE id = @id AND v > @v'
 const selparrain = 'SELECT * FROM parrain WHERE id = @id AND v > @v'
 const selgroupe = 'SELECT * FROM groupe WHERE id = @id AND v > @v'
+const selgroupeId = 'SELECT * FROM groupe WHERE id = @id'
 const selmembre = 'SELECT * FROM membre WHERE id = @id AND v > @v'
 
 const updardoise1 = 'UPDATE ardoise SET v = @v, dhe = @dhe, mcp = @mcp, mcc = @mcc, data = @data, vsh = @vsh WHERE id = @id'
@@ -1830,8 +1831,8 @@ async function creationGroupe (cfg, args) {
 }
 m1fonctions.creationGroupe = creationGroupe
 
-const insgroupe = 'INSERT INTO groupe (id, v, dds, st, stxy, cvg, v1, v2, f1, f2, mcg, vsh)'
-  + 'VALUES (@id, @v, @dds, @st, @stxy, @cvg, @v1, @v2, @f1, @f2, @mcg, @vsh)'
+const insgroupe = 'INSERT INTO groupe (id, v, dds, st, stxy, idhg, imh, cvg, v1, v2, f1, f2, mcg, vsh)'
+  + 'VALUES (@id, @v, @dds, @st, @stxy, @idhg, @imh, @cvg, @v1, @v2, @f1, @f2, @mcg, @vsh)'
 const insmembre = 'INSERT INTO membre (id, im, v, st, vote, mc, infok, datag, ardg, vsh)'
   + 'VALUES (@id, @im, @v, @st, @vote, @mc, @infok, @datag, @ardg, @vsh)'
 
@@ -1854,4 +1855,160 @@ function creationGroupeTr (cfg, session, args, groupe, membre, rowItems) {
   rowItems.push(newItem('membre', membre))
 
   session.plusGroupes([groupe.id])
+}
+
+/* Maj CV d'un groupe ****************************************
+args :
+- sessionId
+- idg : id du groupe
+- cvg : cv cryptée par la cle G
+Retour: sessionId, dh
+*/
+
+async function majcvGroupe (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.idg)
+  versions[j]++
+  args.v = versions[j] // version du groupe
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(majcvGroupeTr)(cfg, session, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems }) // à synchroniser
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.majcvGroupe = majcvGroupe
+
+const updcvgroupe = 'UPDATE groupe SET v = @v, cvg = @cvg WHERE id = @id'
+
+function majcvGroupeTr (cfg, session, args, rowItems) {
+  const g = stmt(cfg, selgroupeId).get({ id: args.idg })
+  if (!g) throw new AppExc(A_SRV, '18-Groupe non trouvé')
+  g.v = args.v
+  g.cvg = args.cvg
+  stmt(cfg, updcvgroupe).run(g)
+  rowItems.push(newItem('groupe', g))
+}
+
+/* Maj statut archive d'un groupe ****************************************
+args :
+- sessionId
+- idg : id du groupe
+- arch : cv cryptée par la cle G
+Retour: sessionId, dh
+*/
+
+async function majarchGroupe (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.idg)
+  versions[j]++
+  args.v = versions[j] // version du groupe
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(majarchGroupeTr)(cfg, session, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems }) // à synchroniser
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.majarchGroupe = majarchGroupe
+
+const updstgroupe = 'UPDATE groupe SET v = @v, stxy = @stxy WHERE id = @id'
+
+function majarchGroupeTr (cfg, session, args, rowItems) {
+  const g = stmt(cfg, selgroupeId).get({ id: args.idg })
+  if (!g) throw new AppExc(A_SRV, '18-Groupe non trouvé')
+  g.v = args.v
+  const stx = Math.floor(g.stxy / 10) * 10
+  g.stxy = stx + (args.arch ? 1 : 0)
+  stmt(cfg, updstgroupe).run(g)
+  rowItems.push(newItem('groupe', g))
+}
+
+/* Maj statut blocage des invitations d'un groupe ****************************************
+args :
+- sessionId
+- idg : id du groupe
+- blocage : cv cryptée par la cle G
+Retour: sessionId, dh
+*/
+
+async function majBIGroupe (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.idg)
+  versions[j]++
+  args.v = versions[j] // version du groupe
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(majBIGroupeTr)(cfg, session, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems }) // à synchroniser
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.majBIGroupe = majBIGroupe
+
+function majBIGroupeTr (cfg, session, args, rowItems) {
+  const g = stmt(cfg, selgroupeId).get({ id: args.idg })
+  if (!g) throw new AppExc(A_SRV, '18-Groupe non trouvé')
+  g.v = args.v
+  const sty = g.stxy % 10
+  g.stxy = sty + (args.blocage ? 20 : 10)
+  stmt(cfg, updstgroupe).run(g)
+  rowItems.push(newItem('groupe', g))
+}
+
+/* Maj mots clés spécifiques d'un groupe ****************************************
+args :
+- sessionId
+- idg : id du groupe
+- mcg : map des mots clés cryptée par la clé G
+Retour: sessionId, dh
+*/
+
+async function majmcGroupe (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.idg)
+  versions[j]++
+  args.v = versions[j] // version du groupe
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(majmcGroupeTr)(cfg, session, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems }) // à synchroniser
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.majmcGroupe = majmcGroupe
+
+const updmcgroupe = 'UPDATE groupe SET v = @v, mcg = @mcg WHERE id = @id'
+
+function majmcGroupeTr (cfg, session, args, rowItems) {
+  const g = stmt(cfg, selgroupeId).get({ id: args.idg })
+  if (!g) throw new AppExc(A_SRV, '18-Groupe non trouvé')
+  g.v = args.v
+  g.mcg = args.mcg
+  stmt(cfg, updmcgroupe).run(g)
+  rowItems.push(newItem('groupe', g))
 }
