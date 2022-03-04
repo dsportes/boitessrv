@@ -437,6 +437,7 @@ const selparrain = 'SELECT * FROM parrain WHERE id = @id AND v > @v'
 const selgroupe = 'SELECT * FROM groupe WHERE id = @id AND v > @v'
 const selgroupeId = 'SELECT * FROM groupe WHERE id = @id'
 const selmembre = 'SELECT * FROM membre WHERE id = @id AND v > @v'
+const selmembreIdIm = 'SELECT * FROM membre WHERE id = @id AND im = @im'
 
 const updardoise1 = 'UPDATE ardoise SET v = @v, dhe = @dhe, mcp = @mcp, mcc = @mcc, data = @data, vsh = @vsh WHERE id = @id'
 const updardoise2 = 'UPDATE ardoise SET v = @v, dhl = @dhl, data = @data, vsh = @vsh WHERE id = @id'
@@ -1801,6 +1802,7 @@ args :
 - rowGroupe
 - rowMembre
 Retour: sessionId, dh
+A_SRV, '17-Avatar non trouvé'
 */
 
 async function creationGroupe (cfg, args) {
@@ -1863,6 +1865,7 @@ args :
 - idg : id du groupe
 - cvg : cv cryptée par la cle G
 Retour: sessionId, dh
+A_SRV, '18-Groupe non trouvé'
 */
 
 async function majcvGroupe (cfg, args) {
@@ -1902,6 +1905,7 @@ args :
 - idg : id du groupe
 - arch : cv cryptée par la cle G
 Retour: sessionId, dh
+A_SRV, '18-Groupe non trouvé'
 */
 
 async function majarchGroupe (cfg, args) {
@@ -1942,6 +1946,7 @@ args :
 - idg : id du groupe
 - blocage : cv cryptée par la cle G
 Retour: sessionId, dh
+A_SRV, '18-Groupe non trouvé'
 */
 
 async function majBIGroupe (cfg, args) {
@@ -1980,6 +1985,7 @@ args :
 - idg : id du groupe
 - mcg : map des mots clés cryptée par la clé G
 Retour: sessionId, dh
+A_SRV, '18-Groupe non trouvé'
 */
 
 async function majmcGroupe (cfg, args) {
@@ -2011,4 +2017,124 @@ function majmcGroupeTr (cfg, session, args, rowItems) {
   g.mcg = args.mcg
   stmt(cfg, updmcgroupe).run(g)
   rowItems.push(newItem('groupe', g))
+}
+
+/* Maj mots clés d'un membre d'un groupe ****************************************
+args :
+- sessionId
+- id, im : id du membre
+- mc : u8 des mots clés
+Retour: sessionId, dh
+A_SRV, '19-Membre non trouvé'
+*/
+
+async function majmcMembre (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.id)
+  versions[j]++
+  args.v = versions[j] // version du groupe
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(majmcMembreTr)(cfg, session, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems }) // à synchroniser
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.majmcMembre = majmcMembre
+
+const updmcmembre = 'UPDATE membre SET v = @v, mc = @mc WHERE id = @id AND im = @im'
+
+function majmcMembreTr (cfg, session, args, rowItems) {
+  const m = stmt(cfg, selmembreIdIm).get({ id: args.id, im: args.im })
+  if (!m) throw new AppExc(A_SRV, '19-Membre non trouvé')
+  m.v = args.v
+  m.mc = args.mc
+  stmt(cfg, updmcmembre).run(m)
+  rowItems.push(newItem('membre', m))
+}
+
+/* Maj ardoise d'un membre d'un groupe ****************************************
+args :
+- sessionId
+- id, im : id du membre
+- ardg : u8 de l'ardoise
+Retour: sessionId, dh
+A_SRV, '19-Membre non trouvé'
+*/
+
+async function majardMembre (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.id)
+  versions[j]++
+  args.v = versions[j] // version du groupe
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(majardMembreTr)(cfg, session, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems }) // à synchroniser
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.majardMembre = majardMembre
+
+const updardmembre = 'UPDATE membre SET v = @v, ardg = @ardg WHERE id = @id AND im = @im'
+
+function majardMembreTr (cfg, session, args, rowItems) {
+  const m = stmt(cfg, selmembreIdIm).get({ id: args.id, im: args.im })
+  if (!m) throw new AppExc(A_SRV, '19-Membre non trouvé')
+  m.v = args.v
+  m.ardg = args.ardg
+  stmt(cfg, updardmembre).run(m)
+  rowItems.push(newItem('membre', m))
+}
+
+/* Maj info d'un membre d'un groupe ****************************************
+args :
+- sessionId
+- id, im : id du membre
+- infok : u8
+Retour: sessionId, dh
+A_SRV, '19-Membre non trouvé'
+*/
+
+async function majinfoMembre (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.id)
+  versions[j]++
+  args.v = versions[j] // version du groupe
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(majinfoMembreTr)(cfg, session, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems }) // à synchroniser
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.majinfoMembre = majinfoMembre
+
+const updinfomembre = 'UPDATE membre SET v = @v, infok = @infok WHERE id = @id AND im = @im'
+
+function majinfoMembreTr (cfg, session, args, rowItems) {
+  const m = stmt(cfg, selmembreIdIm).get({ id: args.id, im: args.im })
+  if (!m) throw new AppExc(A_SRV, '19-Membre non trouvé')
+  m.v = args.v
+  m.infok = args.infok
+  stmt(cfg, updinfomembre).run(m)
+  rowItems.push(newItem('membre', m))
 }
