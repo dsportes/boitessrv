@@ -670,7 +670,7 @@ args
 - id : de l'avatar
 - idg: id du groupe
 - ni : numéro d'invitation du groupe à inscrire
-- datak : [nom, rnd, im] du groupe à inscrire dans lgrk de l'avatar
+- nomck : [nom, rnd, im] du groupe à inscrire dans lgrk de l'avatar
 */
 
 const upd1avatar = 'UPDATE avatar SET v = @v, lgrk = @lgrk WHERE id = @id'
@@ -694,20 +694,64 @@ async function regulGr (cfg, args) {
   setImmediate(() => { processQueue() })
   return result
 }
-m1fonctions.regulGR = regulGr
+m1fonctions.regulGr = regulGr
 
 function regulGrTr (cfg, session, args, rowItems) {
   const a = stmt(cfg, selavatarid).get({ id: args.id })
   if (!a) return // avatar supprimé depuis (?)
   const map = deserial(a.lgrk)
   if (map[args.ni]) return // déjà fait
-  map[args.ni] = args.datak
+  map[args.ni] = args.nomck
   a.v = args.v
   a.lgrk = serial(map)
   stmt(cfg, upd1avatar).run(a)
   rowItems.push(newItem('avatar', a))
   stmt(cfg, delinvitgr).run({ id: args.id, ni: args.ni })
   session.plusGroupes([args.idg])
+}
+
+/* Régularisation Avatar ****************************************
+Suppression des entrées de lgck dans les avatars correspondant aux groupes supprimés
+args
+- mapav : une entrée par id d'avatar. Valeur : liste des ni des groupes à supprimer
+*/
+
+async function regulAv (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+  
+  const versions = getValue(cfg, VERSIONS)
+  args.v = {}
+  for (const avid of args.mapav) {
+    const j = idx(avid)
+    versions[j]++
+    args.v[avid] = versions[j]
+  }
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(regulAvTr)(cfg, session, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.regulAv = regulAv
+
+function regulAvTr (cfg, session, args, rowItems) {
+  for (const avid of args.v) {
+    const a = stmt(cfg, selavatarid).get({ id: avid })
+    if (!a) continue // avatar supprimé depuis (?)
+    const map = deserial(a.lgrk)
+    args.mapav[avid].forEach(ni => {
+      delete map[ni]
+    })
+    a.v = args.v[avid]
+    a.lgrk = serial(map)
+    stmt(cfg, upd1avatar).run(a)
+    rowItems.push(newItem('avatar', a))
+  }
 }
 
 /* Régularisation Contact *****************************************/
@@ -1833,8 +1877,8 @@ async function creationGroupe (cfg, args) {
 }
 m1fonctions.creationGroupe = creationGroupe
 
-const insgroupe = 'INSERT INTO groupe (id, v, dds, st, stxy, idhg, imh, cvg, v1, v2, f1, f2, mcg, vsh)'
-  + 'VALUES (@id, @v, @dds, @st, @stxy, @idhg, @imh, @cvg, @v1, @v2, @f1, @f2, @mcg, @vsh)'
+const insgroupe = 'INSERT INTO groupe (id, v, dds, dfh, st, idhg, imh, cvg, v1, v2, f1, f2, mcg, vsh)'
+  + 'VALUES (@id, @v, @dds, @dfh, @st, @idhg, @imh, @cvg, @v1, @v2, @f1, @f2, @mcg, @vsh)'
 const insmembre = 'INSERT INTO membre (id, im, v, st, vote, mc, infok, datag, ardg, vsh)'
   + 'VALUES (@id, @im, @v, @st, @vote, @mc, @infok, @datag, @ardg, @vsh)'
 
@@ -1928,14 +1972,14 @@ async function majarchGroupe (cfg, args) {
 }
 m1fonctions.majarchGroupe = majarchGroupe
 
-const updstgroupe = 'UPDATE groupe SET v = @v, stxy = @stxy WHERE id = @id'
+const updstgroupe = 'UPDATE groupe SET v = @v, st = @st WHERE id = @id'
 
 function majarchGroupeTr (cfg, session, args, rowItems) {
   const g = stmt(cfg, selgroupeId).get({ id: args.idg })
   if (!g) throw new AppExc(A_SRV, '18-Groupe non trouvé')
   g.v = args.v
-  const stx = Math.floor(g.stxy / 10) * 10
-  g.stxy = stx + (args.arch ? 1 : 0)
+  const stx = Math.floor(g.st / 10) * 10
+  g.st = stx + (args.arch ? 1 : 0)
   stmt(cfg, updstgroupe).run(g)
   rowItems.push(newItem('groupe', g))
 }
@@ -1973,8 +2017,8 @@ function majBIGroupeTr (cfg, session, args, rowItems) {
   const g = stmt(cfg, selgroupeId).get({ id: args.idg })
   if (!g) throw new AppExc(A_SRV, '18-Groupe non trouvé')
   g.v = args.v
-  const sty = g.stxy % 10
-  g.stxy = sty + (args.blocage ? 20 : 10)
+  const sty = g.st % 10
+  g.st = sty + (args.blocage ? 20 : 10)
   stmt(cfg, updstgroupe).run(g)
   rowItems.push(newItem('groupe', g))
 }
