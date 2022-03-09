@@ -2182,3 +2182,130 @@ function majinfoMembreTr (cfg, session, args, rowItems) {
   stmt(cfg, updinfomembre).run(m)
   rowItems.push(newItem('membre', m))
 }
+
+/* Fin d'hébergement d'un groupe ****************************************
+args :
+- sessionId
+- idc, idg : id du compte, id = groupe
+- imh : indice de l'avatar membre hébergeur
+Retour: sessionId, dh
+A_SRV, '10-Données de comptabilité absentes'
+A_SRV, '18-Groupe non trouvé'
+X_SRV, '22-Ce compte n\'est pas l\'hébergeur actuel du groupe'
+*/
+
+async function finhebGroupe (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+
+  const versions = getValue(cfg, VERSIONS)
+  let j = idx(args.idc)
+  versions[j]++
+  args.vc = versions[j]
+  j = idx(args.idg)
+  versions[j]++
+  args.vg = versions[j]
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(finhebGroupeTr)(cfg, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.finhebGroupe = finhebGroupe
+
+const updhebgroupe= 'UPDATE groupe SET v = @v, dfh = @dfh, idhg = @idhg, imh = @imh WHERE id = @id'
+
+function finhebGroupeTr (cfg, args, rowItems) {
+  const compta = stmt(cfg, selcomptaid).get({ id: args.idc })
+  if (!compta) throw new AppExc(A_SRV, '10-Données de comptabilité absentes')
+  const groupe = stmt(cfg, selgroupeId).get({ id: args.idg })
+  if (!groupe) throw new AppExc(A_SRV, '18-Groupe non trouvé')
+
+  if (groupe.idhg === null || groupe.imh !== args.imh)
+    throw new AppExc(X_SRV, '22-Ce compte n\'est pas l\'hébergeur actuel du groupe')
+
+  compta.v = args.vc
+  const compteurs = new Compteurs(compta.data)
+  compteurs.setV1(-groupe.v1)
+  compteurs.setV2(-groupe.v2)
+  compta.data = compteurs.serial
+  stmt(cfg, updcompta).run(compta)
+  rowItems.push(newItem('compta', compta))
+
+  groupe.v = args.vg
+  groupe.idhg = null
+  groupe.imh = 0
+  groupe.dfh = new DateJour().nbj
+  stmt(cfg, updhebgroupe).run(groupe)
+  rowItems.push(newItem('groupe', groupe))
+}
+
+/* Début d'hébergement d'un groupe ****************************************
+args :
+- sessionId
+- idc, idg : id du compte, id = groupe,
+- idhg : idg crypté par la clé G du groupe
+- imh : indice de l'avatar membre hébergeur
+Retour: sessionId, dh
+A_SRV, '10-Données de comptabilité absentes'
+A_SRV, '18-Groupe non trouvé'
+X_SRV, '20-Groupe encore hébergé : un nouvel hébergeur ne peut se proposer que si le groupe n\'a plus de compte hébergeur'
+X_SRV, '21-Forfaits (' + f + ') insuffisants pour héberger le groupe.'
+*/
+
+async function debhebGroupe (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+
+  const versions = getValue(cfg, VERSIONS)
+  let j = idx(args.idc)
+  versions[j]++
+  args.vc = versions[j]
+  j = idx(args.idg)
+  versions[j]++
+  args.vg = versions[j]
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(debhebGroupeTr)(cfg, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.debhebGroupe = debhebGroupe
+
+function debhebGroupeTr (cfg, args, rowItems) {
+  const compta = stmt(cfg, selcomptaid).get({ id: args.idc })
+  if (!compta) throw new AppExc(A_SRV, '10-Données de comptabilité absentes')
+  const groupe = stmt(cfg, selgroupeId).get({ id: args.idg })
+  if (!groupe) throw new AppExc(A_SRV, '18-Groupe non trouvé')
+
+  if (groupe.idhg !== null) 
+    throw new AppExc(X_SRV, '20-Groupe encore hébergé : un nouvel hébergeur ne peut se proposer que si le groupe n\'a plus de compte hébergeur')
+
+  compta.v = args.vc
+  const compteurs = new Compteurs(compta.data)
+  const ok1 = compteurs.setV1(groupe.v1)
+  const ok2 = compteurs.setV2(groupe.v2)
+  if (!ok1 || !ok2) {
+    const f = !ok1 && ok2 ? 'V1' : (ok1 && !ok2 ? 'V2' : 'V1 et V2')
+    throw new AppExc(X_SRV, '21-Forfaits (' + f + ') insuffisants pour héberger le groupe.')
+  }
+
+  compta.data = compteurs.serial
+  stmt(cfg, updcompta).run(compta)
+  rowItems.push(newItem('compta', compta))
+
+  groupe.v = args.vg
+  groupe.idhg = args.idhg
+  groupe.imh = args.imh
+  groupe.dfh = 0
+  stmt(cfg, updhebgroupe).run(groupe)
+  rowItems.push(newItem('groupe', groupe))
+}
