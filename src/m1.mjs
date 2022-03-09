@@ -670,7 +670,7 @@ args
 - id : de l'avatar
 - idg: id du groupe
 - ni : numéro d'invitation du groupe à inscrire
-- nomck : [nom, rnd, im] du groupe à inscrire dans lgrk de l'avatar
+- datak : [nom, rnd, im] du groupe à inscrire dans lgrk de l'avatar
 */
 
 const upd1avatar = 'UPDATE avatar SET v = @v, lgrk = @lgrk WHERE id = @id'
@@ -701,7 +701,7 @@ function regulGrTr (cfg, session, args, rowItems) {
   if (!a) return // avatar supprimé depuis (?)
   const map = deserial(a.lgrk)
   if (map[args.ni]) return // déjà fait
-  map[args.ni] = args.nomck
+  map[args.ni] = args.datak
   a.v = args.v
   a.lgrk = serial(map)
   stmt(cfg, upd1avatar).run(a)
@@ -830,28 +830,6 @@ async function chargerInvitGr (cfg, args) {
   return result
 }
 m1fonctions.chargerInvitGr = chargerInvitGr
-
-/*****************************************
-Création d'un invitGr
-- sessionId, id, ni, datap
-*/
-const insinvitgr = 'INSERT INTO invitgr (id, ni, datap) VALUES (@id, @ni, @datap)'
-
-async function creerInvitGr (cfg, args) {
-  checkSession(args.sessionId)
-  const result = { sessionId: args.sessionId, dh: getdhc() }
-  const row = { id: args.id, ni: args.id, nomcp: args.datap }
-  const rowItems = [row]
-  cfg.db.transaction(creerInvitGrTr)(cfg, row)
-  syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
-  setImmediate(() => { processQueue() })
-  return result
-}
-m1fonctions.creerInvitGr = creerInvitGr
-
-function creerInvitGrTr (cfg, row) {
-  stmt(cfg, insinvitgr).run(row)
-}
 
 /*****************************************
 Chargement des rows d'un avatar 
@@ -1041,7 +1019,7 @@ args :
 */
 const selavrsapub = 'SELECT clepub FROM avrsa WHERE id = @id'
 async function getclepub (cfg, args) {
-  // checkSession(args.sessionId)
+  checkSession(args.sessionId)
   try {
     const c = stmt(cfg, selavrsapub).get({ id: crypt.sidToId(args.sid) })
     if (!c) return { bytes0 }
@@ -2317,6 +2295,7 @@ args :
 - imh : indice de l'avatar membre hébergeur
 - forfaits: [max1, max2]
 Retour: sessionId, dh
+A_SRV, '18-Groupe non trouvé'
 A_SRV, '22-Groupe hébergé par un autre compte'
 X_SRV, '21-Forfaits (' + f + ') insuffisants pour héberger le groupe.'
 */
@@ -2362,4 +2341,90 @@ function majvmaxGroupeTr (cfg, args, rowItems) {
   groupe.f2 = args.forfaits[1]
   stmt(cfg, updvmaxgroupe).run(groupe)
   rowItems.push(newItem('groupe', groupe))
+}
+
+/* Contact d'un groupe ****************************************
+args :
+- sessionId
+- rowMembre
+Retour: sessionId, dh
+A_SRV, '18-Groupe non trouvé'
+*/
+
+async function contactGroupe (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+
+  const membre = deserial(args.rowMembre)
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(membre.id)
+  versions[j]++
+  args.vg = versions[j]
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(contactGroupeTr)(cfg, args, membre, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.contactGroupe = contactGroupe
+
+function contactGroupeTr (cfg, args, membre, rowItems) {
+  const groupe = stmt(cfg, selgroupeId).get({ id: membre.id })
+  if (!groupe) throw new AppExc(A_SRV, '18-Groupe non trouvé')
+  
+  membre.v = args.vg
+  stmt(cfg, insmembre).run(membre)
+  rowItems.push(newItem('membre', membre))
+}
+
+/* Inviter un contact d'un groupe ****************************************
+args :
+- sessionId
+- id, im : id du membre
+- st : statut du membre
+Retour: sessionId, dh
+A_SRV, '19-Membre non trouvé
+*/
+
+async function inviterGroupe (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+
+  const invitgr = deserial(args.rowInvitgr)
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.id)
+  versions[j]++
+  args.vg = versions[j]
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(inviterGroupeTr)(cfg, args, invitgr, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.inviterGroupe = inviterGroupe
+
+const updstmembre = 'UPDATE membre SET v = @v, st = @st WHERE id = @id AND im = @im'
+const insinvitgr = 'INSERT INTO invitgr (id, ni, datap) VALUES (@id, @ni, @datap)'
+
+function inviterGroupeTr (cfg, args, invitgr, rowItems) {
+  const membre = stmt(cfg, selmembreIdIm).get({ id: args.id, im: args.im })
+  if (!membre) throw new AppExc(A_SRV, '19-Membre non trouvé')
+  
+  membre.v = args.vg
+  membre.st = args.st
+  stmt(cfg, updstmembre).run(membre)
+  rowItems.push(newItem('membre', membre))
+
+  stmt(cfg, insinvitgr).run(invitgr)
+  rowItems.push(newItem('invitgr', invitgr))
 }

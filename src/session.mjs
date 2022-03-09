@@ -137,7 +137,7 @@ export class Session {
         break
       }
       case 'invitgr' : {
-        if (this.avatar(rowItem)) msg.rowItems.push(rowItem)
+        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
         break
       }
       case 'membre' : {
@@ -149,7 +149,7 @@ export class Session {
         break
       }
       case 'rencontre' : {
-        if (this.avatar(rowItem)) msg.rowItems.push(rowItem)
+        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
         break
       }
       case 'secret' : {
