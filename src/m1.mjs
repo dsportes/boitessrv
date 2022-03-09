@@ -2309,3 +2309,57 @@ function debhebGroupeTr (cfg, args, rowItems) {
   stmt(cfg, updhebgroupe).run(groupe)
   rowItems.push(newItem('groupe', groupe))
 }
+
+/* Modification des volumes max d'un groupe ****************************************
+args :
+- sessionId
+- idg : id du compte, id = groupe,
+- imh : indice de l'avatar membre hébergeur
+- forfaits: [max1, max2]
+Retour: sessionId, dh
+A_SRV, '22-Groupe hébergé par un autre compte'
+X_SRV, '21-Forfaits (' + f + ') insuffisants pour héberger le groupe.'
+*/
+
+async function majvmaxGroupe (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.idg)
+  versions[j]++
+  args.vg = versions[j]
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(majvmaxGroupeTr)(cfg, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.majvmaxGroupe = majvmaxGroupe
+
+const updvmaxgroupe= 'UPDATE groupe SET v = @v, f1 = @f1, f2 = @f2 WHERE id = @id'
+
+function majvmaxGroupeTr (cfg, args, rowItems) {
+  const groupe = stmt(cfg, selgroupeId).get({ id: args.idg })
+  if (!groupe) throw new AppExc(A_SRV, '18-Groupe non trouvé')
+
+  if (groupe.imh !== args.imh) 
+    throw new AppExc(X_SRV, '22-Groupe hébergé par un autre compte')
+
+  const ok1 = args.forfaits[0] > (groupe.v1 * 1000000)
+  const ok2 = args.forfaits[1] > (groupe.v2 * 100000000)
+  if (!ok1 || !ok2) {
+    const f = !ok1 && ok2 ? 'V1' : (ok1 && !ok2 ? 'V2' : 'V1 et V2')
+    throw new AppExc(X_SRV, '21-Forfaits (' + f + ') insuffisants pour héberger le groupe.')
+  }
+  
+  groupe.v = args.vg
+  groupe.f1 = args.forfaits[0]
+  groupe.f2 = args.forfaits[1]
+  stmt(cfg, updvmaxgroupe).run(groupe)
+  rowItems.push(newItem('groupe', groupe))
+}
