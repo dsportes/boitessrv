@@ -466,8 +466,7 @@ Get ardoises des filleuls d'un parrain
 - `id` : id du parrain
 Retour : sessionId, dh, ardoise
 */
-const selardoisesF = 'SELECT * FROM ardoise WHERE id IN '
-  + '(SELECT id FROM compta WHERE idp = @id)'
+const selardoisesF = 'SELECT * FROM ardoise WHERE id IN (SELECT id FROM compta WHERE idp = @id)'
 
 async function getArdoisesFilleuls (cfg, args) {
   checkSession(args.sessionId)
@@ -711,7 +710,7 @@ function regulGrTr (cfg, session, args, rowItems) {
 }
 
 /* Régularisation Avatar ****************************************
-Suppression des entrées de lgck dans les avatars correspondant aux groupes supprimés
+Suppression des entrées de lgrk dans les avatars correspondant aux groupes supprimés
 args
 - mapav : une entrée par id d'avatar. Valeur : liste des ni des groupes à supprimer
 */
@@ -832,10 +831,11 @@ async function chargerInvitGr (cfg, args) {
 m1fonctions.chargerInvitGr = chargerInvitGr
 
 /*****************************************
-Chargement des rows d'un avatar 
-    { name: 'sessionId', type: 'string' },
-    { name: 'avgr', type: 'long' },
-    { name: 'lv', type: arrayIntType } 7 compteurs pour les versions des 7 tables
+Chargement des rows d'un avatar
+args:
+- sessionId
+- avgr : id de l'avatar ou du groupe
+- lv : 7 compteurs pour les versions des 7 tables
 */
 async function syncAv (cfg, args) {
   checkSession(args.sessionId)
@@ -949,10 +949,11 @@ Chargement des CVs :
 - celles de lcvmaj si changées après vcv
 - celles de lcvchargt sans filtre de version
 Abonnement à l'union des deux listes
-    { name: 'sessionId', type: 'string' },
-    { name: 'vcv', type: 'int' },
-    { name: 'lcvmaj', type: arrayIntType },
-    { name: 'lcvchargt', type: arrayIntType }
+args:
+- sessionId
+- vcv : version des CV
+- lcvmaj : liste des CVs à retouner si postérieures à vcv
+- lcvchargt : liste des CVs à retourner sans condition de version
 */
 const selcv1 = 'SELECT id, vcv, st, cva FROM avatar WHERE vcv > @vcv AND id IN ('
 const selcv2 = 'SELECT id, vcv, st, cva FROM avatar WHERE id IN ('
