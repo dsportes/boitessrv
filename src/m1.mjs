@@ -150,12 +150,26 @@ function newItem (table, row) {
 }
 
 /******************************************/
-const inscompte = 'INSERT INTO compte (id, v, dpbh, pcbh, kx, cprivk, mack, vsh) VALUES (@id, @v, @dpbh, @pcbh, @kx, @cprivk, @mack, @vsh)'
-const inscompta = 'INSERT INTO compta (id, idp, v, dds, st, data, vsh) VALUES (@id, @idp, @v, @dds, @st, @data, @vsh)'
+const inscompte = 'INSERT INTO compte (id, v, dpbh, pcbh, kx, mack, vsh) VALUES (@id, @v, @dpbh, @pcbh, @kx, @mack, @vsh)'
+const inscompta = 'INSERT INTO compta (id, idp, v, dds, st, dst, data, dh, ard, vsh) VALUES (@id, @idp, @v, @dds, @st, @dst, @data, @dh, @ard, @vsh)'
 const insprefs = 'INSERT INTO prefs (id, v, mapk, vsh) VALUES (@id, @v, @mapk, @vsh)'
-const insavatar = 'INSERT INTO avatar (id, v, st, vcv, dds, cva, lgrk, vsh) VALUES (@id, @v, @st, @vcv, @dds, @cva, @lgrk, @vsh)'
+const insavatar = 'INSERT INTO avatar (id, v, st, vcv, dds, cva, lgrk, lccl, vsh) VALUES (@id, @v, @st, @vcv, @dds, @cva, @lgrk, @lcck, @vsh)'
 const insavrsa = 'INSERT INTO avrsa (id, clepub, vsh) VALUES (@id, @clepub, @vsh)'
-const insardoise = 'INSERT INTO ardoise (id, v, dhe, dhl, mcp, mcc, data, vsh) VALUES (@id, @v, @dhe, @dhl, @mcp, @mcc, @data, @vsh)'
+const inssecret = 'INSERT INTO secret (id, ns, v, st, xp, v1, v2, mc, txts, mfas, refs, vsh) ' +
+  'VALUES (@id, @ns, @v, @st, @xp, @v1, @v2, @mc, @txts, @mfas, @refs, @vsh)'
+// eslint-disable-next-line no-unused-vars
+const inscontactphc = 'INSERT INTO contactphc (phch, dlv, ccx, vsh) VALUES (@phch, @dlv, @ccx, @vsh)'
+// eslint-disable-next-line no-unused-vars
+const inscontactstd = 'INSERT INTO contactstd (id, ni, v, dlv, ccp, vsh) VALUES (@id, @ni, @v, @dlv, @ccp, @vsh)'
+// eslint-disable-next-line no-unused-vars
+const inscouple = 'INSERT INTO contact (id, v, st, dds, v1, v2, mx10, mx20, mx11, mx21, dlv, datap, infok0, infok1, mc0, mc1, ardc, vsh) '
+ + 'VALUES (@id, @v, @st, @dds, @v1, @v2, @mx10, @mx20, @mx11, @mx21, @datap, @infok0, @infok1, @mc0, @mc1, @ardc, @vsh)'
+const insgroupe = 'INSERT INTO groupe (id, v, dds, dfh, st, mxim, cvg, idhg, imh, v1, v2, f1, f2, mcg, vsh)'
+ + 'VALUES (@id, @v, @dds, @dfh, @st, @mxim, @cvg, @idhg, @imh, @v1, @v2, @f1, @f2, @mcg, @vsh)'
+const insmembre = 'INSERT INTO membre (id, im, v, st, vote, mc, infok, datag, ardg, vsh)'
+ + 'VALUES (@id, @im, @v, @st, @vote, @mc, @infok, @datag, @ardg, @vsh)'
+const insinvitgr = 'INSERT INTO invitgr (id, ni, datap) VALUES (@id, @ni, @datap)'
+
 const selcomptedpbh = 'SELECT * FROM compte WHERE dpbh = @dpbh'
 const selprefsid = 'SELECT * FROM prefs WHERE id = @id'
 const selcomptaid = 'SELECT * FROM compta WHERE id = @id'
@@ -228,7 +242,7 @@ function creationCompteTr (cfg, session, compte, compta, prefs, ardoise, avatar,
   stmt(cfg, inscompte).run(compte)
   stmt(cfg, inscompta).run(compta)
   stmt(cfg, insavatar).run(avatar)
-  stmt(cfg, insardoise).run(ardoise)
+  // stmt(cfg, insardoise).run(ardoise)
   stmt(cfg, insprefs).run(prefs)
   stmt(cfg, insavrsa).run(avrsa1)
   stmt(cfg, insavrsa).run(avrsa2)
@@ -1042,8 +1056,6 @@ Retour :
 - dh
 Exception : dépassement des quotas 
 */
-const inssecret = 'INSERT INTO secret (id, ns, ic, v, st, ora, v1, v2, mc, txts, mpjs, dups, refs, vsh) ' +
-  'VALUES (@id, @ns, @ic, @v, @st, @ora, @v1, @v2, @mc, @txts, @mpjs, @dups, @refs, @vsh)'
 
 async function nouveauSecret (cfg, args) {
   checkSession(args.sessionId)
@@ -1452,8 +1464,6 @@ function pjSecretTr (cfg, args, rowItems) {
   rowParrain: serial(rowParrain)
  Retour : dh
  */
-const insparrain = 'INSERT INTO parrain (pph, id, v, st, dlv, datak, datax, data2k, ardc, vsh) '
-  + 'VALUES (@pph, @id, @v, @st, @dlv, @datak, @datax, @data2k, @ardc, @vsh)'
 const upd9parrain = 'UPDATE parrain SET id = @id, v = @v, st = @st, dlv = @dlv, '
   + 'datak = @datak, datax = @datax, data2k = @data2k, ardc = @ardc, vsh = @vsh WHERE pph = @pph'
 const selpphparrain = 'SELECT * FROM parrain WHERE pph = @pph'
@@ -1485,7 +1495,7 @@ function nouveauParrainageTr (cfg, parrain) {
     }
     stmt(cfg, upd9parrain).run(parrain)
   } else {
-    stmt(cfg, insparrain).run(parrain)
+    // stmt(cfg, insparrain).run(parrain)
   }
 }
 
@@ -1511,8 +1521,6 @@ function nouveauParrainageTr (cfg, parrain) {
     ardc: await crypt.crypter(parrain.data.cc, serial([new Date().getTime(), arg.ard]))
  Retour : sessionId, dh, si ok : rowItems : compte, compta, prefs, avatar, contactf
  */
-const inscontact = 'INSERT INTO contact (id, ic, v, st, ardc, datak, datap, mc, infok, vsh) '
- + 'VALUES (@id, @ic, @v, @st, @ardc, @datak, @datap, @mc, @infok, @vsh)'
 const upd1parrain = 'UPDATE parrain SET v = @v, st = @st, ardc = @ardc WHERE pph = @pph'
 const updcompta = 'UPDATE compta SET v = @v, data = @data WHERE id = @id'
 const upd2parrain = 'UPDATE parrain SET v = @v, st = @st, dlv = 0, ardc = null, datax = null, datak = null, data2k = null WHERE pph = @pph'
@@ -1607,15 +1615,15 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
 
   const dh = new Date().getTime()
   const ardoise = { id: compte.id, v: compte.vh, dhe: dh, dhl: dh, mcp: null, mcc: null, data: null, vsh: 0 }
-  stmt(cfg, insardoise).run(ardoise)
+  // stmt(cfg, insardoise).run(ardoise)
   items.ardoise = ardoise
 
   // insertion des contacts p et f : v
   contactp.v = args.vp
-  stmt(cfg, inscontact).run(contactp)
+  // stmt(cfg, inscontact).run(contactp)
 
   contactf.v = args.vf
-  stmt(cfg, inscontact).run(contactf)
+  // stmt(cfg, inscontact).run(contactf)
 
   // Insertion des nouveaux compte, avatar, prefs du filleul
   compte.v = args.vcf
@@ -1855,11 +1863,6 @@ async function creationGroupe (cfg, args) {
   return result
 }
 m1fonctions.creationGroupe = creationGroupe
-
-const insgroupe = 'INSERT INTO groupe (id, v, dds, dfh, st, idhg, imh, cvg, v1, v2, f1, f2, mcg, vsh)'
-  + 'VALUES (@id, @v, @dds, @dfh, @st, @idhg, @imh, @cvg, @v1, @v2, @f1, @f2, @mcg, @vsh)'
-const insmembre = 'INSERT INTO membre (id, im, v, st, vote, mc, infok, datag, ardg, vsh)'
-  + 'VALUES (@id, @im, @v, @st, @vote, @mc, @infok, @datag, @ardg, @vsh)'
 
 function creationGroupeTr (cfg, session, args, groupe, membre, rowItems) {
   const a = stmt(cfg, selavatarid).get({ id: args.ida })
@@ -2415,7 +2418,6 @@ async function inviterGroupe (cfg, args) {
 m1fonctions.inviterGroupe = inviterGroupe
 
 const updstmembre = 'UPDATE membre SET v = @v, st = @st WHERE id = @id AND im = @im'
-const insinvitgr = 'INSERT INTO invitgr (id, ni, datap) VALUES (@id, @ni, @datap)'
 
 function inviterGroupeTr (cfg, args, invitgr, rowItems) {
   const membre = stmt(cfg, selmembreIdIm).get({ id: args.id, im: args.im })

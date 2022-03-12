@@ -3,6 +3,8 @@ import { serial, deserial } from './util.mjs'
 
 export const version = '1'
 
+export const UNITEV1 = 250000
+export const UNITEV2 = 25000000
 export const PINGTO = 10000 // en secondes
 
 export const E_BRK = -1 // Interruption volontaire de l'opération
@@ -59,28 +61,26 @@ export const INDEXT = {
 
 /*
 - `versions` (id) : table des prochains numéros de versions (actuel et dernière sauvegarde) et autres singletons clé / valeur
-- `avgrvq` (id) : volumes et quotas d'un avatar ou groupe
 - `avrsa` (id) : clé publique d'un avatar
 
 _**Tables aussi persistantes sur le client (IDB)**_
 
-- `compte` (id) : authentification et liste des avatars d'un compte
+- `compte` (id) : authentification et liste des avatars d'un compte 
 - `prefs` (id) : données et préférences d'un compte
 - `compta` (id) : ligne comptable du compte
-- `ardoise` (id) : ardoise du compte avec parrain / comptables
 - `avatar` (id) : données d'un avatar et liste de ses contacts
+- `couple` (id) : données d'un couple de contacts entre deux avatars
+- `contactstd` (id, ni) : invitation de A0 vers A1 à former un couple
+- `contactphc` (phch) : parrainage ou rencontre de A0 vers un A1 à créer ou inconnu par une phrase de contact
+- `groupe` (id) : données du groupe
 - `invitgr` (id, ni) : invitation reçue par un avatar à devenir membre d'un groupe
-- `contact` (id, ic) : données d'un contact d'un avatar
-- `rencontre` (prh) id : communication par A de son nom complet à un avatar B non connu de A dans l'application
-- `parrain` (pph) id : parrainage par un avatar A de la création d'un nouveau compte
-- `groupe` (id) : données du groupe et liste de ses avatars, invités ou ayant été pressentis, un jour à être membre
 - `membre` (id, im) : données d'un membre du groupe
-- `secret` (id, ns) : données d'un secret d'un avatar ou groupe
+- `secret` (id, ns) : données d'un secret d'un avatar, couple ou groupe
 */
 
 schemas.forSchema({
   name: 'rowavatar',
-  cols: ['id', 'v', 'st', 'vcv', 'dds', 'cva', 'lgrk', 'vsh']
+  cols: ['id', 'v', 'st', 'vcv', 'dds', 'cva', 'lgrk', 'lcck', 'vsh']
 })
 
 schemas.forSchema({
@@ -90,7 +90,7 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowcompte',
-  cols: ['id', 'v', 'dds', 'dpbh', 'pcbh', 'kx', 'cprivk', 'mack', 'vsh']
+  cols: ['id', 'v', 'dpbh', 'pcbh', 'kx', 'mack', 'vsh']
 })
 
 schemas.forSchema({
@@ -100,22 +100,17 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowcompta',
-  cols: ['id', 'idp', 'v', 'dds', 'st', 'dst', 'data', 'vsh']
+  cols: ['id', 'idp', 'v', 'dds', 'st', 'dst', 'data', 'dh', 'ard', 'vsh']
 })
 
 schemas.forSchema({
-  name: 'ardoise',
-  cols: ['id', 'v', 'dhe', 'dhl', 'mcp', 'mcc', 'data', 'vsh']
-})
-
-schemas.forSchema({
-  name: 'rowcontact',
-  cols: ['id', 'ic', 'v', 'st', 'nccc', 'ardc', 'datap', 'datak', 'mc', 'infok', 'vsh']
+  name: 'rowcouple',
+  cols: ['id', 'v', 'st', 'dds', 'v1', 'v2', 'mx10', 'mx20', 'mx11', 'mx21', 'dlv', 'datap', 'infok0', 'infok1', 'mc0', 'mc1', 'ardc', 'vsh']
 })
 
 schemas.forSchema({
   name: 'rowgroupe',
-  cols: ['id', 'v', 'dds', 'dfh', 'st', 'cvg', 'idhg', 'imh', 'v1', 'v2', 'f1', 'f2', 'mcg', 'vsh']
+  cols: ['id', 'v', 'dds', 'dfh', 'st', 'mxim', 'cvg', 'idhg', 'imh', 'v1', 'v2', 'f1', 'f2', 'mcg', 'vsh']
 })
 
 schemas.forSchema({
@@ -129,18 +124,18 @@ schemas.forSchema({
 })
 
 schemas.forSchema({
-  name: 'rowparrain',
-  cols: ['pph', 'id', 'v', 'dlv', 'st', 'datak', 'datax', 'data2k', 'ardc', 'vsh']
+  name: 'rowcontactstd',
+  cols: ['id', 'ni', 'v', 'dlv', 'ccp', 'vsh']
 })
 
 schemas.forSchema({
-  name: 'rowrencontre',
-  cols: ['prh', 'id', 'v', 'dlv', 'st', 'datak', 'nomax', 'nombx', 'ardx', 'vsh']
+  name: 'rowcontactphc',
+  cols: ['phch', 'dlv', 'ccx', 'vsh']
 })
 
 schemas.forSchema({
   name: 'rowsecret',
-  cols: ['id', 'ns', 'ic', 'v', 'st', 'ora', 'v1', 'v2', 'mc', 'txts', 'mpjs', 'dups', 'refs', 'vsh']
+  cols: ['id', 'ns', 'v', 'st', 'xp', 'v1', 'v2', 'mc', 'txts', 'mfas', 'refs', 'vsh']
 })
 
 schemas.forSchema({
