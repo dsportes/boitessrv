@@ -46,36 +46,36 @@ export const MC = {
   ATRAITER: 245
 }
 
-export const SIZEAV = 5
+export const SIZEAV = 2
 export const SIZEGR = 3
+export const SIZECP = 2
 
 export const INDEXT = {
   SECRET: 0,
   AVATAR: 1,
-  CONTACT: 2,
-  RENCONTRE: 3,
-  PARRAIN: 4,
   GROUPE: 1,
-  MEMBRE: 2
+  MEMBRE: 2,
+  COUPLE: 1
 }
 
 /*
 - `versions` (id) : table des prochains numéros de versions (actuel et dernière sauvegarde) et autres singletons clé / valeur
 - `avrsa` (id) : clé publique d'un avatar
 
-_**Tables aussi persistantes sur le client (IDB)**_
+__**Tables transmises au client**_
 
-- `compte` (id) : authentification et liste des avatars d'un compte 
+- `compte` (id) : authentification et liste des avatars d'un compte
 - `prefs` (id) : données et préférences d'un compte
 - `compta` (id) : ligne comptable du compte
 - `avatar` (id) : données d'un avatar et liste de ses contacts
 - `couple` (id) : données d'un couple de contacts entre deux avatars
-- `contactstd` (id, ni) : invitation de A0 vers A1 à former un couple
-- `contactphc` (phch) : parrainage ou rencontre de A0 vers un A1 à créer ou inconnu par une phrase de contact
 - `groupe` (id) : données du groupe
-- `invitgr` (id, ni) : invitation reçue par un avatar à devenir membre d'un groupe
 - `membre` (id, im) : données d'un membre du groupe
 - `secret` (id, ns) : données d'un secret d'un avatar, couple ou groupe
+- `contact` (phch) : parrainage ou rencontre de A0 vers un A1 à créer ou inconnu par une phrase de contact
+- NON persistantes en IDB
+- `invitcp` (id, ni) : invitation de A0 vers A1 à former un couple
+- `invitgr` (id, ni) : invitation reçue par un avatar à devenir membre d'un groupe
 */
 
 schemas.forSchema({
@@ -119,17 +119,17 @@ schemas.forSchema({
 })
 
 schemas.forSchema({
+  name: 'rowinvitcp',
+  cols: ['id', 'ni', 'ccp']
+})
+
+schemas.forSchema({
   name: 'rowmembre',
   cols: ['id', 'im', 'v', 'st', 'vote', 'mc', 'infok', 'datag', 'ardg', 'vsh']
 })
 
 schemas.forSchema({
-  name: 'rowcontactstd',
-  cols: ['id', 'ni', 'v', 'dlv', 'ccp', 'vsh']
-})
-
-schemas.forSchema({
-  name: 'rowcontactphc',
+  name: 'rowcontact',
   cols: ['phch', 'dlv', 'ccx', 'vsh']
 })
 

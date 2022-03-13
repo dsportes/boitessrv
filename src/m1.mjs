@@ -158,9 +158,9 @@ const insavrsa = 'INSERT INTO avrsa (id, clepub, vsh) VALUES (@id, @clepub, @vsh
 const inssecret = 'INSERT INTO secret (id, ns, v, st, xp, v1, v2, mc, txts, mfas, refs, vsh) ' +
   'VALUES (@id, @ns, @v, @st, @xp, @v1, @v2, @mc, @txts, @mfas, @refs, @vsh)'
 // eslint-disable-next-line no-unused-vars
-const inscontactphc = 'INSERT INTO contactphc (phch, dlv, ccx, vsh) VALUES (@phch, @dlv, @ccx, @vsh)'
+const inscontact = 'INSERT INTO contact (phch, dlv, ccx, vsh) VALUES (@phch, @dlv, @ccx, @vsh)'
 // eslint-disable-next-line no-unused-vars
-const inscontactstd = 'INSERT INTO contactstd (id, ni, v, dlv, ccp, vsh) VALUES (@id, @ni, @v, @dlv, @ccp, @vsh)'
+const insinvitcp = 'INSERT INTO invitcp (id, ni, ccp) VALUES (@id, @ni, @ccp)'
 // eslint-disable-next-line no-unused-vars
 const inscouple = 'INSERT INTO contact (id, v, st, dds, v1, v2, mx10, mx20, mx11, mx21, dlv, datap, infok0, infok1, mc0, mc1, ardc, vsh) '
  + 'VALUES (@id, @v, @st, @dds, @v1, @v2, @mx10, @mx20, @mx11, @mx21, @datap, @infok0, @infok1, @mc0, @mc1, @ardc, @vsh)'
