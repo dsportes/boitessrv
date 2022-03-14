@@ -67,20 +67,19 @@ __**Tables transmises au client**_
 - `compte` (id) : authentification et liste des avatars d'un compte
 - `prefs` (id) : données et préférences d'un compte
 - `compta` (id) : ligne comptable du compte
+- `repertoire` (id) : staut d'existence, signature et carte de visite des avatars, couples et groupes.
 - `avatar` (id) : données d'un avatar et liste de ses contacts
 - `couple` (id) : données d'un couple de contacts entre deux avatars
 - `groupe` (id) : données du groupe
 - `membre` (id, im) : données d'un membre du groupe
 - `secret` (id, ns) : données d'un secret d'un avatar, couple ou groupe
 - `contact` (phch) : parrainage ou rencontre de A0 vers un A1 à créer ou inconnu par une phrase de contact
-- NON persistantes en IDB
-- `invitcp` (id, ni) : invitation de A0 vers A1 à former un couple
-- `invitgr` (id, ni) : invitation reçue par un avatar à devenir membre d'un groupe
+- `invitgr` (id, ni) : **NON persistante en IDB**. invitation reçue par un avatar à devenir membre d'un groupe
 */
 
 schemas.forSchema({
   name: 'rowavatar',
-  cols: ['id', 'v', 'st', 'vcv', 'dds', 'cva', 'lgrk', 'lcck', 'vsh']
+  cols: ['id', 'v', 'lgrk', 'lcck', 'vsh']
 })
 
 schemas.forSchema({
@@ -105,22 +104,17 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowcouple',
-  cols: ['id', 'v', 'st', 'dds', 'v1', 'v2', 'mx10', 'mx20', 'mx11', 'mx21', 'dlv', 'datap', 'infok0', 'infok1', 'mc0', 'mc1', 'ardc', 'vsh']
+  cols: ['id', 'v', 'st', 'v1', 'v2', 'mx10', 'mx20', 'mx11', 'mx21', 'dlv', 'datac', 'infok0', 'infok1', 'mc0', 'mc1', 'ardc', 'vsh']
 })
 
 schemas.forSchema({
   name: 'rowgroupe',
-  cols: ['id', 'v', 'dds', 'dfh', 'st', 'mxim', 'cvg', 'idhg', 'imh', 'v1', 'v2', 'f1', 'f2', 'mcg', 'vsh']
+  cols: ['id', 'v', 'dfh', 'st', 'mxim', 'idhg', 'imh', 'v1', 'v2', 'f1', 'f2', 'mcg', 'vsh']
 })
 
 schemas.forSchema({
   name: 'rowinvitgr',
   cols: ['id', 'ni', 'datap']
-})
-
-schemas.forSchema({
-  name: 'rowinvitcp',
-  cols: ['id', 'ni', 'ccp']
 })
 
 schemas.forSchema({
@@ -144,8 +138,8 @@ schemas.forSchema({
 })
 
 schemas.forSchema({
-  name: 'rowcv',
-  cols: ['id', 'vcv', 'st', 'cva']
+  name: 'rowrepertoire',
+  cols: ['id', 'v', 'x', 'dds', 'cv', 'vsh']
 })
 
 schemas.forSchema({

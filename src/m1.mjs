@@ -150,25 +150,33 @@ function newItem (table, row) {
 }
 
 /******************************************/
-const inscompte = 'INSERT INTO compte (id, v, dpbh, pcbh, kx, mack, vsh) VALUES (@id, @v, @dpbh, @pcbh, @kx, @mack, @vsh)'
-const inscompta = 'INSERT INTO compta (id, idp, v, dds, st, dst, data, dh, ard, vsh) VALUES (@id, @idp, @v, @dds, @st, @dst, @data, @dh, @ard, @vsh)'
-const insprefs = 'INSERT INTO prefs (id, v, mapk, vsh) VALUES (@id, @v, @mapk, @vsh)'
-const insavatar = 'INSERT INTO avatar (id, v, st, vcv, dds, cva, lgrk, lccl, vsh) VALUES (@id, @v, @st, @vcv, @dds, @cva, @lgrk, @lcck, @vsh)'
-const insavrsa = 'INSERT INTO avrsa (id, clepub, vsh) VALUES (@id, @clepub, @vsh)'
+const inscompte = 'INSERT INTO compte (id, v, dpbh, pcbh, kx, mack, vsh) '
+  + 'VALUES (@id, @v, @dpbh, @pcbh, @kx, @mack, @vsh)'
+const inscompta = 'INSERT INTO compta (id, idp, v, dds, st, dst, data, dh, ard, vsh) '
+  + 'VALUES (@id, @idp, @v, @dds, @st, @dst, @data, @dh, @ard, @vsh)'
+const insprefs = 'INSERT INTO prefs (id, v, mapk, vsh) '
+  + 'VALUES (@id, @v, @mapk, @vsh)'
+const insavatar = 'INSERT INTO avatar (id, v, lgrk, lcck, vsh) '
+  + 'VALUES (@id, @v, @lgrk, @lcck, @vsh)'
+const insavrsa = 'INSERT INTO avrsa (id, clepub, vsh) '
+  + 'VALUES (@id, @clepub, @vsh)'
 const inssecret = 'INSERT INTO secret (id, ns, v, st, xp, v1, v2, mc, txts, mfas, refs, vsh) ' +
   'VALUES (@id, @ns, @v, @st, @xp, @v1, @v2, @mc, @txts, @mfas, @refs, @vsh)'
 // eslint-disable-next-line no-unused-vars
-const inscontact = 'INSERT INTO contact (phch, dlv, ccx, vsh) VALUES (@phch, @dlv, @ccx, @vsh)'
+const inscontact = 'INSERT INTO contact (phch, dlv, ccx, vsh) '
+  + 'VALUES (@phch, @dlv, @ccx, @vsh)'
 // eslint-disable-next-line no-unused-vars
-const insinvitcp = 'INSERT INTO invitcp (id, ni, ccp) VALUES (@id, @ni, @ccp)'
-// eslint-disable-next-line no-unused-vars
-const inscouple = 'INSERT INTO contact (id, v, st, dds, v1, v2, mx10, mx20, mx11, mx21, dlv, datap, infok0, infok1, mc0, mc1, ardc, vsh) '
- + 'VALUES (@id, @v, @st, @dds, @v1, @v2, @mx10, @mx20, @mx11, @mx21, @datap, @infok0, @infok1, @mc0, @mc1, @ardc, @vsh)'
-const insgroupe = 'INSERT INTO groupe (id, v, dds, dfh, st, mxim, cvg, idhg, imh, v1, v2, f1, f2, mcg, vsh)'
- + 'VALUES (@id, @v, @dds, @dfh, @st, @mxim, @cvg, @idhg, @imh, @v1, @v2, @f1, @f2, @mcg, @vsh)'
+const inscouple = 'INSERT INTO contact (id, v, st, v1, v2, mx10, mx20, mx11, mx21, dlv, datac, infok0, infok1, mc0, mc1, ardc, vsh) '
+ + 'VALUES (@id, @v, @st, @v1, @v2, @mx10, @mx20, @mx11, @mx21, @datac, @infok0, @infok1, @mc0, @mc1, @ardc, @vsh)'
+const insgroupe = 'INSERT INTO groupe (id, v, dfh, st, mxim, idhg, imh, v1, v2, f1, f2, mcg, vsh)'
+ + 'VALUES (@id, @v, @dfh, @st, @mxim, @idhg, @imh, @v1, @v2, @f1, @f2, @mcg, @vsh)'
 const insmembre = 'INSERT INTO membre (id, im, v, st, vote, mc, infok, datag, ardg, vsh)'
  + 'VALUES (@id, @im, @v, @st, @vote, @mc, @infok, @datag, @ardg, @vsh)'
-const insinvitgr = 'INSERT INTO invitgr (id, ni, datap) VALUES (@id, @ni, @datap)'
+const insinvitgr = 'INSERT INTO invitgr (id, ni, datap) '
+  + 'VALUES (@id, @ni, @datap)'
+// eslint-disable-next-line no-unused-vars
+const insrepertoire = 'INSERT INTO repertoir (id, v, x, dds, cv, vsh) '
+  + 'VALUES (@id, @v, @x, @dds, @cv, @vsh)'
 
 const selcomptedpbh = 'SELECT * FROM compte WHERE dpbh = @dpbh'
 const selprefsid = 'SELECT * FROM prefs WHERE id = @id'
