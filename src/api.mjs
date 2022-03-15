@@ -129,7 +129,7 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowsecret',
-  cols: ['id', 'ns', 'v', 'st', 'xp', 'v1', 'v2', 'mc', 'txts', 'mfas', 'refs', 'vsh']
+  cols: ['id', 'ns', 'x', 'v', 'st', 'xp', 'v1', 'v2', 'mc', 'txts', 'mfas', 'refs', 'vsh']
 })
 
 schemas.forSchema({
@@ -138,7 +138,7 @@ schemas.forSchema({
 })
 
 schemas.forSchema({
-  name: 'rowrepertoire',
+  name: 'rowcv',
   cols: ['id', 'v', 'x', 'dds', 'cv', 'vsh']
 })
 

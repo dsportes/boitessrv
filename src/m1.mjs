@@ -160,8 +160,8 @@ const insavatar = 'INSERT INTO avatar (id, v, lgrk, lcck, vsh) '
   + 'VALUES (@id, @v, @lgrk, @lcck, @vsh)'
 const insavrsa = 'INSERT INTO avrsa (id, clepub, vsh) '
   + 'VALUES (@id, @clepub, @vsh)'
-const inssecret = 'INSERT INTO secret (id, ns, v, st, xp, v1, v2, mc, txts, mfas, refs, vsh) ' +
-  'VALUES (@id, @ns, @v, @st, @xp, @v1, @v2, @mc, @txts, @mfas, @refs, @vsh)'
+const inssecret = 'INSERT INTO secret (id, ns, x, v, st, xp, v1, v2, mc, txts, mfas, refs, vsh) ' +
+  'VALUES (@id, @ns, @x, @v, @st, @xp, @v1, @v2, @mc, @txts, @mfas, @refs, @vsh)'
 // eslint-disable-next-line no-unused-vars
 const inscontact = 'INSERT INTO contact (phch, dlv, ccx, vsh) '
   + 'VALUES (@phch, @dlv, @ccx, @vsh)'
@@ -175,7 +175,7 @@ const insmembre = 'INSERT INTO membre (id, im, v, st, vote, mc, infok, datag, ar
 const insinvitgr = 'INSERT INTO invitgr (id, ni, datap) '
   + 'VALUES (@id, @ni, @datap)'
 // eslint-disable-next-line no-unused-vars
-const insrepertoire = 'INSERT INTO repertoir (id, v, x, dds, cv, vsh) '
+const inscv = 'INSERT INTO cv (id, v, x, dds, cv, vsh) '
   + 'VALUES (@id, @v, @x, @dds, @cv, @vsh)'
 
 const selcomptedpbh = 'SELECT * FROM compte WHERE dpbh = @dpbh'
@@ -449,14 +449,12 @@ m1fonctions.connexionCompte = connexionCompte
 const selavgrvqid = ''
 const updavgrvq = ''
 
-const selavatar = 'SELECT * FROM avatar WHERE id = @id AND v > @v'
 const selsecret = 'SELECT * FROM secret WHERE id = @id AND v > @v'
 const selcontact = 'SELECT * FROM contact WHERE id = @id AND v > @v'
 const selardoise = 'SELECT * FROM ardoise WHERE id = @id '
 const selcontactIdIc = 'SELECT * FROM contact WHERE id = @id AND ic = @ic'
 const selrencontre = 'SELECT * FROM rencontre WHERE id = @id AND v > @v'
 const selparrain = 'SELECT * FROM parrain WHERE id = @id AND v > @v'
-const selgroupe = 'SELECT * FROM groupe WHERE id = @id AND v > @v'
 const selgroupeId = 'SELECT * FROM groupe WHERE id = @id'
 const selmembre = 'SELECT * FROM membre WHERE id = @id AND v > @v'
 const selmembreIdIm = 'SELECT * FROM membre WHERE id = @id AND im = @im'
@@ -814,24 +812,107 @@ function regulCtTr (cfg, args, rowItems) {
 }
 
 /*****************************************
-Chargement des avatars d'un compte
+Chargement les avatars d'un compte
+args :
 - sessionId
 - idsVers : map de clé:id de l'avatar, valeur: version détenue en session
+- idc : id du compte
+- vc : version du compte
+Retour
+- rowItems
+- ok : true si le compte a toujours la version vc
 */
 async function chargerAv (cfg, args) {
   checkSession(args.sessionId)
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const rowItems = []
-  for(const id in args.idsVers) {
-    const rows = stmt(cfg, selavatar).all({ id, v: args.idsVers[id] })
-    rows.forEach((row) => {
-      rowItems.push(newItem('avatar', row))
-    })
-  }
+  cfg.db.transaction(chargerAvTr)(cfg, args)
   result.rowItems = rowItems
+  result.ok = args.ok
   return result
 }
 m1fonctions.chargerAv = chargerAv
+
+const selavatar = 'SELECT * FROM avatar WHERE id = @id AND v > @v'
+
+function chargerAvTr(cfg, args, rowItems) {
+  const c = stmt(cfg, selcompteid).get({ id : args.idc })
+  if (!c) { args.ok = false; return }
+  for(const id in args.idsVers) {
+    const row = stmt(cfg, selavatar).get({ id, v: args.idsVers[id] })
+    if (row) rowItems.push(newItem('avatar', row))
+    args.ok = true
+  }
+}
+
+/*****************************************
+Chargement les groupes d'un compte
+args :
+- sessionId
+- idsVers : map de clé:id du groupe, valeur: version détenue en session
+- idc : id du compte
+- vc : version du compte
+Retour
+- rowItems
+- ok : true si le compte a toujours la version vc
+*/
+async function chargerGr (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const rowItems = []
+  cfg.db.transaction(chargerGrTr)(cfg, args)
+  result.rowItems = rowItems
+  result.ok = args.ok
+  return result
+}
+m1fonctions.chargerGr = chargerGr
+
+const selgroupe = 'SELECT * FROM groupe WHERE id = @id AND v > @v'
+
+function chargerGrTr(cfg, args, rowItems) {
+  const c = stmt(cfg, selcompteid).get({ id : args.idc })
+  if (!c) { args.ok = false; return }
+  for(const id in args.idsVers) {
+    const row = stmt(cfg, selgroupe).get({ id, v: args.idsVers[id] })
+    if (row) rowItems.push(newItem('groupe', row))
+    args.ok = true
+  }
+}
+
+/*****************************************
+Chargement les couples d'un compte
+args :
+- sessionId
+- idsVers : map de clé:id du groupe, valeur: version détenue en session
+- idc : id du compte
+- vc : version du compte
+Retour
+- rowItems
+- ok : true si le compte a toujours la version vc
+*/
+async function chargerCp (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const rowItems = []
+  cfg.db.transaction(chargerCpTr)(cfg, args)
+  result.rowItems = rowItems
+  result.ok = args.ok
+  return result
+}
+m1fonctions.chargerCp = chargerCp
+
+const selcouple = 'SELECT * FROM couple WHERE id = @id AND v > @v'
+
+function chargerCpTr(cfg, args, rowItems) {
+  const c = stmt(cfg, selcompteid).get({ id : args.idc })
+  if (!c) { args.ok = false; return }
+  for(const id in args.idsVers) {
+    const row = stmt(cfg, selcouple).get({ id, v: args.idsVers[id] })
+    if (row) rowItems.push(newItem('couple', row))
+    args.ok = true
+  }
+}
+
 
 /*****************************************
 Chargement des invitGr des avatars d'un compte

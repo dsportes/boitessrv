@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS "secret" (
 	"id"	INTEGER,
 	"ns"	INTEGER,
 	"v"	INTEGER,
+  "x" INTEGER,
 	"st"	INTEGER,
 	"xp"	INTEGER,
 	"v1"	INTEGER,
@@ -155,7 +156,7 @@ CREATE INDEX "id_v_groupe" ON "groupe" (
 );
 CREATE INDEX "dfh_groupe" ON "groupe" ( "dfh" ) WHERE "dfh" > 0;
 
-CREATE TABLE "repertoire" (
+CREATE TABLE "cv" (
   "id"	INTEGER,
   "v" INTEGER,
   "x" INTEGER,
@@ -164,6 +165,6 @@ CREATE TABLE "repertoire" (
   "vsh" INTEGER,
   PRIMARY KEY("id")
   ) WITHOUT ROWID;
-CREATE INDEX "id_v_repertoire" ON "repertoire" ( "id", "v");
-CREATE INDEX "dds_repertoire" ON "repertoire" ( "dds" ) WHERE "dds" > 0;
-CREATE INDEX "x_repertoire" ON "repertoire" ( "x" ) WHERE "x" = 1;
+CREATE INDEX "id_v_cv" ON "cv" ( "id", "v");
+CREATE INDEX "dds_cv" ON "cv" ( "dds" ) WHERE "dds" > 0;
+CREATE INDEX "x_cv" ON "cv" ( "x" ) WHERE "x" = 1;
