@@ -96,10 +96,10 @@ function stmt (cfg, sql) {
 }
 
 /******************************************
-Si la dds actuelle de l'avatar ou du groupe n'a pas plus de 14 jours, elle convient encore.
+Si la dds actuelle de l'avatar ou du groupe ou du couple n'a pas plus de 14 jours, elle convient encore.
 Sinon il faut en réattribuer une qui ait entre 0 et 14 d'âge.
 */
-function ddsAvatarGroupe (dds) {
+function ddsAvatarGroupeCouple (dds) {
   const j = new DateJour().nbj
   return ((j - dds) > 14) ? j - Math.floor(Math.random() * 14) : dds
 }
@@ -177,7 +177,18 @@ const inscv = 'INSERT INTO cv (id, v, x, dds, cv, vsh) '
   + 'VALUES (@id, @v, @x, @dds, @cv, @vsh)'
 
 const selavatarid = 'SELECT * FROM avatar WHERE id = @id'
+// eslint-disable-next-line no-unused-vars
+const selgroupeid = 'SELECT * FROM groupe WHERE id = @id'
+// eslint-disable-next-line no-unused-vars
+const selcoupleid = 'SELECT * FROM couple WHERE id = @id'
+// eslint-disable-next-line no-unused-vars
+const selcontactphch = 'SELECT * FROM contact WHERE phch = @phch'
+const selcvid = 'SELECT * FROM cv WHERE id = @id'
 const selsecretidns = 'SELECT * FROM secret WHERE id = @id AND ns = @ns'
+// eslint-disable-next-line no-unused-vars
+const selmembreidim = 'SELECT * FROM membre WHERE id = @id AND im = @im'
+// eslint-disable-next-line no-unused-vars
+const selinvitgridni = 'SELECT * FROM invitgr WHERE id = @id AND ni = @ni'
 const selcompteid = 'SELECT * FROM compte WHERE id = @id'
 const selprefsid = 'SELECT * FROM prefs WHERE id = @id'
 const selcomptaid = 'SELECT * FROM compta WHERE id = @id'
@@ -221,7 +232,7 @@ function creationCompte (cfg, args) {
   setValue(cfg, VERSIONS)
 
   compta.dds = new DateJour().nbj
-  avatar.dds = ddsAvatarGroupe(0)
+  avatar.dds = ddsAvatarGroupeCouple(0)
   const avrsa1 = { id: avatar.id, clepub: args.clePubAv, vsh: 0 }
   const avrsa2 = { id: compte.id, clepub: args.clePubC, vsh: 0 }
   const dh = new Date().getTime()
@@ -256,6 +267,161 @@ function creationCompteTr (cfg, session, compte, compta, prefs, ardoise, avatar,
   session.plusAvatars([avatar.id])
 }
 
+/************************************************************
+Connexion à un compte
+Détermine si les hash de la phrase secrète en argument correspond à un compte.
+RAZ des abonnements en cours et abonnement au compte
+args
+- dpbh
+- pcbh
+- vcompte vprefs vcompta
+Retour
+- rowCompte, rowPrefs, rowCompa (null si pas plus récent)
+- estComtable si la phrase du compte est enregistrée comme comptable dans la configuration
+*/
+async function connexionCompte (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  cfg.db.transaction(connexionCompteTr)(cfg, args, result)
+  session.setCompte(args.id) // RAZ des abonnements et abonnement au compte
+  return result
+}
+m1fonctions.connexionCompte = connexionCompte
+
+const selcomptedpbh = 'SELECT * FROM compte WHERE dpbh = @dpbh'
+const selprefs = 'SELECT * FROM prefs WHERE id = @id AND v > @v'
+const selcompta = 'SELECT * FROM compta WHERE id = @id AND v > @v'
+
+function connexionCompteTr(cfg, args, result) {
+  const compte = stmt(cfg, selcomptedpbh).get({ dpbh: args.dpbh })
+  if (!compte || (compte.pcbh !== args.pcbh)) {
+    throw new AppExc(X_SRV, '08-Compte non authentifié : aucun compte n\'est déclaré avec cette phrase secrète')
+  }
+  args.id = compte.id
+  const prefs = stmt(cfg, selprefs).get({ id: compte.id, v: args.vprefs })
+  const compta = stmt(cfg, selcompta).get({ id: compte.id, v: args.vcompta })
+
+  result.rowCompte = compte.v > args.vcompte ? newItem('compte', compte) : null
+  result.rowPrefs = prefs ? newItem('prefs', prefs) : null
+  result.rowCompta = compta ? newItem('compta', compta) : null
+  result.estComptable = cfg.comptables.indexOf(compte.pcbh) !== -1
+}
+
+/*********************************************/
+const selavataridv = 'SELECT v FROM avatar WHERE id = @id'
+const selcompteidv = 'SELECT v FROM compte WHERE id = @id'
+/*****************************************
+Chargement les avatars d'un compte dont la version est plus récente que celle détenue en session
+Abonnemnts aux avatars
+Vérifie que le compte n'a pas changé de version
+args :
+- sessionId
+- idsVers : map de clé:id de l'avatar, valeur: version détenue en session
+- idc : id du compte
+- vc : version du compte
+Retour
+- rowItems : les avatars ayant une version plus récente
+- ok : true si le compte a toujours la version vc
+*/
+async function chargerAv (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const rowItems = []
+  cfg.db.transaction(chargerAvTr)(cfg, args)
+  result.rowItems = rowItems
+  result.ok = args.ok
+  session.plusAvatars(Object.keys(args.idsVers))
+  return result
+}
+m1fonctions.chargerAv = chargerAv
+
+const selavatar = 'SELECT * FROM avatar WHERE id = @id AND v > @v'
+
+function chargerAvTr(cfg, args, rowItems) {
+  const c = stmt(cfg, selcompteidv).get({ id : args.idc })
+  if (!c || c.v > args.vc) { args.ok = false; return }
+  for(const id in args.idsVers) {
+    const row = stmt(cfg, selavatar).get({ id, v: args.idsVers[id] })
+    if (row) rowItems.push(newItem('avatar', row))
+    args.ok = true
+  }
+}
+
+/********************************************************
+Chargement des groupes et couples des avatars d'un compte
+Abonneents à ceux-ci
+Vérifie que les avatars du compte et le compte n'ont pas changé de version
+args :
+- sessionId
+- gridsVers, cpidsVers, avIdsVers : map de clé:id du groupe, valeur: version détenue en session
+- idc : id du compte
+- vc : version du compte
+Retour
+- rowItems : contient des groupes et des comptes 
+(ceux ayant une version supérieure à celle détenue en session)
+- ok : true si le compte et les avatars ont toujours la version indiquée
+*/
+async function chargerGrCp (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const rowItems = []
+  cfg.db.transaction(chargerGrCpTr)(cfg, args)
+  result.rowItems = rowItems
+  result.ok = args.ok
+  session.plusGroupes(Object.keys(args.gridsVers))
+  session.plusCouples(Object.keys(args.cpidsVers))
+  return result
+}
+m1fonctions.chargerGrCp = chargerGrCp
+
+const selgroupe = 'SELECT * FROM groupe WHERE id = @id AND v > @v'
+const selcouple = 'SELECT * FROM couple WHERE id = @id AND v > @v'
+
+function chargerGrCpTr(cfg, args, rowItems) {
+  const c = stmt(cfg, selcompteidv).get({ id : args.idc })
+  if (!c || c.v > args.vc) { args.ok = false; return }
+  const ids = []
+  for (const id in args.avidsVers) {
+    ids.push(id)
+    const a = stmt(cfg, selavataridv).get({ id : args.idc })
+    if (!a || a.v > args.avidsVers[id]) { args.ok = false; return }  
+  }
+  for(const id in args.gridsVers) {
+    ids.push(id)
+    const row = stmt(cfg, selgroupe).get({ id, v: args.gridsVers[id] })
+    if (row) rowItems.push(newItem('groupe', row))
+  }
+  for(const id in args.cpidsVers) {
+    ids.push(id)
+    const row = stmt(cfg, selcouple).get({ id, v: args.cpidsVers[id] })
+    if (row) rowItems.push(newItem('couple', row))
+  }
+  signatures(cfg, args.idc, ids)
+  args.ok = true
+}
+
+const updddscompta = 'UPDATE compta SET dds = @dds WHERE id = @id'
+const updddscv= 'UPDATE cv SET dds = @dds WHERE id = @id'
+const ddscompta = 'SELECT dds FROM compta WHERE id = @id'
+const ddscv = 'SELECT dds FROM cv WHERE id = @id'
+
+function signatures (cfg, idc, lagc) {
+  if (idc) {
+    const a = stmt(cfg, ddscompta).get({ id: idc })
+    if (a) {
+      const j = new DateJour().nbj
+      if (a.dds < j) stmt(cfg, updddscompta).run({ id: idc, dds:j })
+    }
+  }
+  lagc.forEach((id) => {
+    const a = stmt(cfg, ddscv).get({ id: id })
+    if (a) {
+      const j = ddsAvatarGroupeCouple(a.dds)
+      if (a.dds < j) stmt(cfg, updddscv).run({ id: id, dds: j })
+    }
+  })
+}
+
 /* Creation nouvel avatar ****************************************
 - sessionId, clePub, idc (numéro du compte), vcav, mack, rowAvatar
 Retour :
@@ -282,7 +448,7 @@ function creationAvatar (cfg, args) {
   avatar.vcv = versions[0]
   setValue(cfg, VERSIONS)
 
-  avatar.dds = ddsAvatarGroupe(0)
+  avatar.dds = ddsAvatarGroupeCouple(0) // A REVOIR
   const avrsa = { id: avatar.id, clepub: args.clePub, vsh: 0 }
 
   const rowItems = []
@@ -413,45 +579,6 @@ function cvAvatarTr (cfg, id, v, cva, rowItems) {
   rowItems.push(newItem('cv', { id: id, vcv: v, st: a.st, cva: cva }))
 }
 
-/******************************************
-Détermine si les hash de la phrase secrète en argument correspond à un compte.
-RAZ des abonnements et abonnement au compte
-args
-- dpbh
-- pcbh
-- vcompte vprefs vcompta
-Retour
-- rowCompte, rowPrefs, rowCompa (null si pas plus récent)
-- estComtable si la phrase du compte est enregistrée comme comptable dans la configuration
-*/
-async function connexionCompte (cfg, args) {
-  const session = checkSession(args.sessionId)
-  const result = { sessionId: args.sessionId, dh: getdhc() }
-  cfg.db.transaction(connexionCompteTr)(cfg, args, result)
-  session.setCompte(args.id) // RAZ des abonnements et abonnement au compte
-  return result
-}
-m1fonctions.connexionCompte = connexionCompte
-
-const selcomptedpbh = 'SELECT * FROM compte WHERE dpbh = @dpbh'
-const selprefs = 'SELECT * FROM prefs WHERE id = @id AND v > @v'
-const selcompta = 'SELECT * FROM compta WHERE id = @id AND v > @v'
-
-function connexionCompteTr(cfg, args, result) {
-  const compte = stmt(cfg, selcomptedpbh).get({ dpbh: args.dpbh })
-  if (!compte || (compte.pcbh !== args.pcbh)) {
-    throw new AppExc(X_SRV, '08-Compte non authentifié : aucun compte n\'est déclaré avec cette phrase secrète')
-  }
-  args.id = compte.id
-  const prefs = stmt(cfg, selprefs).get({ id: compte.id, v: args.vprefs })
-  const compta = stmt(cfg, selcompta).get({ id: compte.id, v: args.vcompta })
-
-  result.rowCompte = compte.v > args.vcompte ? newItem('compte', compte) : null
-  result.rowPrefs = prefs ? newItem('prefs', prefs) : null
-  result.rowCompta = compta ? newItem('compta', compta) : null
-  result.estComptable = cfg.comptables.indexOf(compte.pcbh) !== -1
-}
-
 /**************************************** */
 const selavgrvqid = ''
 const updavgrvq = ''
@@ -466,7 +593,7 @@ const selmembre = 'SELECT * FROM membre WHERE id = @id AND v > @v'
 const selmembreIdIm = 'SELECT * FROM membre WHERE id = @id AND im = @im'
 
 /* Régularisation Groupe ****************************************
-Mise à jour de lgck dans l'avatar et suppression du row invitgr
+Mise à jour de lgrk dans l'avatar et suppression du row invitgr
 args
 - id : de l'avatar
 - idg: id du groupe
@@ -555,146 +682,6 @@ function regulAvTr (cfg, session, args, rowItems) {
   }
 }
 
-/* Régularisation Contact *****************************************/
-/* args
-- id : de l'avatar
-- ic : index du contact
-- datak : datak à insrire et mise à null de datap
-*/
-
-const upd2contact = 'UPDATE contact SET v = @v, datak = @datak, datap = null WHERE id = @id AND ic = @ic'
-
-async function regulCt (cfg, args) {
-  checkSession(args.sessionId)
-  const dh = getdhc()
-  const result = { sessionId: args.sessionId, dh: dh }
-  
-  const versions = getValue(cfg, VERSIONS)
-  const j = idx(args.id)
-  versions[j]++
-  args.v = versions[j] // version des rows parrain
-  setValue(cfg, VERSIONS)
-
-  const rowItems = []
-  cfg.db.transaction(regulCtTr)(cfg, args, rowItems)
-
-  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
-  setImmediate(() => { processQueue() })
-  return result
-}
-m1fonctions.regulCt = regulCt
-
-function regulCtTr (cfg, args, rowItems) {
-  const c = stmt(cfg, selcontactIdIc).get({ id: args.id, ic: args.ic })
-  if (!c || c.datap === null) return // étrange ou déjà fait
-  c.c = args.v
-  c.datak = args.datak
-  stmt(cfg, upd2contact).run(c)
-  rowItems.push(newItem('contact', c))
-}
-
-/*****************************************
-Chargement les avatars d'un compte
-args :
-- sessionId
-- idsVers : map de clé:id de l'avatar, valeur: version détenue en session
-- idc : id du compte
-- vc : version du compte
-Retour
-- rowItems
-- ok : true si le compte a toujours la version vc
-*/
-async function chargerAv (cfg, args) {
-  checkSession(args.sessionId)
-  const result = { sessionId: args.sessionId, dh: getdhc() }
-  const rowItems = []
-  cfg.db.transaction(chargerAvTr)(cfg, args)
-  result.rowItems = rowItems
-  result.ok = args.ok
-  return result
-}
-m1fonctions.chargerAv = chargerAv
-
-const selavatar = 'SELECT * FROM avatar WHERE id = @id AND v > @v'
-
-function chargerAvTr(cfg, args, rowItems) {
-  const c = stmt(cfg, selcompteid).get({ id : args.idc })
-  if (!c) { args.ok = false; return }
-  for(const id in args.idsVers) {
-    const row = stmt(cfg, selavatar).get({ id, v: args.idsVers[id] })
-    if (row) rowItems.push(newItem('avatar', row))
-    args.ok = true
-  }
-}
-
-/*****************************************
-Chargement les groupes d'un compte
-args :
-- sessionId
-- idsVers : map de clé:id du groupe, valeur: version détenue en session
-- idc : id du compte
-- vc : version du compte
-Retour
-- rowItems
-- ok : true si le compte a toujours la version vc
-*/
-async function chargerGr (cfg, args) {
-  checkSession(args.sessionId)
-  const result = { sessionId: args.sessionId, dh: getdhc() }
-  const rowItems = []
-  cfg.db.transaction(chargerGrTr)(cfg, args)
-  result.rowItems = rowItems
-  result.ok = args.ok
-  return result
-}
-m1fonctions.chargerGr = chargerGr
-
-const selgroupe = 'SELECT * FROM groupe WHERE id = @id AND v > @v'
-
-function chargerGrTr(cfg, args, rowItems) {
-  const c = stmt(cfg, selcompteid).get({ id : args.idc })
-  if (!c) { args.ok = false; return }
-  for(const id in args.idsVers) {
-    const row = stmt(cfg, selgroupe).get({ id, v: args.idsVers[id] })
-    if (row) rowItems.push(newItem('groupe', row))
-    args.ok = true
-  }
-}
-
-/*****************************************
-Chargement les couples d'un compte
-args :
-- sessionId
-- idsVers : map de clé:id du groupe, valeur: version détenue en session
-- idc : id du compte
-- vc : version du compte
-Retour
-- rowItems
-- ok : true si le compte a toujours la version vc
-*/
-async function chargerCp (cfg, args) {
-  checkSession(args.sessionId)
-  const result = { sessionId: args.sessionId, dh: getdhc() }
-  const rowItems = []
-  cfg.db.transaction(chargerCpTr)(cfg, args)
-  result.rowItems = rowItems
-  result.ok = args.ok
-  return result
-}
-m1fonctions.chargerCp = chargerCp
-
-const selcouple = 'SELECT * FROM couple WHERE id = @id AND v > @v'
-
-function chargerCpTr(cfg, args, rowItems) {
-  const c = stmt(cfg, selcompteid).get({ id : args.idc })
-  if (!c) { args.ok = false; return }
-  for(const id in args.idsVers) {
-    const row = stmt(cfg, selcouple).get({ id, v: args.idsVers[id] })
-    if (row) rowItems.push(newItem('couple', row))
-    args.ok = true
-  }
-}
-
 /*****************************************
 Chargement des invitGr des avatars d'un compte
 - sessionId, ids (array des ids des avatars)
@@ -779,56 +766,6 @@ async function syncGr (cfg, args) {
 m1fonctions.syncGr = syncGr
 
 /******************************************
-Abonnement de la session aux compte et listes d'avatars et de groupes et signatures
-- sessionId
-- idc : id du compte
-- lav : array des ids des avatars
-- lgr : array des ids des groupes
-*/
-async function syncAbo (cfg, args) {
-  const result = { sessionId: args.sessionId, dh: getdhc() }
-  const session = checkSession(args.sessionId)
-
-  // Abonnements
-  session.compteId = args.idc
-  session.avatarsIds = new Set(args.lav)
-  session.groupesIds = new Set(args.lgr)
-
-  // Signatures
-  if (args.sign) {
-    cfg.db.transaction(signaturesTr)(cfg, args.idc, args.lav, args.lgr)
-  }
-
-  return result
-}
-
-const updddsc = 'UPDATE compta SET dds = @dds WHERE id = @id'
-const updddsa= 'UPDATE avatar SET dds = @dds WHERE id = @id'
-const updddsg = 'UPDATE groupe SET dds = @dds WHERE id = @id'
-const ddsc = 'SELECT dds FROM compta WHERE id = @id'
-const ddsa = 'SELECT dds FROM avatar WHERE id = @id'
-const ddsg = 'SELECT dds FROM groupe WHERE id = @id'
-
-function signaturesTr (cfg, idc, lav, lgr) {
-  const a = stmt(cfg, ddsc).get({ id: idc })
-  const j = new DateJour().nbj
-  if (a < j) stmt(cfg, updddsc).run({ id: idc, dds:j })
-
-  lav.forEach((id) => {
-    const a = stmt(cfg, ddsa).get({ id: id })
-    const j = ddsAvatarGroupe(a)
-    if (a < j) stmt(cfg, updddsa).run({ id: id, dds: j })
-  })
-
-  lgr.forEach((id) => {
-    const a = stmt(cfg, ddsg).get({ id: id })
-    const j = ddsAvatarGroupe(a)
-    if (a < j) stmt(cfg, updddsg).run({ id: id, dds: j })
-  })
-}
-m1fonctions.syncAbo = syncAbo
-
-/******************************************
 Chargement des CVs :
 - celles de lcvmaj si changées après vcv
 - celles de lcvchargt sans filtre de version
@@ -875,17 +812,17 @@ async function chargtCVs (cfg, args) {
 m1fonctions.chargtCVs = chargtCVs
 
 /*****************************************
-getcv : retourne la CV d'un avatar
+!!GET!! getcv : retourne la CV d'un avatar
 args : 
 -sessionId
 -sid de l'avatar
 */
 const bytes0 = new Uint8Array(0)
-const selcv = 'SELECT id, st, vcv, cva FROM avatar WHERE id = @id'
+
 async function getcv (cfg, args) {
   checkSession(args.sessionId)
   try {
-    const c = stmt(cfg, selcv).get({ id: crypt.sidToId(args.sid) })
+    const c = stmt(cfg, selcvid).get({ id: crypt.sidToId(args.sid) })
     if (!c) return { bytes0 }
     const buf = schemas.serialize('rowcv', c)
     return { bytes: buf }
@@ -897,12 +834,13 @@ async function getcv (cfg, args) {
 m1fonctions.getcv = getcv
 
 /*****************************************
-getclepub : retourne la clé publique d'un avatar
+!!GET!! getclepub : retourne la clé publique d'un avatar
 args : 
 -sessionId
 -sid de l'avatar
 */
 const selavrsapub = 'SELECT clepub FROM avrsa WHERE id = @id'
+
 async function getclepub (cfg, args) {
   checkSession(args.sessionId)
   try {
@@ -1507,7 +1445,7 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
   stmt(cfg, insprefs).run(prefs)
 
   avatar.v = args.vf
-  avatar.dds = ddsAvatarGroupe(0)
+  avatar.dds = ddsAvatarGroupeCouple(0)
   stmt(cfg, insavatar).run(avatar)
 
   // Clé RSA du filleul
@@ -1717,7 +1655,7 @@ async function creationGroupe (cfg, args) {
   let j = idx(groupe.id)
   versions[j]++
   groupe.v = versions[j] // version du groupe
-  groupe.dds = ddsAvatarGroupe(0)
+  groupe.dds = ddsAvatarGroupeCouple(0)
   membre.v = versions[j]
 
   j = idx(args.ida)

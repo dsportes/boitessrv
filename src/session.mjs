@@ -76,6 +76,7 @@ export class Session {
     this.compteId = null
     this.avatarsIds = new Set() // Set
     this.groupesIds = new Set // Set
+    this.couplesIds = new Set // Set
     this.cvsIds = new Set() // Set
   }
 
@@ -92,6 +93,10 @@ export class Session {
     if (ar && ar.length) ar.forEach(id => { this.groupesIds.add(id) })
   }
 
+  plusCouples (ar) {
+    if (ar && ar.length) ar.forEach(id => { this.couplesIds.add(id) })
+  }
+
   plusCvs (ar) {
     if (ar && ar.length) ar.forEach(id => { this.cvsIds.add(id) })
   }
@@ -102,6 +107,10 @@ export class Session {
 
   agroupe (rowItem) {
     return this.groupesIds && this.groupesIds.has(rowItem.id)
+  }
+
+  acouple (rowItem) {
+    return this.couplesIds && this.couplesIds.has(rowItem.id)
   }
 
   acv (rowItem) {
@@ -117,10 +126,6 @@ export class Session {
     const msg = { sessionId: this.sessionId, dh: syncList.dh, rowItems: [] }
     syncList.rowItems.forEach((rowItem) => {
       switch (rowItem.table) {
-      case 'avatar' : {
-        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
-        break
-      }
       case 'compte' : {
         if (rowItem.id === this.compteId) msg.rowItems.push(rowItem)
         break
@@ -133,11 +138,7 @@ export class Session {
         if (rowItem.id === this.compteId) msg.rowItems.push(rowItem)
         break
       }
-      case 'ardoise' : {
-        if (rowItem.id === this.compteId) msg.rowItems.push(rowItem)
-        break
-      }
-      case 'contact' : {
+      case 'avatar' : {
         if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
         break
       }
@@ -145,28 +146,24 @@ export class Session {
         if (this.agroupe(rowItem)) msg.rowItems.push(rowItem)
         break
       }
-      case 'invitgr' : {
-        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
+      case 'couple' : {
+        if (this.acouple(rowItem)) msg.rowItems.push(rowItem)
         break
       }
       case 'membre' : {
         if (this.agroupe(rowItem)) msg.rowItems.push(rowItem)
         break
       }
-      case 'parrain' : {
-        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
-        break
-      }
-      case 'rencontre' : {
-        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
-        break
-      }
       case 'secret' : {
-        if (this.aavatar(rowItem) || this.agroupe(rowItem) ) msg.rowItems.push(rowItem)
+        if (this.aavatar(rowItem) || this.agroupe(rowItem) || this.acouple(rowItem)) msg.rowItems.push(rowItem)
         break
       }
       case 'cv' : {
         if (this.acv(rowItem)) msg.rowItems.push(rowItem)
+        break
+      }
+      case 'invitgr' : {
+        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
         break
       }
       }
