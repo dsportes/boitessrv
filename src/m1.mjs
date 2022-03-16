@@ -1,14 +1,12 @@
 import { crypt } from './crypto.mjs'
-import { getdhc, sleep, deserial, serial, mcsToU8, u8ToMcs } from './util.mjs'
+import { getdhc, sleep, deserial, serial } from './util.mjs'
 import { getSession, syncListQueue, processQueue } from './session.mjs'
-import { AppExc, X_SRV, E_WS, A_SRV, INDEXT, DateJour, Compteurs, MC } from './api.mjs'
+import { AppExc, X_SRV, E_WS, A_SRV, INDEXT, DateJour, Compteurs } from './api.mjs'
 import { schemas } from './schemas.mjs'
 import { putFile, delFile } from './storage.mjs'
 
 export const m1fonctions = { }
 const VERSIONS = 1
-const NBEARD = 10
-const ANCARD = 86400000 * 56
 
 // eslint-disable-next-line no-unused-vars
 const dev = process.env.NODE_ENV === 'development'
@@ -178,12 +176,11 @@ const insinvitgr = 'INSERT INTO invitgr (id, ni, datap) '
 const inscv = 'INSERT INTO cv (id, v, x, dds, cv, vsh) '
   + 'VALUES (@id, @v, @x, @dds, @cv, @vsh)'
 
-const selcomptedpbh = 'SELECT * FROM compte WHERE dpbh = @dpbh'
-const selprefsid = 'SELECT * FROM prefs WHERE id = @id'
-const selcomptaid = 'SELECT * FROM compta WHERE id = @id'
 const selavatarid = 'SELECT * FROM avatar WHERE id = @id'
 const selsecretidns = 'SELECT * FROM secret WHERE id = @id AND ns = @ns'
 const selcompteid = 'SELECT * FROM compte WHERE id = @id'
+const selprefsid = 'SELECT * FROM prefs WHERE id = @id'
+const selcomptaid = 'SELECT * FROM compta WHERE id = @id'
 
 function idx (id) {
   return (id % (nbVersions - 1)) + 1
@@ -418,32 +415,42 @@ function cvAvatarTr (cfg, id, v, cva, rowItems) {
 
 /******************************************
 Détermine si les hash de la phrase secrète en argument correspond à un compte.
-args = { dpbh, pcbh }
-Retour = compte, prefs
+RAZ des abonnements et abonnement au compte
+args
+- dpbh
+- pcbh
+- vcompte vprefs vcompta
+Retour
+- rowCompte, rowPrefs, rowCompa (null si pas plus récent)
+- estComtable si la phrase du compte est enregistrée comme comptable dans la configuration
 */
 async function connexionCompte (cfg, args) {
-  checkSession(args.sessionId)
+  const session = checkSession(args.sessionId)
   const result = { sessionId: args.sessionId, dh: getdhc() }
-  const c = stmt(cfg, selcomptedpbh).get({ dpbh: args.dpbh })
-  if (!c || (c.pcbh !== args.pcbh)) {
-    throw new AppExc(X_SRV, '08-Compte non authentifié : aucun compte n\'est déclaré avec cette phrase secrète')
-  }
-  const p = stmt(cfg, selprefsid).get({ id: c.id })
-  if (!p) throw new AppExc(A_SRV, '09-Données de préférence absentes')
-
-  const compta = stmt(cfg, selcomptaid).get({ id: c.id })
-  if (!compta) throw new AppExc(A_SRV, '10-Données de comptabilité absentes')
-  const ardoise = stmt(cfg, selardoise).get({ id: c.id })
-  if (!ardoise) throw new AppExc(A_SRV, '11-Données des échanges avec parrain / comptable absentes')
-
-  result.compte = newItem('compte', c)
-  result.prefs = newItem('prefs', p)
-  result.compta = newItem('compta', compta)
-  result.ardoise = newItem('ardoise', ardoise)
-  if (cfg.comptables.indexOf(c.pcbh) !== -1) result.estComptable = true
+  cfg.db.transaction(connexionCompteTr)(cfg, args, result)
+  session.setCompte(args.id) // RAZ des abonnements et abonnement au compte
   return result
 }
 m1fonctions.connexionCompte = connexionCompte
+
+const selcomptedpbh = 'SELECT * FROM compte WHERE dpbh = @dpbh'
+const selprefs = 'SELECT * FROM prefs WHERE id = @id AND v > @v'
+const selcompta = 'SELECT * FROM compta WHERE id = @id AND v > @v'
+
+function connexionCompteTr(cfg, args, result) {
+  const compte = stmt(cfg, selcomptedpbh).get({ dpbh: args.dpbh })
+  if (!compte || (compte.pcbh !== args.pcbh)) {
+    throw new AppExc(X_SRV, '08-Compte non authentifié : aucun compte n\'est déclaré avec cette phrase secrète')
+  }
+  args.id = compte.id
+  const prefs = stmt(cfg, selprefs).get({ id: compte.id, v: args.vprefs })
+  const compta = stmt(cfg, selcompta).get({ id: compte.id, v: args.vcompta })
+
+  result.rowCompte = compte.v > args.vcompte ? newItem('compte', compte) : null
+  result.rowPrefs = prefs ? newItem('prefs', prefs) : null
+  result.rowCompta = compta ? newItem('compta', compta) : null
+  result.estComptable = cfg.comptables.indexOf(compte.pcbh) !== -1
+}
 
 /**************************************** */
 const selavgrvqid = ''
@@ -451,237 +458,12 @@ const updavgrvq = ''
 
 const selsecret = 'SELECT * FROM secret WHERE id = @id AND v > @v'
 const selcontact = 'SELECT * FROM contact WHERE id = @id AND v > @v'
-const selardoise = 'SELECT * FROM ardoise WHERE id = @id '
 const selcontactIdIc = 'SELECT * FROM contact WHERE id = @id AND ic = @ic'
 const selrencontre = 'SELECT * FROM rencontre WHERE id = @id AND v > @v'
 const selparrain = 'SELECT * FROM parrain WHERE id = @id AND v > @v'
 const selgroupeId = 'SELECT * FROM groupe WHERE id = @id'
 const selmembre = 'SELECT * FROM membre WHERE id = @id AND v > @v'
 const selmembreIdIm = 'SELECT * FROM membre WHERE id = @id AND im = @im'
-
-const updardoise1 = 'UPDATE ardoise SET v = @v, dhe = @dhe, mcp = @mcp, mcc = @mcc, data = @data, vsh = @vsh WHERE id = @id'
-const updardoise2 = 'UPDATE ardoise SET v = @v, dhl = @dhl, data = @data, vsh = @vsh WHERE id = @id'
-const updardoise3 = 'UPDATE ardoise SET v = @v, mcp = @mcp, data = @data, vsh = @vsh WHERE id = @id'
-const updardoise4 = 'UPDATE ardoise SET v = @v, mcc = @mcc, data = @data, vsh = @vsh WHERE id = @id'
-
-/****************************************
-Get ardoise par son id
-- `sessionId`
-- `id` : id du compte titulaire
-Retour : sessionId, dh, ardoise
-*/
-async function getArdoise (cfg, args) {
-  checkSession(args.sessionId)
-  args.dh = getdhc()
-  const result = { sessionId: args.sessionId, dh: args.dh }
-  const row = stmt(cfg, selardoise).get({ id: args.id })
-  result.ardoise = row ? newItem('ardoise', row) : null
-  return result
-}
-m1fonctions.getArdoise = getArdoise
-
-/****************************************
-Get ardoises des filleuls d'un parrain
-- `sessionId`
-- `id` : id du parrain
-Retour : sessionId, dh, ardoise
-*/
-const selardoisesF = 'SELECT * FROM ardoise WHERE id IN (SELECT id FROM compta WHERE idp = @id)'
-
-async function getArdoisesFilleuls (cfg, args) {
-  checkSession(args.sessionId)
-  args.dh = getdhc()
-  const result = { sessionId: args.sessionId, dh: args.dh }
-  const rowItems = []
-  const rows = stmt(cfg, selardoisesF).all({ id: args.id })
-  for (const row of rows) {
-    rowItems.push(newItem('ardoise', row))
-  }
-  result.ardoises = rowItems
-  return result
-}
-m1fonctions.getArdoisesFilleuls = getArdoisesFilleuls
-
-/** Echange ardoise **************************************
-- `id` : du compte.
-- `v` :
-- `dhe` : date-heure de dernière mise à jour.
-- `dhl` : date-heure de dernière lecture par le titulaire
-- `mcp` : mots clés du parrain - String de la forme `245/232/114/`
-- `mcc` : mots clés du comptable
-- `data`: contenu sérialisé _crypté soft_ de l'ardoise. Array des échanges :
-  - `dh` : date-heure d'écriture de l'échange
-  - `aut`: auteur : 0:titulaire du compte, 1:parrain du compte, 2:comptable
-  - `texte`: texte
-- `vsh`:
-Echange sur l'ardoise : args
-- sessionId
-- `id` : id du compte titulaire
-- `aut` : émis par, 0 - le compte, 1 - son parrain, 2 - le comptable
-- `texte` : texte.
-Insertion d'un échange en tête. Mots clés "nouveau" ajoutés
-Ardoise.data : serial crypté soft de [ {dh, idf, idp, em, texte} ]
-*/
-async function echangeArdoise (cfg, args) {
-  checkSession(args.sessionId)
-  args.dh = getdhc()
-  const result = { sessionId: args.sessionId, dh: args.dh }
-  const rowItems = []
-
-  const versions = getValue(cfg, VERSIONS)
-  const j = idx(args.id)
-  versions[j]++
-  setValue(cfg, VERSIONS)
-  args.v = versions[j]
-
-  cfg.db.transaction(echangeArdoiseTr)(cfg, args, rowItems)
-  syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
-  setImmediate(() => { processQueue() })
-  return result
-}
-m1fonctions.echangeArdoise = echangeArdoise
-
-function echangeArdoiseTr (cfg, args, rowItems) {
-  const row = stmt(cfg, selardoise).get({ id: args.id })
-  if (!row) return // ne devrait pas arriver : compte perdu ?
-  const x = row.data ? deserial(crypt.decryptersoft(row.data)) : []
-  const y = [{ dh: args.dh, em: args.em, texte: args.texte}]
-  x.forEach(e => { if (y.length < NBEARD || (args.dh - e.dh < ANCARD)) y.push(e) })
-  row.data = crypt.cryptersoft(serial(y))
-  row.dhe = args.dh
-  row.v = args.v
-  const mcp = row.mcp ? mcsToU8(row.mcp) : new Uint8Array()
-  const mcc = row.mcp ? mcsToU8(row.mcc) : new Uint8Array()
-  if (args.aut === 0) {
-    if (mcp.indexOf(MC.NOUVEAU) === -1) {
-      mcp.push(MC.NOUVEAU)
-      row.mcp = u8ToMcs(mcp)
-    }
-    if (mcc.indexOf(MC.NOUVEAU) === -1) {
-      mcc.push(MC.NOUVEAU)
-      row.mcc = u8ToMcs(mcc)
-    }
-  } else if (args.aut === 1) {
-    if (mcc.indexOf(MC.NOUVEAU) === -1) {
-      mcc.push(MC.NOUVEAU)
-      row.mcc = u8ToMcs(mcc)
-    }
-  } else  if (args.aut === 2) {
-    if (mcp.indexOf(MC.NOUVEAU) === -1) {
-      mcp.push(MC.NOUVEAU)
-      row.mcp = u8ToMcs(mcp)
-    }
-  }
-  stmt(cfg, updardoise1).run(row)
-  rowItems.push(newItem('ardoise', row))
-}
-/**Lecture ardoise par le compte *******************************
-Args : sessionId, id
-*/
-async function lectureArdoise (cfg, args) {
-  args.dh = getdhc()
-  const result = { sessionId: args.sessionId, dh: args.dh }
-  const rowItems = []
-
-  const versions = getValue(cfg, VERSIONS)
-  const j = idx(args.id)
-  versions[j]++
-  setValue(cfg, VERSIONS)
-  args.v = versions[j]
-
-  cfg.db.transaction(lectureArdoiseTr)(cfg, args, rowItems)
-  syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
-  setImmediate(() => { processQueue() })
-  return result
-}
-m1fonctions.lectureArdoise = lectureArdoise
-
-function lectureArdoiseTr (cfg, args, rowItems) {
-  const row = stmt(cfg, selardoise).get({ id: args.id })
-  if (!row) return // ne devrait pas arriver : compte perdu ?
-
-  const x = row.data ? deserial(crypt.decryptersoft(row.data)) : []
-  const y = []
-  x.forEach(e => { if (y.length < NBEARD || (args.dh - e.dh < ANCARD)) y.push(e) })
-  row.data = crypt.cryptersoft(serial(y))
-
-  row.dhl = args.dhl
-  row.v = args.v
-  stmt(cfg, updardoise2).run(row)
-  rowItems.push(newItem('ardoise', row))
-}
-
-/**Mots clés parrain ardoise *******************************
-Args : sessionId, id, mc (string)
-*/
-async function mcpArdoise (cfg, args) {
-  args.dh = getdhc()
-  const result = { sessionId: args.sessionId, dh: args.dh }
-  const rowItems = []
-
-  const versions = getValue(cfg, VERSIONS)
-  const j = idx(args.id)
-  versions[j]++
-  setValue(cfg, VERSIONS)
-  args.v = versions[j]
-
-  cfg.db.transaction(mcpArdoiseTr)(cfg, args, rowItems)
-  syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
-  setImmediate(() => { processQueue() })
-  return result
-}
-m1fonctions.mcpArdoise = mcpArdoise
-
-function mcpArdoiseTr (cfg, args, rowItems) {
-  const row = stmt(cfg, selardoise).get({ id: args.id })
-  if (!row) return // ne devrait pas arriver : compte perdu ?
-
-  const x = row.data ? deserial(crypt.decryptersoft(row.data)) : []
-  const y = []
-  x.forEach(e => { if (y.length < NBEARD || (args.dh - e.dh < ANCARD)) y.push(e) })
-  row.data = crypt.cryptersoft(serial(y))
-
-  row.mcp = args.mc
-  row.v = args.v
-  stmt(cfg, updardoise3).run(row)
-  rowItems.push(newItem('ardoise', row))
-}
-
-/**Mots clés comptable ardoise *******************************
-Args : sessionId, id, mc (string)
-*/
-async function mccArdoise (cfg, args) {
-  args.dh = getdhc()
-  const result = { sessionId: args.sessionId, dh: args.dh }
-  const rowItems = []
-
-  const versions = getValue(cfg, VERSIONS)
-  const j = idx(args.id)
-  versions[j]++
-  setValue(cfg, VERSIONS)
-  args.v = versions[j]
-
-  cfg.db.transaction(mccArdoiseTr)(cfg, args, rowItems)
-  syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
-  setImmediate(() => { processQueue() })
-  return result
-}
-m1fonctions.mccArdoise = mccArdoise
-
-function mccArdoiseTr (cfg, args, rowItems) {
-  const row = stmt(cfg, selardoise).get({ id: args.id })
-  if (!row) return // ne devrait pas arriver : compte perdu ?
-
-  const x = row.data ? deserial(crypt.decryptersoft(row.data)) : []
-  const y = []
-  x.forEach(e => { if (y.length < NBEARD || (args.dh - e.dh < ANCARD)) y.push(e) })
-  row.data = crypt.cryptersoft(serial(y))
-
-  row.mcc = args.mc
-  row.v = args.v
-  stmt(cfg, updardoise4).run(row)
-  rowItems.push(newItem('ardoise', row))
-}
 
 /* Régularisation Groupe ****************************************
 Mise à jour de lgck dans l'avatar et suppression du row invitgr
@@ -912,7 +694,6 @@ function chargerCpTr(cfg, args, rowItems) {
     args.ok = true
   }
 }
-
 
 /*****************************************
 Chargement des invitGr des avatars d'un compte

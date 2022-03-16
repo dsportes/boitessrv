@@ -34,10 +34,7 @@ export class Session {
     this.ws = ws
     this.dhping = 0
     this.sessionId = null
-    this.compteId = null
-    this.avatarsIds = new Set() // Set
-    this.groupesIds = new Set // Set
-    this.cvsIds = new Set() // Set
+    this.raz()
     this.nbpings = 0
     this.ws.onerror = (e) => {
       console.log(e)
@@ -72,7 +69,19 @@ export class Session {
         const buf = schemas.serialize('synclist', pong)
         this.ws.send(buf)
       }
-    }    
+    }
+  }
+
+  raz () {
+    this.compteId = null
+    this.avatarsIds = new Set() // Set
+    this.groupesIds = new Set // Set
+    this.cvsIds = new Set() // Set
+  }
+
+  setCompte (id) {
+    this.raz()
+    this.compteId = id
   }
 
   plusAvatars (ar) {
