@@ -46,8 +46,9 @@ export const MC = {
   ATRAITER: 245
 }
 
-export const t1n = new Set(['avatar', 'couple', 'groupe'])
-export const t2n = new Set(['membre', 'secret'])
+export const t0n = new Set(['compte', 'compta', 'prefs']) // singletons
+export const t1n = new Set(['avatar', 'couple', 'groupe']) // clé à 1 niveau
+export const t2n = new Set(['membre', 'secret']) // clé à 2 niveaux
 
 /*
 - `versions` (id) : table des prochains numéros de versions (actuel et dernière sauvegarde) et autres singletons clé / valeur

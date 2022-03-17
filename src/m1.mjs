@@ -422,6 +422,84 @@ function signatures (cfg, idc, lagc) {
   })
 }
 
+/********************************************************
+Chargement des secrets d'un objet maître (avatar / groupe / couple)
+dont la version est postérieure à v
+args :
+- sessionId
+- id : id de l'objet maître
+- v : version min
+Retour
+- rowItems : contient des rowItems de secrets
+(ceux ayant une version supérieure à celle détenue en session)
+*/
+async function chargerSc (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const rowItems = []
+  result.rowItems = rowItems
+  const rows = stmt(cfg, selsecret).all({ id: args.id, v: args.v })
+  rows.forEach((row) => {
+    result.rowItems.push(newItem('secret', row))
+  })
+  return result
+}
+m1fonctions.chargerSc = chargerSc
+
+/********************************************************
+Chargement des membre d'un groupe
+dont la version est postérieure à v
+args :
+- sessionId
+- id : id du groupe
+- v : version min
+Retour
+- rowItems : contient des rowItems de secrets
+(ceux ayant une version supérieure à celle détenue en session)
+*/
+async function chargerMb (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const rowItems = []
+  result.rowItems = rowItems
+  const rows = stmt(cfg, selmembre).all({ id: args.id, v: args.v })
+  rows.forEach((row) => {
+    result.rowItems.push(newItem('membre', row))
+  })
+  return result
+}
+m1fonctions.chargerMb = chargerMb
+
+/******************************************
+Chargement des CVs changées après v
+Abonnement à toutes celles de la liste
+args:
+- sessionId
+- v : version des CV
+- lids : liste des ids des CVs à retouner si postérieures à v
+*/
+const selcvin = 'SELECT * FROM cv WHERE v > @v AND id IN ('
+
+async function chargerCVs (cfg, args) {
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const session = checkSession(args.sessionId)
+  const rowItems = []
+
+  const lst = []
+  args.lcv.forEach((id) => { lst.push(id) })
+  // lst.push(3382219599812300) pour tester la syntaxe IN
+  const st = cfg.db.prepare(selcvin + args.lids.join(',') + ')')
+  const rows = st.all({ v: args.v })
+  for (const row of rows) {
+    rowItems.push(newItem('cv', row))
+  }
+  result.rowItems = rowItems
+
+  session.cvsIds = new Set(args.lids)
+  return result
+}
+m1fonctions.chargerCVs = chargerCVs
+
 /* Creation nouvel avatar ****************************************
 - sessionId, clePub, idc (numéro du compte), vcav, mack, rowAvatar
 Retour :
@@ -696,36 +774,6 @@ async function chargerInvitGr (cfg, args) {
   return result
 }
 m1fonctions.chargerInvitGr = chargerInvitGr
-
-/******************************************
-Chargement des CVs changées après v
-Abonnement à toutes celles de la liste
-args:
-- sessionId
-- v : version des CV
-- lids : liste des ids des CVs à retouner si postérieures à v
-*/
-const selcvin = 'SELECT * FROM cv WHERE v > @v AND id IN ('
-
-async function chargerCVs (cfg, args) {
-  const result = { sessionId: args.sessionId, dh: getdhc() }
-  const session = checkSession(args.sessionId)
-  const rowItems = []
-
-  const lst = []
-  args.lcv.forEach((id) => { lst.push(id) })
-  // lst.push(3382219599812300) pour tester la syntaxe IN
-  const st = cfg.db.prepare(selcvin + args.lids.join(',') + ')')
-  const rows = st.all({ v: args.v })
-  for (const row of rows) {
-    rowItems.push(newItem('cv', row))
-  }
-  result.rowItems = rowItems
-
-  session.cvsIds = new Set(args.lids)
-  return result
-}
-m1fonctions.chargerCVs = chargerCVs
 
 /*****************************************
 !!GET!! getcv : retourne la CV d'un avatar
