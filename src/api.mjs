@@ -46,17 +46,8 @@ export const MC = {
   ATRAITER: 245
 }
 
-export const SIZEAV = 2
-export const SIZEGR = 3
-export const SIZECP = 2
-
-export const INDEXT = {
-  SECRET: 0,
-  AVATAR: 1,
-  GROUPE: 1,
-  MEMBRE: 2,
-  COUPLE: 1
-}
+export const t1n = new Set(['avatar', 'couple', 'groupe'])
+export const t2n = new Set(['membre', 'secret'])
 
 /*
 - `versions` (id) : table des prochains numéros de versions (actuel et dernière sauvegarde) et autres singletons clé / valeur
@@ -67,7 +58,7 @@ __**Tables transmises au client**_
 - `compte` (id) : authentification et liste des avatars d'un compte
 - `prefs` (id) : données et préférences d'un compte
 - `compta` (id) : ligne comptable du compte
-- `repertoire` (id) : staut d'existence, signature et carte de visite des avatars, couples et groupes.
+- `cv` (id) : staut d'existence, signature et carte de visite des avatars, couples et groupes.
 - `avatar` (id) : données d'un avatar et liste de ses contacts
 - `couple` (id) : données d'un couple de contacts entre deux avatars
 - `groupe` (id) : données du groupe
@@ -139,6 +130,11 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowcv',
+  cols: ['id', 'v', 'x', 'dds', 'cv', 'vsh']
+})
+
+schemas.forSchema({
+  name: 'idbCv',
   cols: ['id', 'v', 'x', 'dds', 'cv', 'vsh']
 })
 

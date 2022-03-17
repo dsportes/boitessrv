@@ -1,7 +1,7 @@
 import { crypt } from './crypto.mjs'
 import { getdhc, sleep, deserial, serial } from './util.mjs'
 import { getSession, syncListQueue, processQueue } from './session.mjs'
-import { AppExc, X_SRV, E_WS, A_SRV, INDEXT, DateJour, Compteurs } from './api.mjs'
+import { AppExc, X_SRV, E_WS, A_SRV, DateJour, Compteurs } from './api.mjs'
 import { schemas } from './schemas.mjs'
 import { putFile, delFile } from './storage.mjs'
 
@@ -584,12 +584,8 @@ const selavgrvqid = ''
 const updavgrvq = ''
 
 const selsecret = 'SELECT * FROM secret WHERE id = @id AND v > @v'
-const selcontact = 'SELECT * FROM contact WHERE id = @id AND v > @v'
-const selcontactIdIc = 'SELECT * FROM contact WHERE id = @id AND ic = @ic'
-const selrencontre = 'SELECT * FROM rencontre WHERE id = @id AND v > @v'
-const selparrain = 'SELECT * FROM parrain WHERE id = @id AND v > @v'
-const selgroupeId = 'SELECT * FROM groupe WHERE id = @id'
 const selmembre = 'SELECT * FROM membre WHERE id = @id AND v > @v'
+const selgroupeId = 'SELECT * FROM groupe WHERE id = @id'
 const selmembreIdIm = 'SELECT * FROM membre WHERE id = @id AND im = @im'
 
 /* Régularisation Groupe ****************************************
@@ -701,115 +697,35 @@ async function chargerInvitGr (cfg, args) {
 }
 m1fonctions.chargerInvitGr = chargerInvitGr
 
-/*****************************************
-Chargement des rows d'un avatar
-args:
-- sessionId
-- avgr : id de l'avatar ou du groupe
-- lv : 7 compteurs pour les versions des 7 tables
-*/
-async function syncAv (cfg, args) {
-  checkSession(args.sessionId)
-  const result = { sessionId: args.sessionId, dh: getdhc() }
-  const rowItems = []
-  const id = args.avgr
-  let rows
-  const lva = args.lv[INDEXT.AVATAR]
-  if (lva !== -1) {
-    rows = stmt(cfg, selavatar).all({ id, v: lva })
-    rows.forEach((row) => {
-      rowItems.push(newItem('avatar', row))
-    })
-  }
-  rows = stmt(cfg, selcontact).all({ id, v: args.lv[INDEXT.CONTACT] })
-  rows.forEach((row) => {
-    rowItems.push(newItem('contact', row))
-  })
-  rows = stmt(cfg, selrencontre).all({ id, v: args.lv[INDEXT.RENCONTRE] })
-  rows.forEach((row) => {
-    rowItems.push(newItem('rencontre', row))
-  })
-  rows = stmt(cfg, selparrain).all({ id, v: args.lv[INDEXT.PARRAIN] })
-  rows.forEach((row) => {
-    rowItems.push(newItem('parrain', row))
-  })
-  rows = stmt(cfg, selsecret).all({ id, v: args.lv[INDEXT.SECRET] })
-  rows.forEach((row) => {
-    rowItems.push(newItem('secret', row))
-  })
-  result.rowItems = rowItems
-  return result
-}
-m1fonctions.syncAv = syncAv
-
-/*****************************************/
-async function syncGr (cfg, args) {
-  checkSession(args.sessionId)
-  const result = { sessionId: args.sessionId, dh: getdhc() }
-  const rowItems = []
-  const id = args.avgr
-  let rows = stmt(cfg, selgroupe).all({ id, v: args.lv[INDEXT.GROUPE] })
-  rows.forEach((row) => {
-    rowItems.push(newItem('groupe', row))
-  })
-  rows = stmt(cfg, selmembre).all({ id, v: args.lv[INDEXT.MEMBRE] })
-  rows.forEach((row) => {
-    rowItems.push(newItem('membre', row))
-  })
-  rows = stmt(cfg, selsecret).all({ id, v: args.lv[INDEXT.SECRET] })
-  rows.forEach((row) => {
-    rowItems.push(newItem('secret', row))
-  })
-  result.rowItems = rowItems
-  return result
-}
-m1fonctions.syncGr = syncGr
-
 /******************************************
-Chargement des CVs :
-- celles de lcvmaj si changées après vcv
-- celles de lcvchargt sans filtre de version
-Abonnement à l'union des deux listes
+Chargement des CVs changées après v
+Abonnement à toutes celles de la liste
 args:
 - sessionId
-- vcv : version des CV
-- lcvmaj : liste des CVs à retouner si postérieures à vcv
-- lcvchargt : liste des CVs à retourner sans condition de version
+- v : version des CV
+- lids : liste des ids des CVs à retouner si postérieures à v
 */
-const selcv1 = 'SELECT id, vcv, st, cva FROM avatar WHERE vcv > @vcv AND id IN ('
-const selcv2 = 'SELECT id, vcv, st, cva FROM avatar WHERE id IN ('
+const selcvin = 'SELECT * FROM cv WHERE v > @v AND id IN ('
 
-async function chargtCVs (cfg, args) {
+async function chargerCVs (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const session = checkSession(args.sessionId)
-  session.cvsIds = new Set(args.lcvmaj.concat(args.lcvchargt))
   const rowItems = []
 
-  if (args.lcvmaj.length) {
-    const lst = []
-    args.lcvmaj.forEach((id) => { lst.push(id) })
-    // lst.push(3382219599812300) pour tester la syntaxe IN
-    const st = cfg.db.prepare(selcv1 + lst.join(',') + ')')
-    const rows = st.all({ vcv: args.vcv })
-    for (const row of rows) {
-      rowItems.push(newItem('cv', row))
-    }
+  const lst = []
+  args.lcv.forEach((id) => { lst.push(id) })
+  // lst.push(3382219599812300) pour tester la syntaxe IN
+  const st = cfg.db.prepare(selcvin + args.lids.join(',') + ')')
+  const rows = st.all({ v: args.v })
+  for (const row of rows) {
+    rowItems.push(newItem('cv', row))
   }
-  
-  if (args.lcvchargt.length) {
-    const lst = []
-    args.lcvchargt.forEach((id) => { lst.push(id) })
-    const st = cfg.db.prepare(selcv2 + lst.join(',') + ')')
-    const rows = st.all()
-    for (const row of rows) {
-      rowItems.push(newItem('cv', row))
-    }
-  }
-
   result.rowItems = rowItems
+
+  session.cvsIds = new Set(args.lids)
   return result
 }
-m1fonctions.chargtCVs = chargtCVs
+m1fonctions.chargerCVs = chargerCVs
 
 /*****************************************
 !!GET!! getcv : retourne la CV d'un avatar
@@ -1554,80 +1470,6 @@ async function getPph (cfg, args) {
   }
 }
 m1fonctions.getPph = getPph
-
-/******************************************************************
-Maj Contact
-  sessionId: data.sessionId,
-  id: contact.id,
-  ic: contact.ic,
-  idb: contact.id2,
-  icb: contact.ic2,
-  nccc,
-  ardc,
-  infok: arg.info === contact.info ? null : await crypt.crypter(data.clek, arg.info),
-  mc: arg.mc
- Retour : sessionId, dh
-*/
-
-async function majContact (cfg, args) {
-  checkSession(args.sessionId)
-  const dh = getdhc()
-  const result = { sessionId: args.sessionId, dh: dh }
-
-  const versions = getValue(cfg, VERSIONS)
-  let j = idx(args.id)
-  versions[j]++
-  args.va = versions[j] // version du contact A
-
-  j = idx(args.idb)
-  versions[j]++
-  args.vb = versions[j] // version du contact B
-  setValue(cfg, VERSIONS)
-
-  const rowItems = []
-  cfg.db.transaction(majContactTr)(cfg, args, rowItems)
-
-  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems }) // à synchroniser
-  setImmediate(() => { processQueue() })
-  return result
-}
-m1fonctions.majContact = majContact
-
-const upd3contact = 'UPDATE contact SET v = @v, nccc = @nccc, ardc = @ardc, st = @st, infok = @infok WHERE id = @id AND ic = @ic'
-
-function majContactTr (cfg, args, rowItems) {
-  const ca = stmt(cfg, selcontactIdIc).get({ id: args.id, ic: args.ic })
-  if (ca && ca.st >= 0) {
-    ca.v = args.va
-    if (args.ardc) ca.ardc = args.ardc
-    if (args.mc) ca.mc = args.mc
-    if (args.infok) ca.infok = args.infok
-    const sty = ca.st % 10
-    if (args.nccc) {
-      ca.st = 10 + sty
-    } else {
-      ca.st = sty
-    }
-    stmt(cfg, upd3contact).run(ca)
-    rowItems.push(newItem('contact', ca))
-  }
-
-  const cb = stmt(cfg, selcontactIdIc).get({ id: args.idb, ic: args.icb })
-  if (cb && cb.st >= 0) {
-    cb.v = args.vb
-    if (args.ardc) cb.ardc = args.ardc
-    const stx = Math.floor(cb.st / 10) * 10
-    if (args.nccc) {
-      cb.st = stx + 1
-      cb.nccc = args.nccc
-    } else {
-      cb.st = stx
-      cb.nccc = null
-    }
-    stmt(cfg, upd3contact).run(cb)
-    rowItems.push(newItem('contact', cb))
-  }
-}
 
 /* Création d'un groupe ****************************************
 a) insertion d'un row groupe
