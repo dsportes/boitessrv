@@ -5,7 +5,7 @@ export const version = '1'
 
 export const UNITEV1 = 250000
 export const UNITEV2 = 25000000
-export const PINGTO = 10000 // en secondes
+export const PINGTO = 10000 // en secondes. valeur élevée en test
 
 export const E_BRK = -1 // Interruption volontaire de l'opération
 export const E_WS = -2 // Toutes erreurs de réseau

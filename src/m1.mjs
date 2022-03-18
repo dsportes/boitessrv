@@ -476,7 +476,8 @@ Abonnement à toutes celles de la liste
 args:
 - sessionId
 - v : version des CV
-- lids : liste des ids des CVs à retouner si postérieures à v
+- vp : array des ids des CVs à retouner si postérieures à v
+- vz : array des ids des CVs à retouner si v non 0
 */
 const selcvin = 'SELECT * FROM cv WHERE v > @v AND id IN ('
 
@@ -484,21 +485,26 @@ async function chargerCVs (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const session = checkSession(args.sessionId)
   const rowItems = []
-
-  const lst = []
-  args.lcv.forEach((id) => { lst.push(id) })
-  // lst.push(3382219599812300) pour tester la syntaxe IN
-  const st = cfg.db.prepare(selcvin + args.lids.join(',') + ')')
-  const rows = st.all({ v: args.v })
-  for (const row of rows) {
-    rowItems.push(newItem('cv', row))
-  }
+  cfg.db.transaction(chargerCVsTr)(cfg, session, args, rowItems)
   result.rowItems = rowItems
-
-  session.cvsIds = new Set(args.lids)
+  args.vz.forEach(id => { args.vp.push(id) })
+  session.cvsIds = new Set(args.vp)
   return result
 }
 m1fonctions.chargerCVs = chargerCVs
+
+function chargerCVsTr (cfg, session, args, rowItems) {
+  if (args.vp.length) {
+    const st = cfg.db.prepare(selcvin + args.vp.join(',') + ')')
+    const rows = st.all({ v: args.v })
+    for (const row of rows) rowItems.push(newItem('cv', row))
+  }
+  if (args.vp.length) {
+    const st = cfg.db.prepare(selcvin + args.vz.join(',') + ')')
+    const rows = st.all({ v: 0 })
+    for (const row of rows) rowItems.push(newItem('cv', row))
+  }
+}
 
 /* Creation nouvel avatar ****************************************
 - sessionId, clePub, idc (numéro du compte), vcav, mack, rowAvatar
