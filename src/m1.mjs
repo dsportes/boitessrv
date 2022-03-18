@@ -198,7 +198,7 @@ function idx (id) {
 }
 
 /* Creation du compte d'un comptable ****************************************
-- sessionId, clePubAv, clePubC, rowCompte, rowCompta, rowAvatar, rowPrefs
+- sessionId, clePubAv, rowCompte, rowCompta, rowAvatar, rowPrefs
 Retour :
 - sessionId
 - dh
