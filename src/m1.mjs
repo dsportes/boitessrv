@@ -376,6 +376,7 @@ m1fonctions.chargerGrCp = chargerGrCp
 
 const selgroupe = 'SELECT * FROM groupe WHERE id = @id AND v > @v'
 const selcouple = 'SELECT * FROM couple WHERE id = @id AND v > @v'
+const selcoupleId = 'SELECT * FROM couple WHERE id = @id'
 
 function chargerGrCpTr(cfg, args, rowItems) {
   const c = stmt(cfg, selcompteidv).get({ id : args.idc })
@@ -476,8 +477,8 @@ Abonnement à toutes celles de la liste
 args:
 - sessionId
 - v : version des CV
-- vp : array des ids des CVs à retouner si postérieures à v
-- vz : array des ids des CVs à retouner si v non 0
+- l1 : array des ids des CVs à retouner si postérieures à v
+- l2 : array des ids des CVs à retouner si v non 0
 */
 const selcvin = 'SELECT * FROM cv WHERE v > @v AND id IN ('
 
@@ -494,13 +495,13 @@ async function chargerCVs (cfg, args) {
 m1fonctions.chargerCVs = chargerCVs
 
 function chargerCVsTr (cfg, session, args, rowItems) {
-  if (args.vp.length) {
-    const st = cfg.db.prepare(selcvin + args.vp.join(',') + ')')
+  if (args.l1.length) {
+    const st = cfg.db.prepare(selcvin + args.l1.join(',') + ')')
     const rows = st.all({ v: args.v })
     for (const row of rows) rowItems.push(newItem('cv', row))
   }
-  if (args.vp.length) {
-    const st = cfg.db.prepare(selcvin + args.vz.join(',') + ')')
+  if (args.l2.length) {
+    const st = cfg.db.prepare(selcvin + args.l2.join(',') + ')')
     const rows = st.all({ v: 0 })
     for (const row of rows) rowItems.push(newItem('cv', row))
   }
@@ -672,6 +673,9 @@ const selmembre = 'SELECT * FROM membre WHERE id = @id AND v > @v'
 const selgroupeId = 'SELECT * FROM groupe WHERE id = @id'
 const selmembreIdIm = 'SELECT * FROM membre WHERE id = @id AND im = @im'
 
+const updstmembre = 'UPDATE membre SET v = @v, st = @st WHERE id = @id AND im = @im'
+const updstcouple = 'UPDATE couple SET v = @v, st = @st WHERE id = @id'
+
 /* Régularisation Groupe ****************************************
 Mise à jour de lgrk dans l'avatar et suppression du row invitgr
 args
@@ -760,6 +764,92 @@ function regulAvTr (cfg, session, args, rowItems) {
     stmt(cfg, upd1avatar).run(a)
     rowItems.push(newItem('avatar', a))
   }
+}
+
+/* Changement de statut d'un membre pour tenir compte de la disparition de son avatar ************
+args:
+- sessionId
+- id, im : id du membre
+retour
+- sessionId, dh
+*/
+
+async function membreDisparu (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+  
+  const versions = getValue(cfg, VERSIONS)
+  args.v = {}
+  const j = idx(args.id)
+  versions[j]++
+  args.v = versions[j]
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(membreDisparuTr)(cfg, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.membreDisparu = membreDisparu
+
+function membreDisparuTr (cfg, args, rowItems) {
+  const m = stmt(cfg, selmembreIdIm).get({ id: args.id, im:args.im })
+  if (!m) return
+  const stx = Math.floor(m.st / 10)
+  const stp = m.st % 10
+  if (stx === 5) return
+  m.st = 50 + stp
+  m.v = args.v
+  stmt(cfg, updstmembre).run(m)
+  rowItems.push(newItem('membre', m))
+}
+
+/* Changement de statut d'un couple pour tenir compte de la disparition d'un de ses avatars ************
+args:
+- sessionId
+- id : id du couple
+- idx : index du conjoint disparu (0 ou 1)
+retour
+- sessionId, dh
+*/
+async function coupleDisparu (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+  
+  const versions = getValue(cfg, VERSIONS)
+  args.v = {}
+  const j = idx(args.id)
+  versions[j]++
+  args.v = versions[j]
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(coupleDisparuTr)(cfg, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.coupleDisparu = coupleDisparu
+
+function coupleDisparuTr (cfg, args, rowItems) {
+  const c = stmt(cfg, selcoupleId).get({ id: args.id, im:args.im })
+  if (!c) return
+  const stcp = Math.floor(c.st / 100)
+  const st01 = c.st % 100
+  let st0 = Math.floor(st01 / 10)
+  let st1 = st01 % 10
+  if (args.idx) st1 = 0; else st0 = 0
+  const nst = stcp * 100 + (st0 * 10) + st1
+  if (nst === c.st) return
+  c.st = nst
+  c.v = args.v
+  stmt(cfg, updstcouple).run(c)
+  rowItems.push(newItem('couple', c))
 }
 
 /*****************************************
@@ -2120,8 +2210,6 @@ async function inviterGroupe (cfg, args) {
   return result
 }
 m1fonctions.inviterGroupe = inviterGroupe
-
-const updstmembre = 'UPDATE membre SET v = @v, st = @st WHERE id = @id AND im = @im'
 
 function inviterGroupeTr (cfg, args, invitgr, rowItems) {
   const membre = stmt(cfg, selmembreIdIm).get({ id: args.id, im: args.im })
