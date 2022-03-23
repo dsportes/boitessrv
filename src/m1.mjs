@@ -348,6 +348,104 @@ function chargerAvTr(cfg, args, rowItems) {
 }
 
 /********************************************************
+Chargement des secrets d'un avatars d'un compte
+(Resp. secrets couple, secrets membres groupe)
+Abonnement de l'avatar / couple / groupe
+args :
+- sessionId
+- id : id du compte
+Retour
+- rowItems : contient tous les secrets de l'avatar
+*/
+async function chargerAS (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const rowItems = []
+  cfg.db.transaction(chargerASTr)(cfg, args.id, rowItems)
+  result.rowItems = rowItems
+  session.plusAvatars([args.id])
+  return result
+}
+m1fonctions.chargerAS = chargerAS
+
+async function chargerCS (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const rowItems = []
+  cfg.db.transaction(chargerCSTr)(cfg, args.id, rowItems)
+  result.rowItems = rowItems
+  session.plusCouples([args.id])
+  return result
+}
+m1fonctions.chargerCS = chargerCS
+
+async function chargerGMS (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const rowItems = []
+  cfg.db.transaction(chargerGMSTr)(cfg, args.id, rowItems)
+  result.rowItems = rowItems
+  session.plusGroupes([args.id])
+  return result
+}
+m1fonctions.chargerGMS = chargerGMS
+
+const selmembreId = 'SELECT * FROM membre WHERE id = @id AND v > @v'
+const selsecretId = 'SELECT * FROM secret WHERE id = @id'
+
+function chargerASTr(cfg, id, rowItems) {
+  {
+    const rows = stmt(cfg, selsecretId).all({ id : id })
+    rows.forEach((row) => { rowItems.push(newItem('secret', row)) })
+  }
+}
+
+function chargerGMSTr(cfg, id, rowItems) {
+  {
+    const rows = stmt(cfg, selsecretId).all({ id : id })
+    rows.forEach((row) => { rowItems.push(newItem('secret', row)) })
+  }
+  {
+    const rows = stmt(cfg, selmembreId).all({ id : id })
+    rows.forEach((row) => { rowItems.push(newItem('membre', row)) })
+  }
+  {
+    const row = stmt(cfg, selgroupeId).get({ id : id })
+    rowItems.push(newItem('groupe', row))
+  }
+}
+
+function chargerCSTr(cfg, id, rowItems) {
+  {
+    const rows = stmt(cfg, selsecretId).all({ id : id })
+    rows.forEach((row) => { rowItems.push(newItem('secret', row)) })
+  }
+  {
+    const row = stmt(cfg, selcoupleId).get({ id : id })
+    rowItems.push(newItem('couple', row))
+  }
+}
+
+/********************************************************
+Désabonnements : listes d'avatars, de groupes, de couples, de CVs
+args :
+- sessionId
+- lav, lgr, lcp, lcv
+Retour
+- rowItems : contient tous les secrets de l'avatar
+*/
+async function desabonnements (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  if (args.lav && args.lav.length)  session.moinsAvatars([args.lav])
+  if (args.lgr && args.lgr.length)  session.moinsGroupes([args.lr])
+  if (args.lcc && args.lcc.length)  session.moinsCouples([args.lcc])
+  if (args.lcv && args.lcv.length)  session.moinsCVs([args.lcv])
+  return result
+}
+m1fonctions.desabonnements = desabonnements
+
+/********************************************************
 Chargement des groupes et couples des avatars d'un compte
 Abonneents à ceux-ci
 Vérifie que les avatars du compte et le compte n'ont pas changé de version

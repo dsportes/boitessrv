@@ -101,6 +101,22 @@ export class Session {
     if (ar && ar.length) ar.forEach(id => { this.cvsIds.add(id) })
   }
 
+  moinsAvatars (ar) {
+    if (ar && ar.length) ar.forEach(id => { this.avatarsIds.delete(id) })
+  }
+
+  moinsGroupes (ar) {
+    if (ar && ar.length) ar.forEach(id => { this.groupesIds.delete(id) })
+  }
+
+  moinsCouples (ar) {
+    if (ar && ar.length) ar.forEach(id => { this.couplesIds.delete(id) })
+  }
+
+  moinsCvs (ar) {
+    if (ar && ar.length) ar.forEach(id => { this.cvsIds.delete(id) })
+  }
+
   aavatar (rowItem) {
     return this.avatarsIds && this.avatarsIds.has(rowItem.id)
   }
