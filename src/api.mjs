@@ -1,5 +1,4 @@
-import { schemas } from './schemas.mjs'
-import { serial, deserial } from './util.mjs'
+import { schemas, serial, deserial } from './schemas.mjs'
 
 export const version = '1'
 

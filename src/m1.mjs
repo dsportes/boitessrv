@@ -1,8 +1,8 @@
 import { crypt } from './crypto.mjs'
-import { getdhc, sleep, deserial, serial } from './util.mjs'
+import { getdhc, sleep } from './util.mjs'
 import { getSession, syncListQueue, processQueue } from './session.mjs'
 import { AppExc, X_SRV, E_WS, A_SRV, DateJour, Compteurs } from './api.mjs'
-import { schemas } from './schemas.mjs'
+import { schemas, deserial, serial } from './schemas.mjs'
 import { putFile, delFile } from './storage.mjs'
 
 export const m1fonctions = { }
