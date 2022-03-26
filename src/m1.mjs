@@ -215,6 +215,7 @@ function creationCompte (cfg, args) {
   const compta = schemas.deserialize('rowcompta', args.rowCompta)
   const avatar = schemas.deserialize('rowavatar', args.rowAvatar)
   const prefs = schemas.deserialize('rowprefs', args.rowPrefs)
+  const cv = { id: avatar.id, v: 0, x: 0, dds: 0, cv: null, vsh: 0 }
 
   const versions = getValue(cfg, VERSIONS)
   let j = idx(compte.id)
@@ -228,24 +229,22 @@ function creationCompte (cfg, args) {
   avatar.v = versions[j]
 
   versions[0]++
-  avatar.vcv = versions[0]
+  cv.v = versions[0]
   setValue(cfg, VERSIONS)
 
   compta.dds = new DateJour().nbj
-  avatar.dds = ddsAvatarGroupeCouple(0)
-  const avrsa1 = { id: avatar.id, clepub: args.clePubAv, vsh: 0 }
-  const avrsa2 = { id: compte.id, clepub: args.clePubC, vsh: 0 }
-  const dh = new Date().getTime()
-  const ardoise = { id: compte.id, v: compte.vh, dhe: dh, dhl: dh, mcp: null, mcc: null, data: null, vsh: 0 }
+  cv.dds = ddsAvatarGroupeCouple(0)
+  const avrsa = { id: avatar.id, clepub: args.clePubAv, vsh: 0 }
 
-  cfg.db.transaction(creationCompteTr)(cfg, session, compte, compta, prefs, ardoise, avatar, avrsa1, avrsa2)
+  cfg.db.transaction(creationCompteTr)(cfg, session, compte, compta, prefs, avatar, cv, avrsa)
 
-  result.rowItems = [newItem('compte', compte), newItem('compta', compta), newItem('ardoise', ardoise), newItem('prefs', prefs), newItem('avatar', avatar)]    
+  result.rowItems = [newItem('compte', compte), newItem('compta', compta), newItem('prefs', prefs), newItem('avatar', avatar)]    
+  result.estComptable = 1
   return result
 }
 m1fonctions.creationCompte = creationCompte
 
-function creationCompteTr (cfg, session, compte, compta, prefs, ardoise, avatar, avrsa1, avrsa2) {
+function creationCompteTr (cfg, session, compte, compta, prefs, avatar, cv, avrsa) {
   const c = stmt(cfg, selcomptedpbh).get({ dpbh: compte.dpbh })
   if (c) {
     if (c.pcbh === compte.pcbh) {
@@ -258,10 +257,9 @@ function creationCompteTr (cfg, session, compte, compta, prefs, ardoise, avatar,
   stmt(cfg, inscompte).run(compte)
   stmt(cfg, inscompta).run(compta)
   stmt(cfg, insavatar).run(avatar)
-  // stmt(cfg, insardoise).run(ardoise)
   stmt(cfg, insprefs).run(prefs)
-  stmt(cfg, insavrsa).run(avrsa1)
-  stmt(cfg, insavrsa).run(avrsa2)
+  stmt(cfg, inscv).run(cv)
+  stmt(cfg, insavrsa).run(avrsa)
 
   session.compteId = compte.id
   session.plusAvatars([avatar.id])
