@@ -325,10 +325,10 @@ async function chargerAv (cfg, args) {
   const session = checkSession(args.sessionId)
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const rowItems = []
-  cfg.db.transaction(chargerAvTr)(cfg, args)
+  cfg.db.transaction(chargerAvTr)(cfg, args, rowItems)
   result.rowItems = rowItems
   result.ok = args.ok
-  session.plusAvatars(Object.keys(args.idsVers))
+  session.plusAvatars(args.ids)
   return result
 }
 m1fonctions.chargerAv = chargerAv
@@ -338,7 +338,10 @@ const selavatar = 'SELECT * FROM avatar WHERE id = @id AND v > @v'
 function chargerAvTr(cfg, args, rowItems) {
   const c = stmt(cfg, selcompteidv).get({ id : args.idc })
   if (!c || c.v > args.vc) { args.ok = false; return }
-  for(const id in args.idsVers) {
+  args.ids = []
+  for(const ids in args.idsVers) {
+    const id = parseInt(ids)
+    args.ids.push(id)
     const row = stmt(cfg, selavatar).get({ id, v: args.idsVers[id] })
     if (row) rowItems.push(newItem('avatar', row))
     args.ok = true
@@ -478,17 +481,20 @@ function chargerGrCpTr(cfg, args, rowItems) {
   const c = stmt(cfg, selcompteidv).get({ id : args.idc })
   if (!c || c.v > args.vc) { args.ok = false; return }
   const ids = []
-  for (const id in args.avidsVers) {
+  for (const idx in args.avidsVers) {
+    const id = parseInt(idx)
     ids.push(id)
-    const a = stmt(cfg, selavataridv).get({ id : args.idc })
+    const a = stmt(cfg, selavataridv).get({ id })
     if (!a || a.v > args.avidsVers[id]) { args.ok = false; return }  
   }
-  for(const id in args.gridsVers) {
+  for(const idx in args.gridsVers) {
+    const id = parseInt(idx)
     ids.push(id)
     const row = stmt(cfg, selgroupe).get({ id, v: args.gridsVers[id] })
     if (row) rowItems.push(newItem('groupe', row))
   }
-  for(const id in args.cpidsVers) {
+  for(const idx in args.cpidsVers) {
+    const id = parseInt(idx)
     ids.push(id)
     const row = stmt(cfg, selcouple).get({ id, v: args.cpidsVers[id] })
     if (row) rowItems.push(newItem('couple', row))
@@ -584,8 +590,8 @@ async function chargerCVs (cfg, args) {
   const rowItems = []
   cfg.db.transaction(chargerCVsTr)(cfg, session, args, rowItems)
   result.rowItems = rowItems
-  args.vz.forEach(id => { args.vp.push(id) })
-  session.cvsIds = new Set(args.vp)
+  args.l2.forEach(id => { args.l1.push(id) })
+  session.cvsIds = new Set(args.l1)
   return result
 }
 m1fonctions.chargerCVs = chargerCVs
