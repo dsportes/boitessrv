@@ -610,7 +610,12 @@ function chargerCVsTr (cfg, session, args, rowItems) {
 }
 
 /* Creation nouvel avatar ****************************************
-- sessionId, clePub, idc (numéro du compte), vcav, mack, rowAvatar
+- sessionId, 
+- clePub,
+- idc: numéro du compte
+- vcav: version du compte avant (ne doit pas avoir changé),
+- mack: map des avatars dans le compte
+- rowAvatar
 Retour :
 - sessionId
 - dh
@@ -621,6 +626,8 @@ function creationAvatar (cfg, args) {
 
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const avatar = schemas.deserialize('rowavatar', args.rowAvatar)
+  const avrsa = { id: avatar.id, clepub: args.clePub, vsh: 0 }
+  const cv = { id: avatar.id, v: 0, x: 0, dds: ddsAvatarGroupeCouple(0), cv: null, vsh: 0 }
 
   const versions = getValue(cfg, VERSIONS)
   let j = idx(args.idc)
@@ -631,15 +638,12 @@ function creationAvatar (cfg, args) {
   versions[j]++
   avatar.v = versions[j]
 
-  versions[0]++
-  avatar.vcv = versions[0]
+  versions[0]++ // version des CVs
+  cv.v = versions[0]
   setValue(cfg, VERSIONS)
 
-  avatar.dds = ddsAvatarGroupeCouple(0) // A REVOIR
-  const avrsa = { id: avatar.id, clepub: args.clePub, vsh: 0 }
-
   const rowItems = []
-  cfg.db.transaction(creationAvatarTr)(cfg, session, args, avatar, avrsa, rowItems)
+  cfg.db.transaction(creationAvatarTr)(cfg, session, args, avatar, avrsa, cv, rowItems)
 
   if (args.statut === 1) {
     result.statut = 1
@@ -655,7 +659,7 @@ m1fonctions.creationAvatar = creationAvatar
 
 const upd1compte = 'UPDATE compte SET v = @v, mack = @mack WHERE id = @id'
 
-function creationAvatarTr (cfg, session, args, avatar, avrsa, rowItems) {
+function creationAvatarTr (cfg, session, args, avatar, avrsa, cv, rowItems) {
   const c = stmt(cfg, selcompteid).get({ id: args.idc })
   if (!c) throw new AppExc(A_SRV, '06-Compte non trouvé')
   if (c && c.v !== args.vcav) {
@@ -664,13 +668,16 @@ function creationAvatarTr (cfg, session, args, avatar, avrsa, rowItems) {
   }
   c.v = args.vc2
   c.mack = args.mack
-
   stmt(cfg, upd1compte).run(c)
+  rowItems.push(newItem('compte', c))
+
   stmt(cfg, insavatar).run(avatar)
+  rowItems.push(newItem('avatar', avatar))
+
   stmt(cfg, insavrsa).run(avrsa)
 
-  rowItems.push(newItem('compte', c))
-  rowItems.push(newItem('avatar', avatar))
+  stmt(cfg, inscv).run(cv)
+  rowItems.push(newItem('cv', cv))
   session.plusAvatars([avatar.id])
 }
 
@@ -721,49 +728,46 @@ function prefCompteTr (cfg, id, v, code, datak, rowItems) {
 }
 
 /***************************************
-Enregistrement de la CV d'un avatar :
+Enregistrement d'une CV (avatar / groupe / couple) :
 Args : 
 - sessionId
-- id: de l'avatar
-- phinfo : [ph, info] crypté par la clé de l'avatar et sérialisé]
+- id: de l'avatar / groupe / couple
+- cv : [photo, info] sérialisé et crypté par la clé de l'avatar / groupe / couple
 Retour :
 - sessionId
 - dh
 Exception : avatar inexistant
 */
-const updcvavatar = 'UPDATE avatar SET v = @v, vcv = @vcv, cva = @cva WHERE id = @id'
+const updcv = 'UPDATE cv SET v = @v, cv = @cv WHERE id = @id'
 
-function cvAvatar (cfg, args) {
+function majCV (cfg, args) {
   checkSession(args.sessionId)
   const dh = getdhc()
 
   const versions = getValue(cfg, VERSIONS)
-  const j = idx(args.id)
+  const j = idx(0)
   versions[j]++
   setValue(cfg, VERSIONS)
   const v = versions[j]
 
   const rowItems = []
 
-  cfg.db.transaction(cvAvatarTr)(cfg, args.id, v, args.phinfo, rowItems)
+  cfg.db.transaction(majCVTr)(cfg, args.id, v, args.cv, rowItems)
 
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
   return { sessionId: args.sessionId, dh: dh }
 }
-m1fonctions.cvAvatar = cvAvatar
+m1fonctions.majCV = majCV
 
-function cvAvatarTr (cfg, id, v, cva, rowItems) {
-  const a = stmt(cfg, selavatarid).get({ id: id })
-  if (!a) throw new AppExc(A_SRV, '07-Avatar non trouvé')
+function majCVTr (cfg, id, v, cv, rowItems) {
+  const a = stmt(cfg, selcvid).get({ id: id })
+  if (!a) throw new AppExc(A_SRV, '07-Carte de visite non trouvée')
 
-  a.cva = cva
+  a.cv = cv
   a.v = v
-  a.vcv = v
-  stmt(cfg, updcvavatar).run( { cva, vcv: v, v, id })
-  rowItems.push(newItem('avatar', a))
-  // cols: ['id', 'vcv', 'st', 'cva']
-  rowItems.push(newItem('cv', { id: id, vcv: v, st: a.st, cva: cva }))
+  stmt(cfg, updcv).run(a)
+  rowItems.push(newItem('cv', a))
 }
 
 /**************************************** */
