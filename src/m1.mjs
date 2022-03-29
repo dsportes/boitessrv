@@ -1437,44 +1437,38 @@ Parrainage : args de m1/nouveauParrainage
   - sessionId: data.sessionId,
   - rowCouple
   - rowContact
-  - ressources // à affecter au compte filleul quand il est lui-même parrain (sinon null)
-  - idcp, idcf // id des comptes parrain et filleul
   Retour : dh
   X_SRV, '14-Cette phrase de parrainage est trop proche d\'une déjà enregistrée' + x
 */
-const upd9parrain = 'UPDATE parrain SET id = @id, v = @v, st = @st, dlv = @dlv, '
-  + 'datak = @datak, datax = @datax, data2k = @data2k, ardc = @ardc, vsh = @vsh WHERE pph = @pph'
-const selpphparrain = 'SELECT * FROM parrain WHERE pph = @pph'
+// eslint-disable-next-line no-unused-vars
+const updcontact = 'UPDATE contact SET dlv = @dlv WHERE pph = @pph'
+const selpphcontact = 'SELECT * FROM contact WHERE pph = @pph'
 
 async function nouveauParrainage (cfg, args) {
-  checkSession(args.sessionId)
+  const session = checkSession(args.sessionId)
   const dh = getdhc()
-  const parrain = deserial(args.rowParrain)
+  const contact = deserial(args.rowContact)
+  const couple = deserial(args.rowCouple)
 
   const versions = getValue(cfg, VERSIONS)
-  const j = idx(parrain.id)
+  const j = idx(couple.id)
   versions[j]++
   setValue(cfg, VERSIONS)
-  parrain.v = versions[j] // version du row parrain
+  couple.v = versions[j] // version du row parrain
 
-  cfg.db.transaction(nouveauParrainageTr)(cfg, parrain)
-  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: [newItem('parrain', parrain)] })
+  cfg.db.transaction(nouveauParrainageTr)(cfg, contact, couple)
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: [newItem('couple', couple)] })
   setImmediate(() => { processQueue() })
+  session.plusCouples([couple.id])
   return { sessionId: args.sessionId, dh: dh }
 }
 m1fonctions.nouveauParrainage = nouveauParrainage
 
-function nouveauParrainageTr (cfg, parrain) {
-  const p = stmt(cfg, selpphparrain).get({ pph: parrain.pph })
-  if (p) {
-    if (p.st >= 0) {
-      const x = p.id === parrain.id ? ' par votre compte.' : ' par un autre compte.'
-      throw new AppExc(X_SRV, '14-Cette phrase de parrainage est trop proche d\'une déjà enregistrée' + x)
-    }
-    stmt(cfg, upd9parrain).run(parrain)
-  } else {
-    // stmt(cfg, insparrain).run(parrain)
-  }
+function nouveauParrainageTr (cfg, contact, couple) {
+  const p = stmt(cfg, selpphcontact).get({ pph: contact.pph })
+  if (p) throw new AppExc(X_SRV, '14-Cette phrase de parrainage est trop proche d\'une déjà enregistrée.')
+  stmt(cfg, inscontact).run(contact)
+  stmt(cfg, inscouple).run(couple)
 }
 
 /******************************************************************
@@ -1566,7 +1560,7 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
     }
   }
 
-  const p = stmt(cfg, selpphparrain).get({ pph: args.pph })
+  const p = stmt(cfg, 'selpphparrain').get({ pph: args.pph })
   if (!p) throw new AppExc(X_SRV, '15-Phrase de parrainage inconnue')
 
   if (p.st !== 0) throw new AppExc(X_SRV, '16-Ce parrainage a déjà fait l\'objet ' + (p.st !== 1 ? 'd\'une acceptation.' : 'd\'un refus'))
@@ -1644,7 +1638,7 @@ async function refusParrainage (cfg, args) {
   const dh = getdhc()
   const result = { sessionId: args.sessionId, dh: dh }
 
-  const parrain = stmt(cfg, selpphparrain).get({ pph: args.pph })
+  const parrain = stmt(cfg, selpphcontact).get({ pph: args.pph })
   if (!parrain) throw new AppExc(X_SRV, '15-Phrase de parrainage inconnue')
 
   if (parrain.st !== 0) throw new AppExc(X_SRV, '16-Ce parrainage a déjà fait l\'objet ' + (parrain.st !== 1 ? 'd\'une acceptation.' : 'd\'un refus'))
@@ -1682,7 +1676,7 @@ async function supprParrainage (cfg, args) {
   const dh = getdhc()
   const result = { sessionId: args.sessionId, dh: dh }
 
-  const parrain = stmt(cfg, selpphparrain).get({ pph: args.pph })
+  const parrain = stmt(cfg, selpphcontact).get({ pph: args.pph })
   if (!parrain) throw new AppExc(X_SRV, '15-Phrase de parrainage inconnue')
 
   if (parrain.st !== 0) throw new AppExc(X_SRV, '16-Ce parrainage a déjà fait l\'objet ' + (parrain.st !== 1 ? 'd\'une acceptation.' : 'd\'un refus'))
@@ -1714,7 +1708,7 @@ function supprParrainageTr (cfg, parrain) {
 /* row parrain depuis la phrase de parrainage */
 async function getPph (cfg, args) {
   try {
-    const p = stmt(cfg, selpphparrain).get({ pph: args.pph })
+    const p = stmt(cfg, selpphcontact).get({ pph: args.pph })
     if (!p) return { bytes0 }
     const b = serial(p)
     return { bytes: b }
