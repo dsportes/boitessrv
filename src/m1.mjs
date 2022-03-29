@@ -1433,11 +1433,15 @@ function pjSecretTr (cfg, args, rowItems) {
 }
 
 /******************************************************************
- * Parrainage : args de m1/nouveauParrainage
-  sessionId: data.sessionId,
-  rowParrain: serial(rowParrain)
- Retour : dh
- */
+Parrainage : args de m1/nouveauParrainage
+  - sessionId: data.sessionId,
+  - rowCouple
+  - rowContact
+  - ressources // à affecter au compte filleul quand il est lui-même parrain (sinon null)
+  - idcp, idcf // id des comptes parrain et filleul
+  Retour : dh
+  X_SRV, '14-Cette phrase de parrainage est trop proche d\'une déjà enregistrée' + x
+*/
 const upd9parrain = 'UPDATE parrain SET id = @id, v = @v, st = @st, dlv = @dlv, '
   + 'datak = @datak, datax = @datax, data2k = @data2k, ardc = @ardc, vsh = @vsh WHERE pph = @pph'
 const selpphparrain = 'SELECT * FROM parrain WHERE pph = @pph'
