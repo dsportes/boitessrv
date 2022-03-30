@@ -164,8 +164,8 @@ const inssecret = 'INSERT INTO secret (id, ns, x, v, st, xp, v1, v2, mc, txts, m
 const inscontact = 'INSERT INTO contact (phch, dlv, ccx, vsh) '
   + 'VALUES (@phch, @dlv, @ccx, @vsh)'
 // eslint-disable-next-line no-unused-vars
-const inscouple = 'INSERT INTO contact (id, v, st, v1, v2, mx10, mx20, mx11, mx21, dlv, datac, infok0, infok1, mc0, mc1, ardc, vsh) '
- + 'VALUES (@id, @v, @st, @v1, @v2, @mx10, @mx20, @mx11, @mx21, @datac, @infok0, @infok1, @mc0, @mc1, @ardc, @vsh)'
+const inscouple = 'INSERT INTO couple (id, v, st, v1, v2, mx10, mx20, mx11, mx21, dlv, datac, infok0, infok1, mc0, mc1, ardc, vsh) '
+ + 'VALUES (@id, @v, @st, @v1, @v2, @mx10, @mx20, @mx11, @mx21, @dlv, @datac, @infok0, @infok1, @mc0, @mc1, @ardc, @vsh)'
 const insgroupe = 'INSERT INTO groupe (id, v, dfh, st, mxim, idhg, imh, v1, v2, f1, f2, mcg, vsh)'
  + 'VALUES (@id, @v, @dfh, @st, @mxim, @idhg, @imh, @v1, @v2, @f1, @f2, @mcg, @vsh)'
 const insmembre = 'INSERT INTO membre (id, im, v, st, vote, mc, infok, datag, ardg, vsh)'
@@ -464,7 +464,7 @@ async function chargerGrCp (cfg, args) {
   const session = checkSession(args.sessionId)
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const rowItems = []
-  cfg.db.transaction(chargerGrCpTr)(cfg, args)
+  cfg.db.transaction(chargerGrCpTr)(cfg, args, rowItems)
   result.rowItems = rowItems
   result.ok = args.ok
   session.plusGroupes(Object.keys(args.gridsVers))
@@ -1437,12 +1437,17 @@ Parrainage : args de m1/nouveauParrainage
   - sessionId: data.sessionId,
   - rowCouple
   - rowContact
+  - id: id de l'avatar
+  - ni: clé d'accès à lcck de l'avatar
+  - datak : clé cc cryptée par la clé k
   Retour : dh
-  X_SRV, '14-Cette phrase de parrainage est trop proche d\'une déjà enregistrée' + x
+  X_SRV, '14-Cette phrase de parrainage est trop proche d\'une déjà enregistrée'
+  X_SRV, '23-Avatar non trouvé.'
 */
 // eslint-disable-next-line no-unused-vars
 const updcontact = 'UPDATE contact SET dlv = @dlv WHERE pph = @pph'
-const selpphcontact = 'SELECT * FROM contact WHERE pph = @pph'
+const upd2avatar = 'UPDATE avatar SET v = @v, lcck = @lcck WHERE id = @id'
+const selpphcontact = 'SELECT * FROM contact WHERE phch = @phch'
 
 async function nouveauParrainage (cfg, args) {
   const session = checkSession(args.sessionId)
@@ -1451,24 +1456,40 @@ async function nouveauParrainage (cfg, args) {
   const couple = deserial(args.rowCouple)
 
   const versions = getValue(cfg, VERSIONS)
-  const j = idx(couple.id)
+  let j = idx(couple.id)
   versions[j]++
-  setValue(cfg, VERSIONS)
-  couple.v = versions[j] // version du row parrain
+  couple.v = versions[j] // version du row couple
 
-  cfg.db.transaction(nouveauParrainageTr)(cfg, contact, couple)
-  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: [newItem('couple', couple)] })
+  j = idx(args.id)
+  versions[j]++
+  args.v = versions[j] // version du row avatar
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(nouveauParrainageTr)(cfg, args, contact, couple, rowItems)
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems })
   setImmediate(() => { processQueue() })
   session.plusCouples([couple.id])
   return { sessionId: args.sessionId, dh: dh }
 }
 m1fonctions.nouveauParrainage = nouveauParrainage
 
-function nouveauParrainageTr (cfg, contact, couple) {
-  const p = stmt(cfg, selpphcontact).get({ pph: contact.pph })
+function nouveauParrainageTr (cfg, args, contact, couple, rowItems) {
+  const p = stmt(cfg, selpphcontact).get({ phch: contact.phch })
   if (p) throw new AppExc(X_SRV, '14-Cette phrase de parrainage est trop proche d\'une déjà enregistrée.')
   stmt(cfg, inscontact).run(contact)
   stmt(cfg, inscouple).run(couple)
+  rowItems.push(newItem('couple', couple))
+
+  const a = stmt(cfg, selavatarid).get({ id: args.id })
+  if (!a) throw new AppExc(X_SRV, '23-Avatar non trouvé.')
+  const map = a.lcck ? deserial(a.lcck) : {}
+  if (map[args.ni]) return // déjà fait
+  map[args.ni] = args.datak
+  a.v = args.v
+  a.lcck = serial(map)
+  stmt(cfg, upd2avatar).run(a)
+  rowItems.push(newItem('avatar', a))
 }
 
 /******************************************************************
