@@ -1447,7 +1447,7 @@ Parrainage : args de m1/nouveauParrainage
 // eslint-disable-next-line no-unused-vars
 const updcontact = 'UPDATE contact SET dlv = @dlv WHERE pph = @pph'
 const upd2avatar = 'UPDATE avatar SET v = @v, lcck = @lcck WHERE id = @id'
-const selpphcontact = 'SELECT * FROM contact WHERE phch = @phch'
+const selcontact = 'SELECT * FROM contact WHERE phch = @phch'
 
 async function nouveauParrainage (cfg, args) {
   const session = checkSession(args.sessionId)
@@ -1475,7 +1475,7 @@ async function nouveauParrainage (cfg, args) {
 m1fonctions.nouveauParrainage = nouveauParrainage
 
 function nouveauParrainageTr (cfg, args, contact, couple, rowItems) {
-  const p = stmt(cfg, selpphcontact).get({ phch: contact.phch })
+  const p = stmt(cfg, selcontact).get({ phch: contact.phch })
   if (p) throw new AppExc(X_SRV, '14-Cette phrase de parrainage est trop proche d\'une déjà enregistrée.')
   stmt(cfg, inscontact).run(contact)
   stmt(cfg, inscouple).run(couple)
@@ -1659,7 +1659,7 @@ async function refusParrainage (cfg, args) {
   const dh = getdhc()
   const result = { sessionId: args.sessionId, dh: dh }
 
-  const parrain = stmt(cfg, selpphcontact).get({ pph: args.pph })
+  const parrain = stmt(cfg, selcontact).get({ pph: args.pph })
   if (!parrain) throw new AppExc(X_SRV, '15-Phrase de parrainage inconnue')
 
   if (parrain.st !== 0) throw new AppExc(X_SRV, '16-Ce parrainage a déjà fait l\'objet ' + (parrain.st !== 1 ? 'd\'une acceptation.' : 'd\'un refus'))
@@ -1697,7 +1697,7 @@ async function supprParrainage (cfg, args) {
   const dh = getdhc()
   const result = { sessionId: args.sessionId, dh: dh }
 
-  const parrain = stmt(cfg, selpphcontact).get({ pph: args.pph })
+  const parrain = stmt(cfg, selcontact).get({ pph: args.pph })
   if (!parrain) throw new AppExc(X_SRV, '15-Phrase de parrainage inconnue')
 
   if (parrain.st !== 0) throw new AppExc(X_SRV, '16-Ce parrainage a déjà fait l\'objet ' + (parrain.st !== 1 ? 'd\'une acceptation.' : 'd\'un refus'))
@@ -1726,19 +1726,33 @@ function supprParrainageTr (cfg, parrain) {
   stmt(cfg, parrain.st < 0 ? upd2parrain : upd3parrain).run(parrain)
 }
 
-/* row parrain depuis la phrase de parrainage */
-async function getPph (cfg, args) {
+/* row contact depuis la phrase de contact */
+async function getContact (cfg, args) {
   try {
-    const p = stmt(cfg, selpphcontact).get({ pph: args.pph })
-    if (!p) return { bytes0 }
-    const b = serial(p)
+    const c = stmt(cfg, selcontact).get({ phch: parseInt(args.phch) })
+    if (!c) return { bytes0 }
+    const b = serial(c)
     return { bytes: b }
   } catch (e) {
     console.log(e)
     return { bytes: bytes0 }
   }
 }
-m1fonctions.getPph = getPph
+m1fonctions.getContact = getContact
+
+/* row contact depuis la phrase de contact */
+async function getCouple (cfg, args) {
+  try {
+    const c = stmt(cfg, selcoupleId).get({ id : parseInt(args.id) })
+    if (!c) return { bytes0 }
+    const b = serial(c)
+    return { bytes: b }
+  } catch (e) {
+    console.log(e)
+    return { bytes: bytes0 }
+  }
+}
+m1fonctions.getCouple = getCouple
 
 /* Création d'un groupe ****************************************
 a) insertion d'un row groupe
