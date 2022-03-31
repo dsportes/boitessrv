@@ -1493,31 +1493,33 @@ function nouveauParrainageTr (cfg, args, contact, couple, rowItems) {
 }
 
 /******************************************************************
- * Acceptation
+Acceptation
     sessionId: data.sessionId,
-    pph: arg.pph,
-    idf: parrain.naf.id,
-    idp: parrain.id, // id avatar parrain
-    idcp: parrain.data.idcp, // id compte parrain : pour maj de son row compta
-    forfaits: parrain.data.f, // A déduire des ressources du row compta du parrain
-    clePubAv: kpav.publicKey,
-    clePubC: kpc.publicKey,
-    rowCompte,
-    rowPrefs,
-    rowAvatar,
-    rowCompta,
-    rowContactP,
-    rowContactF
-  Refus
+    clePubAv: kpav.publicKey, // clé publique de l'avatar créé
+    rowCompte, // compte créé
+    rowCompta, // compta du compte créé
+    rowAvatar, // premier avatar du compte créé
+    rowPrefs, // préférences du compte créé
+    idCouple: couple.id, // id du couple
+    phch: arg.phch, // hash de la phrase de contact
+    idcp, // id du compte parrain
+    idavp: couple.idE, // id de l'avatar parrain
+    dr1: arg.estPar ? d.r1 + d.f1 : d.f1, // montant à réduire de sa réserve
+    dr2: arg.estPar ? d.r2 + d.f2 : d.f2,
+    mc0: arg.estPar ? MC.FILLEUL : MC.INTRODUIT, // mot clé à ajouter dans le couple
+    mc1: arg.estPar ? MC.PARRAIN : MC.INTRODUCTEUR,
+    ardc // ardoise du couple
+Refus
     sessionId: data.sessionId,
-    pph: parrain.pph,
-    ardc: await crypt.crypter(parrain.data.cc, serial([new Date().getTime(), arg.ard]))
- Retour : sessionId, dh, si ok : rowItems : compte, compta, prefs, avatar, contactf
- */
-const upd1parrain = 'UPDATE parrain SET v = @v, st = @st, ardc = @ardc WHERE pph = @pph'
+    phch: arg.phch, // hash de la phrase de contact
+    idCouple: couple.id, // id du couple
+    ardc // ardoise du couple
+Retour : sessionId, dh, si ok : rowItems : compte, compta, prefs, avatar, contactf
+*/
+
+const delcontact = 'DELETE FROM contact WHERE phch = @phch'
 const updcompta = 'UPDATE compta SET v = @v, data = @data WHERE id = @id'
-const upd2parrain = 'UPDATE parrain SET v = @v, st = @st, dlv = 0, ardc = null, datax = null, datak = null, data2k = null WHERE pph = @pph'
-const upd3parrain = 'UPDATE parrain SET v = @v, dlv = @dlv WHERE pph = @pph'
+const upd2couple = 'UPDATE couple SET v = @v, st = @st, dlv = 0, ardc = @ardc, mc0 = @mc0, mc1 = @mc1 WHERE id = @id'
 
 async function acceptParrainage (cfg, args) {
   const session = checkSession(args.sessionId)
@@ -1528,50 +1530,59 @@ async function acceptParrainage (cfg, args) {
   const avatar = schemas.deserialize('rowavatar', args.rowAvatar)
   const compta = schemas.deserialize('rowcompta', args.rowCompta)
   const prefs = schemas.deserialize('rowprefs', args.rowPrefs)
-  const contactf = schemas.deserialize('rowcontact', args.rowContactF)
-  const contactp = schemas.deserialize('rowcontact', args.rowContactP)
+  const cv = { id: avatar.id, v: 0, x: 0, dds: ddsAvatarGroupeCouple(0), cv: null, vsh: 0 }
 
   const versions = getValue(cfg, VERSIONS)
 
-  let j = idx(args.idp)
+  let j = idx(args.idcp)
   versions[j]++
-  args.vp = versions[j] // version du contact parrain
-
-  j = idx(args.idf)
-  versions[j]++
-  args.vf = versions[j] // version du contact filleul
-
-  j = idx(args.idcp)
-  versions[j]++
-  args.vcp = versions[j] // version du compte parrain (L'AUTRE)
+  args.vcp = versions[j] // version de compta parrain (L'AUTRE)
 
   j = idx(compte.id)
   versions[j]++
-  args.vcf = versions[j] // version du compte filleul (MOI)
+  compte.v = versions[j] // version du compte filleul (MOI)
+  compta.v = versions[j] // version de compta filleul (MOI)
+  prefs.v = versions[j] // version de prefs filleul (MOI)
+
+  j = idx(avatar.id)
+  versions[j]++
+  avatar.v = versions[j] // version de l'avatar filleul (MOI)
+
+  j = idx(args.idCouple)
+  versions[j]++
+  args.vcouple = versions[j] // version de l'avatar filleul (MOI)
+
+  j = idx(0)
+  versions[j]++
+  cv.v = versions[j] // version de la carte de visite
 
   setValue(cfg, VERSIONS)
 
-  const items = {} // contiendra après l'appel : parrain, comptaP (du parrain), ardoise (du filleul)
+  const items = {} // contiendra après l'appel : comptaP (du parrain), couple
 
-  cfg.db.transaction(acceptParrainageTr)(cfg, session, args, compte, compta, prefs, avatar, contactf, contactp, items)
+  cfg.db.transaction(acceptParrainageTr)(cfg, session, args, compte, compta, prefs, avatar, cv, items)
 
-  const i10 = newItem('parrain', items.parrain)
-  const i11 = newItem('parrain', items.comptaP)
-  const i12 = newItem('ardoise', items.ardoise)
-  const i1 = newItem('contact', contactp)
-  const i2 = newItem('contact', contactf)
-  const i3 = newItem('compte', compte)
-  const i4 = newItem('avatar', avatar)
-  const i5 = newItem('prefs', prefs)
-  const i6 = newItem('compta', compta)
-  result.rowItems = [i2, i3, i4, i5, i6, i12] // à retourner en résultat
-  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: [i10, i11, i1, i2, i3, i4, i5, i6, i12] }) // à synchroniser
+  const i1 = newItem('compte', compte)
+  const i2 = newItem('avatar', avatar)
+  const i3 = newItem('prefs', prefs)
+  const i4 = newItem('compta', compta)
+  const i5 = newItem('couple', items.couple)
+  const i6 = newItem('compta', items.comptaP)
+
+  result.rowItems = [i1, i2, i3, i4, i5] // à retourner en résultat
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: [i1, i2, i3, i4, i5, i6] }) // à synchroniser
   setImmediate(() => { processQueue() })
+
+  // Abonnements du nouveau compte
+  session.compteId = compte.id
+  session.plusAvatars([avatar.id])
+  session.plusCouples([args.idCouple])
+  session.plusCvs([args.idavp])
   return result
 }
 m1fonctions.acceptParrainage = acceptParrainage
   
-function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, contactf, contactp, items) {
+function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, cv, items) {
   const c = stmt(cfg, selcomptedpbh).get({ dpbh: compte.dpbh })
   if (c) {
     if (c.pcbh === compte.pcbh) {
@@ -1581,71 +1592,52 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
     }
   }
 
-  const p = stmt(cfg, 'selpphparrain').get({ pph: args.pph })
-  if (!p) throw new AppExc(X_SRV, '15-Phrase de parrainage inconnue')
-
-  if (p.st !== 0) throw new AppExc(X_SRV, '16-Ce parrainage a déjà fait l\'objet ' + (p.st !== 1 ? 'd\'une acceptation.' : 'd\'un refus'))
-
-  // MAJ du row parrain : v, st, ardc
-  p.v = args.vp
-  p.ardc = contactf.ardc
-  p.st = contactp.st % 10 === 0 ? 2 : 3
-  stmt(cfg, upd1parrain).run(p)
-  items.parrain = p
+  stmt(cfg, delcontact).run({ phch: args.phch }) // suppression du contact
 
   const comptaP = stmt(cfg, selcomptaid).get({ id: args.idcp })
   if (!comptaP) {
     throw new AppExc(A_SRV, '17-Compte parrain : données de comptabilité absentes')
   }
   const compteurs = new Compteurs(comptaP.data)
-  const ok = compteurs.setRes(-args.forfaits[0], -args.forfaits[1])
-  if (!ok) throw new AppExc(X_SRV, '18-Réserves de volume insuffisantes du parrain pour attribuer ces forfaits')
-
+  const ok = compteurs.setRes([-args.dr1, -args.dr2])
+  if (!ok) throw new AppExc(X_SRV, '18-Réserves de volume insuffisantes du parrain pour les forfaits attribués compte')
   comptaP.v = args.vcp
-  comptaP.data = compteurs.serial
+  comptaP.data = compteurs.calculauj().serial
   stmt(cfg, updcompta).run(comptaP)
   items.comptaP = comptaP
 
-  const dh = new Date().getTime()
-  const ardoise = { id: compte.id, v: compte.vh, dhe: dh, dhl: dh, mcp: null, mcc: null, data: null, vsh: 0 }
-  // stmt(cfg, insardoise).run(ardoise)
-  items.ardoise = ardoise
-
-  // insertion des contacts p et f : v
-  contactp.v = args.vp
-  // stmt(cfg, inscontact).run(contactp)
-
-  contactf.v = args.vf
-  // stmt(cfg, inscontact).run(contactf)
-
   // Insertion des nouveaux compte, avatar, prefs du filleul
-  compte.v = args.vcf
   stmt(cfg, inscompte).run(compte)
 
-  compta.v = args.vcf
   compta.dds = new DateJour().nbj
   stmt(cfg, inscompta).run(compta)
 
-  prefs.v = args.vcf
   stmt(cfg, insprefs).run(prefs)
 
-  avatar.v = args.vf
-  avatar.dds = ddsAvatarGroupeCouple(0)
   stmt(cfg, insavatar).run(avatar)
+
+  stmt(cfg, inscv).run(cv)
 
   // Clé RSA du filleul
   const avrsaAv = { id: avatar.id, clepub: args.clePubAv, vsh: 0 }
   stmt(cfg, insavrsa).run(avrsaAv)
 
-  const avrsaC = { id: compte.id, clepub: args.clePubC, vsh: 0 }
-  stmt(cfg, insavrsa).run(avrsaC)
-
-  // Contexte de session du filleul
-  session.compteId = compte.id
-  session.plusAvatars([avatar.id])
-  session.plusCvs([contactp.id])
+  // MAJ du couple
+  const cp = stmt(cfg, selcoupleId).get({ id: args.idCouple })
+  if (!cp) throw new AppExc(A_SRV, '24-Couple non trouvé')
+  cp.v = args.vcouple
+  cp.st = 3011 // Phase en couple, les deux actifs
+  cp.mc1 = new Uint8Array(args.mc1)
+  const s = cp.mc0 ? new Set(cp.mc0) : new Set()
+  args.mc0.forEach(m => { s.add(m) })
+  cp.mc0 = new Uint8Array(Array.from(s))
+  cp.ardc = args.ardc
+  stmt(cfg, upd2couple).run(cp)
+  items.couple = cp
 }
 
+const upd2parrain = 'UPDATE parrain SET v = @v,  datax = null, datak = null, data2k = null WHERE pph = @pph'
+const upd3parrain = 'UPDATE parrain SET v = @v, dlv = @dlv WHERE pph = @pph'
 /******************************************************************
 Refus
   sessionId: data.sessionId,
@@ -1680,8 +1672,8 @@ async function refusParrainage (cfg, args) {
 }
 m1fonctions.refusParrainage = refusParrainage
   
-function refusParrainageTr (cfg, parrain) {
-  stmt(cfg, upd1parrain).run(parrain)
+function refusParrainageTr (/* cfg, parrain */) {
+  // stmt(cfg, upd1parrain).run(parrain)
 }
 
 /******************************************************************

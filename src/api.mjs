@@ -293,6 +293,9 @@ export class Compteurs {
   }
 
   calculauj () { // recalcul à aujourd'hui en fonction du dernier jour de calcul
+    // Contournement
+    if (isNaN(this.res1)) this.res1 = 64
+    if (isNaN(this.res2)) this.res2 = 64
     const dj = new DateJour()
     this.dj = dj
     if (dj.nbj === this.j) return this // déjà normalisé, calculé aujourd'hui
