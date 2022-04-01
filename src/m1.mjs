@@ -761,12 +761,15 @@ function majCV (cfg, args) {
 m1fonctions.majCV = majCV
 
 function majCVTr (cfg, id, v, cv, rowItems) {
-  const a = stmt(cfg, selcvid).get({ id: id })
-  if (!a) throw new AppExc(A_SRV, '07-Carte de visite non trouvée')
-
-  a.cv = cv
-  a.v = v
-  stmt(cfg, updcv).run(a)
+  let a = stmt(cfg, selcvid).get({ id: id })
+  if (a) {
+    a.cv = cv
+    a.v = v
+    stmt(cfg, updcv).run(a)
+  } else {
+    a = { id, v, x: 0, dds: 0, cv, vsh:0 }
+    stmt(cfg, inscv).run(a)
+  }
   rowItems.push(newItem('cv', a))
 }
 
