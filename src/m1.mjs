@@ -464,11 +464,13 @@ async function chargerGrCp (cfg, args) {
   const session = checkSession(args.sessionId)
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const rowItems = []
-  cfg.db.transaction(chargerGrCpTr)(cfg, args, rowItems)
+  const grIds = []
+  const cpIds = []
+  cfg.db.transaction(chargerGrCpTr)(cfg, args, grIds, cpIds, rowItems)
   result.rowItems = rowItems
   result.ok = args.ok
-  session.plusGroupes(Object.keys(args.gridsVers))
-  session.plusCouples(Object.keys(args.cpidsVers))
+  session.plusGroupes(grIds)
+  session.plusCouples(cpIds)
   return result
 }
 m1fonctions.chargerGrCp = chargerGrCp
@@ -477,7 +479,7 @@ const selgroupe = 'SELECT * FROM groupe WHERE id = @id AND v > @v'
 const selcouple = 'SELECT * FROM couple WHERE id = @id AND v > @v'
 const selcoupleId = 'SELECT * FROM couple WHERE id = @id'
 
-function chargerGrCpTr(cfg, args, rowItems) {
+function chargerGrCpTr(cfg, args, grIds, cpIds, rowItems) {
   const c = stmt(cfg, selcompteidv).get({ id : args.idc })
   if (!c || c.v > args.vc) { args.ok = false; return }
   const ids = []
@@ -490,12 +492,14 @@ function chargerGrCpTr(cfg, args, rowItems) {
   for(const idx in args.gridsVers) {
     const id = parseInt(idx)
     ids.push(id)
+    grIds.push(id)
     const row = stmt(cfg, selgroupe).get({ id, v: args.gridsVers[id] })
     if (row) rowItems.push(newItem('groupe', row))
   }
   for(const idx in args.cpidsVers) {
     const id = parseInt(idx)
     ids.push(id)
+    cpIds.push(id)
     const row = stmt(cfg, selcouple).get({ id, v: args.cpidsVers[id] })
     if (row) rowItems.push(newItem('couple', row))
   }
@@ -771,6 +775,64 @@ function majCVTr (cfg, id, v, cv, rowItems) {
     stmt(cfg, inscv).run(a)
   }
   rowItems.push(newItem('cv', a))
+}
+
+/***************************************
+MAJ d'un couple
+Args : majCouple
+- sessionId
+- id: du couple
+- avc: 0 ou 1
+- ardc:
+- infok
+- mc:
+- vmax: [v1, v2]
+Retour :
+- sessionId
+- dh
+A_SRV, '24-Couple non trouvé'
+*/
+const updcouple0 = 'UPDATE couple SET v = @v, ardc = @ardc, infok0 = @infok0, mc0 = @mc0, mx10 = @mx10, mx20 = @mx20 WHERE id = @id'
+const updcouple1 = 'UPDATE couple SET v = @v, ardc = @ardc, infok1 = @infok1, mc1 = @mc1, mx11 = @mx11, mx21 = @mx21 WHERE id = @id'
+
+function majCouple (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.id)
+  versions[j]++
+  args.v = versions[j]
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+
+  cfg.db.transaction(majCoupleTr)(cfg, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return { sessionId: args.sessionId, dh: dh }
+}
+m1fonctions.majCouple = majCouple
+
+function majCoupleTr (cfg, args, rowItems) {
+  const cp = stmt(cfg, selcoupleId).get({ id: args.id })
+  if (!cp) throw new AppExc(A_SRV, '24-Couple non trouvé')
+
+  cp.v = args.v
+  if (args.ardc) cp.ardc = args.ardc
+  if (args.avc === 0) {
+    if (args.vmax) { cp.mx10 = args.vmax[0]; cp.mx20 = args.vmax[1] }
+    if (args.infok) cp.infok0 = args.infok
+    if (args.mc) cp.mc0 = args.mc
+    stmt(cfg, updcouple0).run(cp)
+  } else {
+    if (args.vmax) { cp.mx11 = args.vmax[0]; cp.mx21 = args.vmax[1] }
+    if (args.infok) cp.infok1 = args.infok
+    if (args.mc) cp.mc1 = args.mc
+    stmt(cfg, updcouple1).run(cp)
+  }
+  rowItems.push(newItem('couple', cp))
 }
 
 /**************************************** */
