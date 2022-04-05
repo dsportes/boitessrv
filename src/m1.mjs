@@ -176,22 +176,17 @@ const insinvitgr = 'INSERT INTO invitgr (id, ni, datap) '
 const inscv = 'INSERT INTO cv (id, v, x, dds, cv, vsh) '
   + 'VALUES (@id, @v, @x, @dds, @cv, @vsh)'
 
-const selavatarid = 'SELECT * FROM avatar WHERE id = @id'
-// eslint-disable-next-line no-unused-vars
-const selgroupeid = 'SELECT * FROM groupe WHERE id = @id'
-// eslint-disable-next-line no-unused-vars
-const selcoupleid = 'SELECT * FROM couple WHERE id = @id'
-// eslint-disable-next-line no-unused-vars
-const selcontactphch = 'SELECT * FROM contact WHERE phch = @phch'
-const selcvid = 'SELECT * FROM cv WHERE id = @id'
-const selsecretidns = 'SELECT * FROM secret WHERE id = @id AND ns = @ns'
-// eslint-disable-next-line no-unused-vars
-const selmembreidim = 'SELECT * FROM membre WHERE id = @id AND im = @im'
-// eslint-disable-next-line no-unused-vars
-const selinvitgridni = 'SELECT * FROM invitgr WHERE id = @id AND ni = @ni'
-const selcompteid = 'SELECT * FROM compte WHERE id = @id'
-const selprefsid = 'SELECT * FROM prefs WHERE id = @id'
-const selcomptaid = 'SELECT * FROM compta WHERE id = @id'
+const selcompteId = 'SELECT * FROM compte WHERE id = @id'
+const selprefsId = 'SELECT * FROM prefs WHERE id = @id'
+const selcomptaId = 'SELECT * FROM compta WHERE id = @id'
+const selavatarId = 'SELECT * FROM avatar WHERE id = @id'
+const selgroupeId = 'SELECT * FROM groupe WHERE id = @id'
+const selcoupleId = 'SELECT * FROM couple WHERE id = @id'
+const selcontactPhch = 'SELECT * FROM contact WHERE phch = @phch'
+const selcvId = 'SELECT * FROM cv WHERE id = @id'
+const selsecretIdNs = 'SELECT * FROM secret WHERE id = @id AND ns = @ns'
+const selmembreIdIm = 'SELECT * FROM membre WHERE id = @id AND im = @im'
+const selinvitgrId = 'SELECT * FROM invitgr WHERE id = @id'
 
 function idx (id) {
   return (id % (nbVersions - 1)) + 1
@@ -391,7 +386,7 @@ async function chargerGMS (cfg, args) {
 }
 m1fonctions.chargerGMS = chargerGMS
 
-const selmembreId = 'SELECT * FROM membre WHERE id = @id AND v > @v'
+const selmembreId = 'SELECT * FROM membre WHERE id = @id'
 const selsecretId = 'SELECT * FROM secret WHERE id = @id'
 
 function chargerASTr(cfg, id, rowItems) {
@@ -477,7 +472,6 @@ m1fonctions.chargerGrCp = chargerGrCp
 
 const selgroupe = 'SELECT * FROM groupe WHERE id = @id AND v > @v'
 const selcouple = 'SELECT * FROM couple WHERE id = @id AND v > @v'
-const selcoupleId = 'SELECT * FROM couple WHERE id = @id'
 
 function chargerGrCpTr(cfg, args, grIds, cpIds, rowItems) {
   const c = stmt(cfg, selcompteidv).get({ id : args.idc })
@@ -664,7 +658,7 @@ m1fonctions.creationAvatar = creationAvatar
 const upd1compte = 'UPDATE compte SET v = @v, mack = @mack WHERE id = @id'
 
 function creationAvatarTr (cfg, session, args, avatar, avrsa, cv, rowItems) {
-  const c = stmt(cfg, selcompteid).get({ id: args.idc })
+  const c = stmt(cfg, selcompteId).get({ id: args.idc })
   if (!c) throw new AppExc(A_SRV, '06-Compte non trouvé')
   if (c && c.v !== args.vcav) {
     args.statut = 1
@@ -720,7 +714,7 @@ function prefCompte (cfg, args) {
 m1fonctions.prefCompte = prefCompte
 
 function prefCompteTr (cfg, id, v, code, datak, rowItems) {
-  const p = stmt(cfg, selprefsid).get({ id: id })
+  const p = stmt(cfg,selprefsId).get({ id: id })
   if (!p) throw new AppExc(X_SRV, '06-Compte non trouvé')
 
   const x = deserial(p.mapk)
@@ -765,7 +759,7 @@ function majCV (cfg, args) {
 m1fonctions.majCV = majCV
 
 function majCVTr (cfg, id, v, cv, rowItems) {
-  let a = stmt(cfg, selcvid).get({ id: id })
+  let a = stmt(cfg, selcvId).get({ id: id })
   if (a) {
     a.cv = cv
     a.v = v
@@ -841,8 +835,6 @@ const updavgrvq = ''
 
 const selsecret = 'SELECT * FROM secret WHERE id = @id AND v > @v'
 const selmembre = 'SELECT * FROM membre WHERE id = @id AND v > @v'
-const selgroupeId = 'SELECT * FROM groupe WHERE id = @id'
-const selmembreIdIm = 'SELECT * FROM membre WHERE id = @id AND im = @im'
 
 const updstmembre = 'UPDATE membre SET v = @v, st = @st WHERE id = @id AND im = @im'
 const updstcouple = 'UPDATE couple SET v = @v, st = @st WHERE id = @id'
@@ -880,7 +872,7 @@ async function regulGr (cfg, args) {
 m1fonctions.regulGr = regulGr
 
 function regulGrTr (cfg, session, args, rowItems) {
-  const a = stmt(cfg, selavatarid).get({ id: args.id })
+  const a = stmt(cfg, selavatarId).get({ id: args.id })
   if (!a) return // avatar supprimé depuis (?)
   const map = deserial(a.lgrk)
   if (map[args.ni]) return // déjà fait
@@ -924,7 +916,7 @@ m1fonctions.regulAv = regulAv
 
 function regulAvTr (cfg, session, args, rowItems) {
   for (const avid of args.v) {
-    const a = stmt(cfg, selavatarid).get({ id: avid })
+    const a = stmt(cfg, selavatarId).get({ id: avid })
     if (!a) continue // avatar supprimé depuis (?)
     const map = deserial(a.lgrk)
     args.mapav[avid].forEach(ni => {
@@ -1027,13 +1019,12 @@ function coupleDisparuTr (cfg, args, rowItems) {
 Chargement des invitGr des avatars d'un compte
 - sessionId, ids (array des ids des avatars)
 */
-const selinvitgr = 'SELECT * FROM invitgr WHERE id = @id'
 
 async function chargerInvitGr (cfg, args) {
   checkSession(args.sessionId)
   const result = { sessionId: args.sessionId, dh: getdhc(), rowItems: [] }
   for (let i = 0; i < args.ids.length; i++) {
-    const rows = stmt(cfg, selinvitgr).all({ id: args.ids[i] })
+    const rows = stmt(cfg, selinvitgrId).all({ id: args.ids[i] })
     rows.forEach((row) => {
       result.rowItems.push(newItem('invitgr', row))
     })
@@ -1053,7 +1044,7 @@ const bytes0 = new Uint8Array(0)
 async function getcv (cfg, args) {
   checkSession(args.sessionId)
   try {
-    const c = stmt(cfg, selcvid).get({ id: crypt.sidToId(args.sid) })
+    const c = stmt(cfg, selcvId).get({ id: crypt.sidToId(args.sid) })
     if (!c) return { bytes0 }
     const buf = schemas.serialize('rowcv', c)
     return { bytes: buf }
@@ -1243,7 +1234,7 @@ m1fonctions.maj1Secret = maj1Secret
 
 function maj1SecretTr (cfg, args, rowItems) {
 
-  const secret = stmt(cfg, selsecretidns).get({ id: args.id, ns: args.ns }) 
+  const secret = stmt(cfg, selsecretIdNs).get({ id: args.id, ns: args.ns }) 
   if (!secret) throw new AppExc(A_SRV, '13-Secret inexistant')
 
   let deltav1 = 0, deltavm1 = 0, deltav2 = 0, deltavm2 = 0
@@ -1296,7 +1287,7 @@ function maj1SecretTr (cfg, args, rowItems) {
   let secret2
   if (args.ts === 1) {
     // secret2 PEUT avoir été détruit
-    secret2 = stmt(cfg, selsecretidns).get({ id: args.id2, ns: args.ns2 }) 
+    secret2 = stmt(cfg, selsecretIdNs).get({ id: args.id2, ns: args.ns2 }) 
     if (secret2) {
       secret2.v = args.vb
       secret2.st = secret.st
@@ -1376,7 +1367,7 @@ async function pjSecret (cfg, args) {
     args.vb = versions[j2]
   }
 
-  const secret = stmt(cfg, selsecretidns).get({ id: args.id, ns: args.ns })
+  const secret = stmt(cfg, selsecretIdNs).get({ id: args.id, ns: args.ns })
   if (!secret) throw new AppExc(A_SRV, '13-Secret inexistant')
 
   // calcul de v2 et de mpjs
@@ -1440,7 +1431,7 @@ m1fonctions.pjSecret = pjSecret
 
 function pjSecretTr (cfg, args, rowItems) {
 
-  const secret = stmt(cfg, selsecretidns).get({ id: args.id, ns: args.ns }) 
+  const secret = stmt(cfg, selsecretIdNs).get({ id: args.id, ns: args.ns }) 
   if (!secret) throw new AppExc(A_SRV, '13-Secret inexistant')
 
   secret.v = args.v
@@ -1461,7 +1452,7 @@ function pjSecretTr (cfg, args, rowItems) {
   let secret2
   if (args.ts === 1) {
     // secret2 PEUT avoir été détruit
-    secret2 = stmt(cfg, selsecretidns).get({ id: args.id2, ns: args.ns2 }) 
+    secret2 = stmt(cfg, selsecretIdNs).get({ id: args.id2, ns: args.ns2 }) 
     if (secret2) {
       secret2.v = args.vb
       secret2.v2 = secret.v2
@@ -1512,7 +1503,6 @@ Parrainage : args de m1/nouveauParrainage
 // eslint-disable-next-line no-unused-vars
 const updcontact = 'UPDATE contact SET dlv = @dlv WHERE pph = @pph'
 const upd2avatar = 'UPDATE avatar SET v = @v, lcck = @lcck WHERE id = @id'
-const selcontact = 'SELECT * FROM contact WHERE phch = @phch'
 
 async function nouveauParrainage (cfg, args) {
   const session = checkSession(args.sessionId)
@@ -1540,13 +1530,13 @@ async function nouveauParrainage (cfg, args) {
 m1fonctions.nouveauParrainage = nouveauParrainage
 
 function nouveauParrainageTr (cfg, args, contact, couple, rowItems) {
-  const p = stmt(cfg, selcontact).get({ phch: contact.phch })
+  const p = stmt(cfg, selcontactPhch).get({ phch: contact.phch })
   if (p) throw new AppExc(X_SRV, '14-Cette phrase de parrainage est trop proche d\'une déjà enregistrée.')
   stmt(cfg, inscontact).run(contact)
   stmt(cfg, inscouple).run(couple)
   rowItems.push(newItem('couple', couple))
 
-  const a = stmt(cfg, selavatarid).get({ id: args.id })
+  const a = stmt(cfg, selavatarId).get({ id: args.id })
   if (!a) throw new AppExc(X_SRV, '23-Avatar non trouvé.')
   const map = a.lcck ? deserial(a.lcck) : {}
   if (map[args.ni]) return // déjà fait
@@ -1659,7 +1649,7 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
 
   stmt(cfg, delcontact).run({ phch: args.phch }) // suppression du contact
 
-  const comptaP = stmt(cfg, selcomptaid).get({ id: args.idcp })
+  const comptaP = stmt(cfg, selcomptaId).get({ id: args.idcp })
   if (!comptaP) {
     throw new AppExc(A_SRV, '17-Compte parrain : données de comptabilité absentes')
   }
@@ -1716,7 +1706,7 @@ async function refusParrainage (cfg, args) {
   const dh = getdhc()
   const result = { sessionId: args.sessionId, dh: dh }
 
-  const parrain = stmt(cfg, selcontact).get({ pph: args.pph })
+  const parrain = stmt(cfg, selcontactPhch).get({ phch: args.phch })
   if (!parrain) throw new AppExc(X_SRV, '15-Phrase de parrainage inconnue')
 
   if (parrain.st !== 0) throw new AppExc(X_SRV, '16-Ce parrainage a déjà fait l\'objet ' + (parrain.st !== 1 ? 'd\'une acceptation.' : 'd\'un refus'))
@@ -1754,7 +1744,7 @@ async function supprParrainage (cfg, args) {
   const dh = getdhc()
   const result = { sessionId: args.sessionId, dh: dh }
 
-  const parrain = stmt(cfg, selcontact).get({ pph: args.pph })
+  const parrain = stmt(cfg, selcontactPhch).get({ phch: args.phch })
   if (!parrain) throw new AppExc(X_SRV, '15-Phrase de parrainage inconnue')
 
   if (parrain.st !== 0) throw new AppExc(X_SRV, '16-Ce parrainage a déjà fait l\'objet ' + (parrain.st !== 1 ? 'd\'une acceptation.' : 'd\'un refus'))
@@ -1786,7 +1776,7 @@ function supprParrainageTr (cfg, parrain) {
 /* row contact depuis la phrase de contact */
 async function getContact (cfg, args) {
   try {
-    const c = stmt(cfg, selcontact).get({ phch: parseInt(args.phch) })
+    const c = stmt(cfg, selcontactPhch).get({ phch: parseInt(args.phch) })
     if (!c) return { bytes0 }
     const b = serial(c)
     return { bytes: b }
@@ -1837,16 +1827,20 @@ async function creationGroupe (cfg, args) {
   let j = idx(groupe.id)
   versions[j]++
   groupe.v = versions[j] // version du groupe
-  groupe.dds = ddsAvatarGroupeCouple(0)
   membre.v = versions[j]
 
   j = idx(args.ida)
   versions[j]++
   args.v = versions[j] // version de l'avatar
+
+  const cv = { id: groupe.id, v: 0, x: 0, dds: ddsAvatarGroupeCouple(0), cv: null, vsh: 0 }
+  j = idx(0)
+  versions[j]++
+  cv.v = versions[j] // version de l'avatar
   setValue(cfg, VERSIONS)
 
   const rowItems = []
-  cfg.db.transaction(creationGroupeTr)(cfg, session, args, groupe, membre, rowItems)
+  cfg.db.transaction(creationGroupeTr)(cfg, session, args, groupe, membre, cv, rowItems)
 
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems }) // à synchroniser
   setImmediate(() => { processQueue() })
@@ -1854,10 +1848,10 @@ async function creationGroupe (cfg, args) {
 }
 m1fonctions.creationGroupe = creationGroupe
 
-function creationGroupeTr (cfg, session, args, groupe, membre, rowItems) {
-  const a = stmt(cfg, selavatarid).get({ id: args.ida })
+function creationGroupeTr (cfg, session, args, groupe, membre, cv, rowItems) {
+  const a = stmt(cfg, selavatarId).get({ id: args.ida })
   if (!a) throw new AppExc(A_SRV, '17-Avatar non trouvé')
-  const map = deserial(a.lgrk)
+  const map = a.lgrk ? deserial(a.lgrk) : {}
   if (!map[args.ni]) {
     map[args.ni] = args.datak
     a.v = args.v
@@ -1868,6 +1862,9 @@ function creationGroupeTr (cfg, session, args, groupe, membre, rowItems) {
 
   stmt(cfg, insgroupe).run(groupe)
   rowItems.push(newItem('groupe', groupe))
+
+  stmt(cfg, inscv).run(cv)
+  rowItems.push(newItem('cv', cv))
 
   stmt(cfg, insmembre).run(membre)
   rowItems.push(newItem('membre', membre))
@@ -2192,7 +2189,7 @@ m1fonctions.finhebGroupe = finhebGroupe
 const updhebgroupe= 'UPDATE groupe SET v = @v, dfh = @dfh, idhg = @idhg, imh = @imh WHERE id = @id'
 
 function finhebGroupeTr (cfg, args, rowItems) {
-  const compta = stmt(cfg, selcomptaid).get({ id: args.idc })
+  const compta = stmt(cfg, selcomptaId).get({ id: args.idc })
   if (!compta) throw new AppExc(A_SRV, '10-Données de comptabilité absentes')
   const groupe = stmt(cfg, selgroupeId).get({ id: args.idg })
   if (!groupe) throw new AppExc(A_SRV, '18-Groupe non trouvé')
@@ -2253,7 +2250,7 @@ async function debhebGroupe (cfg, args) {
 m1fonctions.debhebGroupe = debhebGroupe
 
 function debhebGroupeTr (cfg, args, rowItems) {
-  const compta = stmt(cfg, selcomptaid).get({ id: args.idc })
+  const compta = stmt(cfg, selcomptaId).get({ id: args.idc })
   if (!compta) throw new AppExc(A_SRV, '10-Données de comptabilité absentes')
   const groupe = stmt(cfg, selgroupeId).get({ id: args.idg })
   if (!groupe) throw new AppExc(A_SRV, '18-Groupe non trouvé')
