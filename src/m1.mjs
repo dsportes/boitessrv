@@ -2337,10 +2337,12 @@ function majvmaxGroupeTr (cfg, args, rowItems) {
 /* Contact d'un groupe ****************************************
 args :
 - sessionId
+- mxim
 - rowMembre
 Retour: sessionId, dh
 A_SRV, '18-Groupe non trouvé'
 */
+const updmximgroupe = 'UPDATE groupe SET mxim = @mxim WHERE id = @id'
 
 async function contactGroupe (cfg, args) {
   checkSession(args.sessionId)
@@ -2356,10 +2358,15 @@ async function contactGroupe (cfg, args) {
   setValue(cfg, VERSIONS)
 
   const rowItems = []
+  args.statut = 0
   cfg.db.transaction(contactGroupeTr)(cfg, args, membre, rowItems)
-
+  if (args.statut === 1) {
+    result.statut = 1
+    return result
+  }
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
+  result.statut = 0
   return result
 }
 m1fonctions.contactGroupe = contactGroupe
@@ -2367,6 +2374,15 @@ m1fonctions.contactGroupe = contactGroupe
 function contactGroupeTr (cfg, args, membre, rowItems) {
   const groupe = stmt(cfg, selgroupeId).get({ id: membre.id })
   if (!groupe) throw new AppExc(A_SRV, '18-Groupe non trouvé')
+  if (groupe.mxim + 1 !== args.mxim) {
+    args.statut = 1
+    return
+  }
+
+  groupe.v = args.vg
+  groupe.mxim = args.mxim
+  stmt(cfg, updmximgroupe).run(groupe)
+  rowItems.push(newItem('groupe', groupe))
   
   membre.v = args.vg
   stmt(cfg, insmembre).run(membre)
