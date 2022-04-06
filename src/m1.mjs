@@ -843,7 +843,7 @@ const updstcouple = 'UPDATE couple SET v = @v, st = @st WHERE id = @id'
 Mise à jour de lgrk dans l'avatar et suppression du row invitgr
 args
 - id : de l'avatar
-- idg: id du groupe
+- idg: id du groupe (pour s'abonner)
 - ni : numéro d'invitation du groupe à inscrire
 - datak : [nom, rnd, im] du groupe à inscrire dans lgrk de l'avatar
 */
@@ -859,7 +859,7 @@ async function regulGr (cfg, args) {
   const versions = getValue(cfg, VERSIONS)
   const j = idx(args.id)
   versions[j]++
-  args.v = versions[j] // version des rows parrain
+  args.v = versions[j]
   setValue(cfg, VERSIONS)
 
   const rowItems = []
@@ -874,7 +874,8 @@ m1fonctions.regulGr = regulGr
 function regulGrTr (cfg, session, args, rowItems) {
   const a = stmt(cfg, selavatarId).get({ id: args.id })
   if (!a) return // avatar supprimé depuis (?)
-  const map = deserial(a.lgrk)
+  let map = a.lgrk ? deserial(a.lgrk) : {}
+  if (!map) map = {}
   if (map[args.ni]) return // déjà fait
   map[args.ni] = args.datak
   a.v = args.v
@@ -2392,6 +2393,7 @@ function contactGroupeTr (cfg, args, membre, rowItems) {
 /* Inviter un contact d'un groupe ****************************************
 args :
 - sessionId
+- rowInvitgr
 - id, im : id du membre
 - st : statut du membre
 Retour: sessionId, dh
