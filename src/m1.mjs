@@ -1519,10 +1519,16 @@ async function nouveauParrainage (cfg, args) {
   j = idx(args.id)
   versions[j]++
   args.v = versions[j] // version du row avatar
+
+  const cv = { id: couple.id, v: 0, x: 0, dds: ddsAvatarGroupeCouple(0), cv: null, vsh: 0 }
+  j = idx(0)
+  versions[j]++
+  cv.v = versions[j] // version de la cv du groupe
+
   setValue(cfg, VERSIONS)
 
   const rowItems = []
-  cfg.db.transaction(nouveauParrainageTr)(cfg, args, contact, couple, rowItems)
+  cfg.db.transaction(nouveauParrainageTr)(cfg, args, contact, couple, cv, rowItems)
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems })
   setImmediate(() => { processQueue() })
   session.plusCouples([couple.id])
@@ -1530,7 +1536,7 @@ async function nouveauParrainage (cfg, args) {
 }
 m1fonctions.nouveauParrainage = nouveauParrainage
 
-function nouveauParrainageTr (cfg, args, contact, couple, rowItems) {
+function nouveauParrainageTr (cfg, args, contact, couple, cv, rowItems) {
   const p = stmt(cfg, selcontactPhch).get({ phch: contact.phch })
   if (p) throw new AppExc(X_SRV, '14-Cette phrase de parrainage est trop proche d\'une déjà enregistrée.')
   stmt(cfg, inscontact).run(contact)
@@ -1546,6 +1552,9 @@ function nouveauParrainageTr (cfg, args, contact, couple, rowItems) {
   a.lcck = serial(map)
   stmt(cfg, upd2avatar).run(a)
   rowItems.push(newItem('avatar', a))
+
+  stmt(cfg, inscv).run(cv)
+  rowItems.push(newItem('cv', cv))
 }
 
 /******************************************************************
@@ -1837,7 +1846,7 @@ async function creationGroupe (cfg, args) {
   const cv = { id: groupe.id, v: 0, x: 0, dds: ddsAvatarGroupeCouple(0), cv: null, vsh: 0 }
   j = idx(0)
   versions[j]++
-  cv.v = versions[j] // version de l'avatar
+  cv.v = versions[j] // version de la cv du groupe
   setValue(cfg, VERSIONS)
 
   const rowItems = []
