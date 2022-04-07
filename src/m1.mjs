@@ -2434,3 +2434,95 @@ function inviterGroupeTr (cfg, args, invitgr, rowItems) {
   stmt(cfg, insinvitgr).run(invitgr)
   rowItems.push(newItem('invitgr', invitgr))
 }
+
+/* Accepter une invitation à un groupe ****************************************
+args :
+- sessionId
+- id, im : id du membre
+Retour: sessionId, dh
+A_SRV, '19-Membre non trouvé
+*/
+
+async function acceptInvitGroupe (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.id)
+  versions[j]++
+  args.vg = versions[j]
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(acceptInvitGroupeTr)(cfg, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.acceptInvitGroupe = acceptInvitGroupe
+
+function acceptInvitGroupeTr (cfg, args, rowItems) {
+  const membre = stmt(cfg, selmembreIdIm).get({ id: args.id, im: args.im })
+  if (!membre) throw new AppExc(A_SRV, '19-Membre non trouvé')
+  
+  membre.v = args.vg
+  const p = membre.st % 10
+  membre.st = 20 + p
+  stmt(cfg, updstmembre).run(membre)
+  rowItems.push(newItem('membre', membre))
+}
+
+/* Refuser une invitation à un groupe ****************************************
+args :
+- sessionId
+- id, im : id du membre
+- ida: id de l'avatar
+- ni: numéro d'invitation au groupe
+Retour: sessionId, dh
+A_SRV, '19-Membre non trouvé
+*/
+
+async function refusInvitGroupe (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+
+  const versions = getValue(cfg, VERSIONS)
+  let j = idx(args.id)
+  versions[j]++
+  args.vg = versions[j]
+  j = idx(args.ida)
+  versions[j]++
+  args.va = versions[j]
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(refusInvitGroupeTr)(cfg, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.refusInvitGroupe = refusInvitGroupe
+
+function refusInvitGroupeTr (cfg, args, rowItems) {
+  const membre = stmt(cfg, selmembreIdIm).get({ id: args.id, im: args.im })
+  if (!membre) throw new AppExc(A_SRV, '19-Membre non trouvé')
+  const a = stmt(cfg, selavatarId).get({ id: args.ida })
+  if (!a) throw new AppExc(A_SRV, '17-Avatar non trouvé')
+  
+  membre.v = args.vg
+  membre.st = 0
+  stmt(cfg, updstmembre).run(membre)
+  rowItems.push(newItem('membre', membre))
+
+  const map = a.lgrk ? deserial(a.lgrk) : {}
+  if (!map || !map[args.ni]) return // déjà fait
+  delete map[args.ni]
+  a.v = args.va
+  a.lgrk = serial(map)
+  stmt(cfg, upd1avatar).run(a)
+  rowItems.push(newItem('avatar', a))
+}
