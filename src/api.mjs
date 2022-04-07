@@ -1,9 +1,10 @@
-import { schemas } from './schemas.mjs'
-import { serial, deserial } from './util.mjs'
+import { schemas, serial, deserial } from './schemas.mjs'
 
 export const version = '1'
 
-export const PINGTO = 10000 // en secondes
+export const UNITEV1 = 250000
+export const UNITEV2 = 25000000
+export const PINGTO = 10000 // en secondes. valeur élevée en test
 
 export const E_BRK = -1 // Interruption volontaire de l'opération
 export const E_WS = -2 // Toutes erreurs de réseau
@@ -44,43 +45,32 @@ export const MC = {
   ATRAITER: 245
 }
 
-export const SIZEAV = 5
-export const SIZEGR = 3
-
-export const INDEXT = {
-  SECRET: 0,
-  AVATAR: 1,
-  CONTACT: 2,
-  RENCONTRE: 3,
-  PARRAIN: 4,
-  GROUPE: 1,
-  MEMBRE: 2
-}
+export const t0n = new Set(['compte', 'compta', 'prefs']) // singletons
+export const t1n = new Set(['avatar', 'couple', 'groupe']) // clé à 1 niveau
+export const t2n = new Set(['membre', 'secret']) // clé à 2 niveaux
 
 /*
 - `versions` (id) : table des prochains numéros de versions (actuel et dernière sauvegarde) et autres singletons clé / valeur
-- `avgrvq` (id) : volumes et quotas d'un avatar ou groupe
 - `avrsa` (id) : clé publique d'un avatar
 
-_**Tables aussi persistantes sur le client (IDB)**_
+__**Tables transmises au client**_
 
 - `compte` (id) : authentification et liste des avatars d'un compte
 - `prefs` (id) : données et préférences d'un compte
 - `compta` (id) : ligne comptable du compte
-- `ardoise` (id) : ardoise du compte avec parrain / comptables
+- `cv` (id) : staut d'existence, signature et carte de visite des avatars, couples et groupes.
 - `avatar` (id) : données d'un avatar et liste de ses contacts
-- `invitgr` (id, ni) : invitation reçue par un avatar à devenir membre d'un groupe
-- `contact` (id, ic) : données d'un contact d'un avatar
-- `rencontre` (prh) id : communication par A de son nom complet à un avatar B non connu de A dans l'application
-- `parrain` (pph) id : parrainage par un avatar A de la création d'un nouveau compte
-- `groupe` (id) : données du groupe et liste de ses avatars, invités ou ayant été pressentis, un jour à être membre
+- `couple` (id) : données d'un couple de contacts entre deux avatars
+- `groupe` (id) : données du groupe
 - `membre` (id, im) : données d'un membre du groupe
-- `secret` (id, ns) : données d'un secret d'un avatar ou groupe
+- `secret` (id, ns) : données d'un secret d'un avatar, couple ou groupe
+- `contact` (phch) : parrainage ou rencontre de A0 vers un A1 à créer ou inconnu par une phrase de contact
+- `invitgr` (id, ni) : **NON persistante en IDB**. invitation reçue par un avatar à devenir membre d'un groupe
 */
 
 schemas.forSchema({
   name: 'rowavatar',
-  cols: ['id', 'v', 'st', 'vcv', 'dds', 'cva', 'lgrk', 'vsh']
+  cols: ['id', 'v', 'lgrk', 'lcck', 'vsh']
 })
 
 schemas.forSchema({
@@ -90,7 +80,7 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowcompte',
-  cols: ['id', 'v', 'dds', 'dpbh', 'pcbh', 'kx', 'cprivk', 'mack', 'vsh']
+  cols: ['id', 'v', 'dpbh', 'pcbh', 'kx', 'mack', 'vsh']
 })
 
 schemas.forSchema({
@@ -100,22 +90,17 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowcompta',
-  cols: ['id', 'idp', 'v', 'dds', 'st', 'dst', 'data', 'vsh']
+  cols: ['id', 'idp', 'v', 'dds', 'st', 'dst', 'data', 'dh', 'ard', 'vsh']
 })
 
 schemas.forSchema({
-  name: 'ardoise',
-  cols: ['id', 'v', 'dhe', 'dhl', 'mcp', 'mcc', 'data', 'vsh']
-})
-
-schemas.forSchema({
-  name: 'rowcontact',
-  cols: ['id', 'ic', 'v', 'st', 'nccc', 'ardc', 'datap', 'datak', 'mc', 'infok', 'vsh']
+  name: 'rowcouple',
+  cols: ['id', 'v', 'st', 'v1', 'v2', 'mx10', 'mx20', 'mx11', 'mx21', 'dlv', 'datac', 'infok0', 'infok1', 'mc0', 'mc1', 'ardc', 'vsh']
 })
 
 schemas.forSchema({
   name: 'rowgroupe',
-  cols: ['id', 'v', 'dds', 'dfh', 'st', 'cvg', 'idhg', 'imh', 'v1', 'v2', 'f1', 'f2', 'mcg', 'vsh']
+  cols: ['id', 'v', 'dfh', 'st', 'mxim', 'idhg', 'imh', 'v1', 'v2', 'f1', 'f2', 'mcg', 'vsh']
 })
 
 schemas.forSchema({
@@ -129,18 +114,13 @@ schemas.forSchema({
 })
 
 schemas.forSchema({
-  name: 'rowparrain',
-  cols: ['pph', 'id', 'v', 'dlv', 'st', 'datak', 'datax', 'data2k', 'ardc', 'vsh']
-})
-
-schemas.forSchema({
-  name: 'rowrencontre',
-  cols: ['prh', 'id', 'v', 'dlv', 'st', 'datak', 'nomax', 'nombx', 'ardx', 'vsh']
+  name: 'rowcontact',
+  cols: ['phch', 'dlv', 'ccx', 'vsh']
 })
 
 schemas.forSchema({
   name: 'rowsecret',
-  cols: ['id', 'ns', 'ic', 'v', 'st', 'ora', 'v1', 'v2', 'mc', 'txts', 'mpjs', 'dups', 'refs', 'vsh']
+  cols: ['id', 'ns', 'x', 'v', 'st', 'xp', 'v1', 'v2', 'mc', 'txts', 'mfas', 'refs', 'vsh']
 })
 
 schemas.forSchema({
@@ -150,7 +130,12 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowcv',
-  cols: ['id', 'vcv', 'st', 'cva']
+  cols: ['id', 'v', 'x', 'dds', 'cv', 'vsh']
+})
+
+schemas.forSchema({
+  name: 'idbCv',
+  cols: ['id', 'v', 'x', 'dds', 'cv', 'vsh']
 })
 
 schemas.forSchema({
@@ -308,6 +293,9 @@ export class Compteurs {
   }
 
   calculauj () { // recalcul à aujourd'hui en fonction du dernier jour de calcul
+    // Contournement
+    if (isNaN(this.res1)) this.res1 = 64
+    if (isNaN(this.res2)) this.res2 = 64
     const dj = new DateJour()
     this.dj = dj
     if (dj.nbj === this.j) return this // déjà normalisé, calculé aujourd'hui
