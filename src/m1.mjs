@@ -886,48 +886,47 @@ function regulGrTr (cfg, session, args, rowItems) {
   session.plusGroupes([args.idg])
 }
 
-/* Régularisation Avatar ****************************************
-Suppression des entrées de lgrk dans les avatars correspondant aux groupes supprimés
+/* Suppression d'accès à un groupe pour un avatar ****************************************
+Suppression de l'entrée de lgrk d'un avatar correspondant à un groupe
+- (1) détecté zombi par une session (expiration d'une période post fin d'hébergement)
+- (2) auto-exclusion d'un groupe par un avatar
+Fin d'abonnement au groupe SUR OPTION. Dans le cas (2), un autre avatar du compte
+peut encore être membre actif du groupe.
 args
-- mapav : une entrée par id d'avatar. Valeur : liste des ni des groupes à supprimer
+- sessionId
+- id: id de l'avatar
+- ni: numéro d'invitation
 */
 
-async function regulAv (cfg, args) {
-  const session = checkSession(args.sessionId)
+async function supprAccesGrAv (cfg, args) {
+  checkSession(args.sessionId)
   const dh = getdhc()
   const result = { sessionId: args.sessionId, dh: dh }
   
   const versions = getValue(cfg, VERSIONS)
-  args.v = {}
-  for (const avid of args.mapav) {
-    const j = idx(avid)
-    versions[j]++
-    args.v[avid] = versions[j]
-  }
+  const j = idx(args.id)
+  versions[j]++
+  args.v = versions[j]
   setValue(cfg, VERSIONS)
 
   const rowItems = []
-  cfg.db.transaction(regulAvTr)(cfg, session, args, rowItems)
+  cfg.db.transaction(supprAccesGrAvTr)(cfg, args, rowItems)
 
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
   return result
 }
-m1fonctions.regulAv = regulAv
+m1fonctions.supprAccesGrAv = supprAccesGrAv
 
-function regulAvTr (cfg, session, args, rowItems) {
-  for (const avid of args.v) {
-    const a = stmt(cfg, selavatarId).get({ id: avid })
-    if (!a) continue // avatar supprimé depuis (?)
-    const map = deserial(a.lgrk)
-    args.mapav[avid].forEach(ni => {
-      delete map[ni]
-    })
-    a.v = args.v[avid]
-    a.lgrk = serial(map)
-    stmt(cfg, upd1avatar).run(a)
-    rowItems.push(newItem('avatar', a))
-  }
+function supprAccesGrAvTr (cfg, args, rowItems) {
+  const a = stmt(cfg, selavatarId).get({ id: args.id })
+  if (!a || !a.lgrk) return // avatar supprimé depuis (?)
+  const map = deserial(a.lgrk)
+  delete map[args.ni]
+  a.v = args.v
+  a.lgrk = serial(map)
+  stmt(cfg, upd1avatar).run(a)
+  rowItems.push(newItem('avatar', a))
 }
 
 /* Changement de statut d'un membre pour tenir compte de la disparition de son avatar ************
@@ -955,6 +954,7 @@ async function membreDisparu (cfg, args) {
 
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
+  result.rowItems = rowItems
   return result
 }
 m1fonctions.membreDisparu = membreDisparu
@@ -996,6 +996,7 @@ async function coupleDisparu (cfg, args) {
 
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
+  result.rowItems = rowItems
   return result
 }
 m1fonctions.coupleDisparu = coupleDisparu
@@ -1003,12 +1004,11 @@ m1fonctions.coupleDisparu = coupleDisparu
 function coupleDisparuTr (cfg, args, rowItems) {
   const c = stmt(cfg, selcoupleId).get({ id: args.id, im:args.im })
   if (!c) return
-  const stcp = Math.floor(c.st / 100)
   const st01 = c.st % 100
   let st0 = Math.floor(st01 / 10)
   let st1 = st01 % 10
   if (args.idx) st1 = 0; else st0 = 0
-  const nst = stcp * 100 + (st0 * 10) + st1
+  const nst = 5000 + (st0 * 10) + st1
   if (nst === c.st) return
   c.st = nst
   c.v = args.v
