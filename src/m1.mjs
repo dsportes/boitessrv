@@ -1,7 +1,7 @@
 import { crypt } from './crypto.mjs'
 import { getdhc, sleep } from './util.mjs'
 import { getSession, syncListQueue, processQueue } from './session.mjs'
-import { AppExc, X_SRV, E_WS, A_SRV, DateJour, Compteurs } from './api.mjs'
+import { AppExc, X_SRV, E_WS, A_SRV, DateJour, Compteurs, UNITEV1, UNITEV2 } from './api.mjs'
 import { schemas, deserial, serial } from './schemas.mjs'
 import { putFile, delFile } from './storage.mjs'
 
@@ -1585,6 +1585,8 @@ Retour : sessionId, dh, si ok : rowItems : compte, compta, prefs, avatar, contac
 const delcontact = 'DELETE FROM contact WHERE phch = @phch'
 const updcompta = 'UPDATE compta SET v = @v, data = @data WHERE id = @id'
 const upd2couple = 'UPDATE couple SET v = @v, st = @st, dlv = 0, ardc = @ardc, mc0 = @mc0, mc1 = @mc1 WHERE id = @id'
+const updv1v2couple = 'UPDATE couple SET v = @v, v1 = @v1, v2 = @v2 WHERE id = @id'
+const updv1v2groupe = 'UPDATE groupe SET v = @v, v1 = @v1, v2 = @v2 WHERE id = @id'
 
 async function acceptParrainage (cfg, args) {
   const session = checkSession(args.sessionId)
@@ -2534,4 +2536,161 @@ function refusInvitGroupeTr (cfg, args, rowItems) {
   a.lgrk = serial(map)
   stmt(cfg, upd1avatar).run(a)
   rowItems.push(newItem('avatar', a))
+}
+
+/* Contrôle des dépassements de volume:
+- sur couple
+- sur groupe
+Imputation aux compte(s) et respects des forfaits,
+- compte personnel, comptes d'un couple, compte hébergeur d'un groupe
+args :
+- id : du secret
+- ts : 0 (personnel), 1 (couple), 2 (groupe)
+- idc : identifiant du compte sur qui imputer: perso, perso-1, hébergeur
+- idc2 : identifiant du second compte pour un secret de couple. Est null si le couple est solo.
+  Le "premier" compte est celui de l'auteur du secret.
+- dv1 : delta de volume v1. Si > 0 c'est une augmentation de volume
+- dv2 : delta de volume v2.
+- im : auteur dans le secret de couple : 0 ou 1
+Retour : liste de diagnostics pour information.
+  - il y a "information" lorsqu'un volume maximal / ou un forfait est dépassé
+    alors que le delta est négatif ou nul, c'est à dire en cas de réduction de volume.
+    la transaction est acceptée.
+  - il y a "exception" quand le delta est positif et que sont dépassés l'un des seuils précédents:
+  X_SRV, '51-Forfait du compte personnel dépassé pour le volume V1'
+*/
+const ervol = {
+  c51: '51-Forfait du compte personnel dépassé pour le volume V1',
+  c52: '52-Forfait du compte personnel dépassé pour le volume V2',
+  c53: '53-Forfait du compte du conjoint dépassé pour le volume V1',
+  c54: '54-Forfait du compte du conjoint dépassé pour le volume V2',
+  c55: '55-Forfait du compte hébergeur du groupe dépassé pour le volume V1',
+  c56: '56-Forfait du compte hébergeur du groupe dépassé pour le volume V2',
+  c61: '61-Maximum de volume V1 du couple dépassé (attribué par l\'auteur du secret)',
+  c62: '62-Maximum de volume V2 du couple dépassé (attribué par l\'auteur du secret)',
+  c63: '63-Maximum de volume V1 du couple dépassé (attribué par le conjoint dans le couple de l\'auteur du secret)',
+  c64: '64-Maximum de volume V2 du couple dépassé (attribué par le conjoint dans le couple de l\'auteur du secret)',
+  c65: '65-Maximum de volume V1 du groupe dépassé (attribué par le compte hébergeur du groupe)',
+  c66: '66-Maximum de volume V2 du couple dépassé (attribué par le compte hébergeur du groupe)'
+}
+
+export function volumes (cfg, args) {
+  const versions = getValue(cfg, VERSIONS)
+  let j = idx(args.idc)
+  versions[j]++
+  args.vc = versions[j]
+  if (args.idc2) {
+    j = idx(args.idc2)
+    versions[j]++
+    args.vc2 = versions[j]
+  }
+  j = idx(args.id) // version du secret / couple / groupe
+  versions[j]++
+  args.vs = versions[j]
+  setValue(cfg, VERSIONS)
+}
+
+export function volumesTr (cfg, args, rowItems) {
+  const c = stmt(cfg, selcomptaId).get({ id: args.id })
+  if (!c) throw new AppExc(A_SRV, '40-Comptabilité du compte principal non trouvée')
+  const c2 = args.idc2 ? args.stmt(cfg, selcomptaId).get({ id: args.idc2 }) : null
+  if (args.idc2 && !c2) throw new AppExc(A_SRV, '41-Comptabilité du compte secondaire non trouvée')
+  const cp = args.ts === 1 ? args.stmt(cfg, selcoupleId).get({ id: args.id }) : null
+  if (args.ts === 1 && !cp) throw new AppExc(A_SRV, '42-Couple non trouvée')
+  const gr = args.ts === 2 ? args.stmt(cfg, selgroupeId).get({ id: args.id }) : null
+  if (args.ts === 2 && !gr) throw new AppExc(A_SRV, '43-Groupe non trouvée')
+
+  const info = []
+
+  function f1 (c, c51, c52) {
+    const compteurs = new Compteurs(c.data)
+    let ok = compteurs.setV1(args.dv1)
+    if (!ok) {
+      const m = ervol[c51] + ` [demande: ${compteurs.v1 + args.dv1} / forfait: ${compteurs.f1 * UNITEV1}]`
+      if (args.dv1 > 0) throw new AppExc(X_SRV, m); else info.push(m)
+    }
+    ok = compteurs.setV2(args.dv2)
+    if (!ok) {
+      const m = ervol[c52] + ` [demande: ${compteurs.v2 + args.dv2} / forfait: ${compteurs.f2 * UNITEV2}]`
+      if (args.dv2 > 0) throw new AppExc(X_SRV, m); else info.push(m)
+    }
+    c.v = args.vc
+    c.data = compteurs.calculauj().serial
+    stmt(cfg, updcompta).run(c)
+    rowItems.push(newItem('compta', c))
+  }
+
+  function f2 () {
+    {
+      const dm = cp.v1 + args.dv1
+      let mx = (args.im ? cp.mx11 : cp.mx10) * UNITEV1
+      if (dm > mx) {
+        const m = ervol.c61 + ` [demande: ${dm} / forfait: ${mx}]`
+        if (args.dv1 > 0) throw new AppExc(X_SRV, m); else info.push(m)  
+      }
+      if (args.idc2) { // le couple peut être un solo
+        mx = (args.im ? cp.mx10 : cp.mx11) * UNITEV1
+        if (dm > mx) {
+          const m = ervol.c63 + ` [demande: ${dm} / forfait: ${mx}]`
+          if (args.dv1 > 0) throw new AppExc(X_SRV, m); else info.push(m)  
+        }
+      }
+    }
+    {
+      const dm = cp.v2 + args.dv2
+      let mx = (args.im ? cp.mx21 : cp.mx20) * UNITEV2
+      if (dm > mx) {
+        const m = ervol.c62 + ` [demande: ${dm} / forfait: ${mx}]`
+        if (args.dv2 > 0) throw new AppExc(X_SRV, m); else info.push(m)  
+      }
+      if (args.idc2) { // le couple peut être un solo
+        mx = (args.im ? cp.mx20 : cp.mx21) * UNITEV1
+        if (dm > mx) {
+          const m = ervol.c64 + ` [demande: ${dm} / forfait: ${mx}]`
+          if (args.dv2 > 0) throw new AppExc(X_SRV, m); else info.push(m)  
+        }
+      }
+    }
+    cp.v = args.vs
+    cp.v1 = cp.v1 + args.dv1
+    cp.v2 = cp.v2 + args.dv2
+    stmt(cfg, updv1v2couple).run(cp)
+    rowItems.push(newItem('couple', cp))
+  }
+
+  function f3() {
+    {
+      const dm = gr.v1 + args.dv1
+      const mx = gr.f1 * UNITEV1
+      if (dm > mx) {
+        const m = ervol.c65 + ` [demande: ${dm} / forfait: ${mx}]`
+        if (args.dv1 > 0) throw new AppExc(X_SRV, m); else info.push(m)  
+      }
+    }
+    {
+      const dm = gr.v2 + args.dv1
+      const mx = gr.f2 * UNITEV2
+      if (dm > mx) {
+        const m = ervol.c66 + ` [demande: ${dm} / forfait: ${mx}]`
+        if (args.dv2 > 0) throw new AppExc(X_SRV, m); else info.push(m)  
+      }
+    }
+    gr.v = args.vs
+    gr.v1 = gr.v1 + args.dv1
+    gr.v2 = gr.v2 + args.dv2
+    stmt(cfg, updv1v2groupe).run(gr)
+    rowItems.push(newItem('groupe', gr))
+  }
+
+  if (args.ts === 0) { // perso
+    f1(c, 'c51', 'c52') // compta
+  } else if (args.ts === 1) { // couple
+    f1(c, 'c51', 'c52') // compta
+    if (args.c2) f1(c2, 'c53', 'c54') // compta 2
+    f2() // couple
+  } else { // groupe
+    f1(c, 'c55', 'c56') // compta hébergeur
+    f3() // groupe
+  }
+  return info
 }

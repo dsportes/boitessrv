@@ -161,8 +161,8 @@ schemas.forSchema({
 */
 
 const lch1 = ['j', 'v1', 'v1m', 'v2', 'v2m', 'trm', 'f1', 'f2', 'rtr', 'res1', 'res2', 't1', 't2']
-const MB1 = 1000000
-const MB100 = 100000000
+// const MB1 = 1000000
+// const MB100 = 100000000
 const NTRJ = 14
 
 function mx255 (x) { const n = Math.round(x * 100); return n > 255 ? 255 : n }
@@ -213,20 +213,20 @@ export class Compteurs {
 
   setV1 (delta) {
     this.calculauj()
-    if (this.v1 + delta > this.f1 * MB1) return false
+    if (this.v1 + delta > this.f1 * UNITEV1) return false
     this.v1m = Math.round(((this.v1m * this.dj.jj) + delta) / this.dj.jj)
     this.v1 = this.v1 + delta
-    this.hist[this.dj.mm - 1][2] = mx255(this.v1m / this.f1 * MB1)
+    this.hist[this.dj.mm - 1][2] = mx255(this.v1m / this.f1 * UNITEV1)
     this.maj = true
     return true
   }
 
   setV2 (delta) {
     this.calculauj()
-    if (this.v2 + delta > this.f2 * MB100) return false
+    if (this.v2 + delta > this.f2 * UNITEV2) return false
     this.v2m = Math.round(((this.v2m * this.dj.jj) + delta) / this.dj.jj)
     this.v2 = this.v2 + delta
-    this.hist[this.dj.mm - 1][3] = mx255(this.v2m / this.f2 * MB100)
+    this.hist[this.dj.mm - 1][3] = mx255(this.v2m / this.f2 * UNITEV2)
     this.maj = true
     return true
   }
@@ -234,29 +234,29 @@ export class Compteurs {
   setTr (delta) {
     this.calculauj()
     this.trm = Math.round(((this.trm * this.dj.jj) + delta) / this.dj.jj)
-    this.hist[this.dj.mm - 1][4] = mx255(this.trm / this.f2 * MB100)
+    this.hist[this.dj.mm - 1][4] = mx255(this.trm / this.f2 * UNITEV2)
     this.tr[0] = this.tr[0] + delta
     let s = 0
     this.tr.forEach(n => { s += n })
-    this.rtr = mx255(s / this.f2 * MB100)
+    this.rtr = mx255(s / this.f2 * UNITEV2)
     this.maj = true
     return true
   }
 
   setF1 (f) {
     this.calculauj()
-    if (this.v1 > f * MB1) return false
+    if (this.v1 > f * UNITEV1) return false
     this.f1 = f
-    this.hist[this.dj.mm - 1][2] = mx255(this.v1m / this.f1 * MB1)
+    this.hist[this.dj.mm - 1][2] = mx255(this.v1m / this.f1 * UNITEV1)
     this.maj = true
     return true
   }
 
   setF2 (f) {
     this.calculauj()
-    if (this.v2 > f * MB100) return false
+    if (this.v2 > f * UNITEV2) return false
     this.f2 = f
-    this.hist[this.dj.mm - 1][3] = mx255(this.v2m / this.f2 * MB100)
+    this.hist[this.dj.mm - 1][3] = mx255(this.v2m / this.f2 * UNITEV2)
     this.maj = true
     return true
   }
@@ -289,7 +289,7 @@ export class Compteurs {
     }
     let s = 0
     this.tr.forEach(n => { s += n })
-    this.rtr = mx255(s / this.f2 * MB100)
+    this.rtr = mx255(s / this.f2 * UNITEV2)
   }
 
   calculauj () { // recalcul à aujourd'hui en fonction du dernier jour de calcul
@@ -307,18 +307,18 @@ export class Compteurs {
       this.v1m = Math.round(((this.v1m * dja.jj) + (this.v1 * (dj.jj - dja.jj))) / dj.jj)
       this.v2m = Math.round(((this.v2m * dja.jj) + (this.v2 * (dj.jj - dja.jj))) / dj.jj)
       this.trm = Math.round((this.trm * dja.jj) / dj.jj)
-      this.hist[dj.mm - 1][2] = mx255(this.v1m / this.f1 * MB1)
-      this.hist[dj.mm - 1][3] = mx255(this.v2m / this.f2 * MB100)
-      this.hist[dj.mm - 1][4] = mx255(this.trm / this.f2 * MB100)
+      this.hist[dj.mm - 1][2] = mx255(this.v1m / this.f1 * UNITEV1)
+      this.hist[dj.mm - 1][3] = mx255(this.v2m / this.f2 * UNITEV2)
+      this.hist[dj.mm - 1][4] = mx255(this.trm / this.f2 * UNITEV2)
       this.shiftTr(dj.jj - dja.jj)
     } else {
       // Moyennes sur le dernier mois de calcul
       const v1m = Math.round(((this.v1m * dja.jj) + (this.v1 * (dja.nbjm - dja.jj))) / dja.jj)
       const v2m = Math.round(((this.v2m * dja.jj) + (this.v2 * (dja.nbjm - dja.jj))) / dja.jj)
       const trm = Math.round((this.trm * dja.jj) / dja.jj)
-      const r1 = mx255(v1m / this.f1 * MB1)
-      const r2 = mx255(v2m / this.f2 * MB100)
-      const r3 = mx255(trm / this.f2 * MB100)
+      const r1 = mx255(v1m / this.f1 * UNITEV1)
+      const r2 = mx255(v2m / this.f2 * UNITEV2)
+      const r3 = mx255(trm / this.f2 * UNITEV2)
 
       if ((dj.mm === dja.mm + 1 && dj.aa === dja.aa) || (dj.mm === 1 && dja.mm === 1 && dj.aa === dja.aa + 1)) {
         // dernier calcul le mois précédent
