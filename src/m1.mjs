@@ -1081,10 +1081,12 @@ m1fonctions.getclepub = getclepub
 Nouveau secret personnel
 Args : 
 - sessionId
-- ts, id, ns, ic, st, ora, v1, mcg, mc, im, txts, dups, refs, id2, ns2, ic2, dups2
-Retour :
+- ts, id, ns, mc, txts, v1, xp, st, varg, mcg, im, refs
+- varg : {id (du secret), ts, idc, idc2, dv1, dv2, im}
+ Retour :
 - sessionId
 - dh
+- info : array des lignes d'information
 Exception : dépassement des quotas 
 */
 
@@ -1092,23 +1094,12 @@ async function nouveauSecret (cfg, args) {
   checkSession(args.sessionId)
   const dh = getdhc()
 
-  const versions = getValue(cfg, VERSIONS)
-  const j = idx(args.id)
-  versions[j]++
-  setValue(cfg, VERSIONS)
-  const v = versions[j]
-  let vb
-  if (args.ts === 1) {
-    const j2 = idx(args.id2)
-    versions[j2]++
-    setValue(cfg, VERSIONS)
-    vb = versions[j2]
-  }
+  volumes (cfg, args.varg)
 
   let mc
-  if (args.ts === 2) {
+  if (args.ts > 0) {
     const x = { }
-    x[0] = args.mcg
+    if (args.ts === 2) x[0] = args.mcg
     x[args.im] = args.mc
     mc = serial(x)
   } else {
@@ -1118,118 +1109,65 @@ async function nouveauSecret (cfg, args) {
   const secret = { 
     id: args.id,
     ns: args.ns,
-    ic: args.ic,
-    v: v,
+    v: args.varg.vs,
+    x: 0,
     st: args.st,
-    ora: args.ora,
+    xp: args.xp,
     v1: args.v1,
     v2: 0,
     mc: mc,
     txts: args.txts,
-    mpjs: null,
-    dups: args.ts === 1 ? args.dups : null,
+    mfas: null,
     refs: args.refs || null,
     vsh: 0
   }
-  
-  let secret2
-  if (args.ts ===1) secret2 = { 
-    id: args.id2,
-    ns: args.ns2,
-    ic: args.ic2,
-    v: vb,
-    st: args.st,
-    ora: args.ora,
-    v1: args.v1,
-    v2: 0,
-    mc: null,
-    txts: args.txts,
-    mpjs: null,
-    dups: args.dups2,
-    refs: args.refs,
-    vsh: 0
-  }
-
-  cfg.db.transaction(nouveauSecretTr)(cfg, secret, secret2 )
 
   const rowItems = []
-  rowItems.push(newItem('secret', secret))
-  if (args.ts ===1) rowItems.push(newItem('secret', secret2))
+  cfg.db.transaction(nouveauSecretTr)(cfg, args, secret, rowItems)
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
-  return { sessionId: args.sessionId, dh: dh }
+  return { sessionId: args.sessionId, dh: dh, info: args.info }
 }
 m1fonctions.nouveauSecret = nouveauSecret
 
-function nouveauSecretTr (cfg, secret, secret2) {
-  const a = stmt(cfg, selavgrvqid).get({ id: secret.id })
-  if (a) {
-    if (secret.st === 99999) {
-      a.v1 = a.v1 + secret.v1
-    } else {
-      a.vm1 = a.vm1 + secret.v1
-    }
-  }
-  if (!a || a.v1 > a.q1 || a.vm1 > a.qm1) throw new AppExc(X_SRV, '12-Forfait dépassé')
-
-  stmt(cfg, updavgrvq).run(a)
+function nouveauSecretTr (cfg, args, secret, rowItems) {
+  args.varg.dv1 = secret.v1
+  args.varg.dv2 = 0
+  args.info = volumesTr (cfg, args.varg, rowItems)
   stmt(cfg, inssecret).run(secret)
-
-  if (secret2) {
-    const a = stmt(cfg, selavgrvqid).get({ id: secret2.id })
-    if (a) {
-      if (secret.st === 99999) {
-        a.v1 = a.v1 + secret.v1
-      } else {
-        a.vm1 = a.vm1 + secret.v1
-      }
-    }
-    stmt(cfg, updavgrvq).run(a)
-    stmt(cfg, inssecret).run(secret2)
-  }
+  rowItems.push(newItem('secret', secret))
 }
 
 /***************************************
 MAJ secret
 Args : 
 - sessionId
-- ts, id, ns, v1, mc, im, mcg, txts, ora, temp, id2, ns2
+- ts, id, ns, mc, txts, v1, xp, st, varg, mcg, im, refs
 temp : null: inchangé, 99999: devient permanent, 780: (re)devient temporaire
-ora : null: inchangé, xxxp (im d'exclusivité, 0/1 libre / protégé)
-txts: null: inchangé
+xp : null: inchangé
+txts: null: inchangé (donc v1 inchangé)
 mcg: null: inchangé (im sert à mettre à jour les motsclés)
 
 Retour :
 - sessionId
 - dh
-Exception : dépassement des quotas 
+- info
+Exceptions
 */
-const upd1secret = 'UPDATE secret SET v = @v, st = @st, ora = @ora, v1 = @v1, txts = @txts, mc = @mc WHERE id = @id AND ns = @ns'
+const upd1secret = 'UPDATE secret SET v = @v, st = @st, xp = @xp, v1 = @v1, txts = @txts, mc = @mc WHERE id = @id AND ns = @ns'
 
 async function maj1Secret (cfg, args) {
   checkSession(args.sessionId)
   const dh = getdhc()
 
-  const versions = getValue(cfg, VERSIONS)
-  const j = idx(args.id)
-  versions[j]++
-  setValue(cfg, VERSIONS)
-  args.v = versions[j]
-
-  if (args.ts ===1) {
-    const j2 = idx(args.id2)
-    versions[j2]++
-    setValue(cfg, VERSIONS)
-    args.vb = versions[j2]
-  }
-
+  volumes (cfg, args.varg)
   const rowItems = []
 
   cfg.db.transaction(maj1SecretTr)(cfg, args, rowItems)
 
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
-  return { sessionId: args.sessionId, dh: dh }
+  return { sessionId: args.sessionId, dh: dh, info: args.info }
 }
 m1fonctions.maj1Secret = maj1Secret
 
@@ -1237,99 +1175,26 @@ function maj1SecretTr (cfg, args, rowItems) {
 
   const secret = stmt(cfg, selsecretIdNs).get({ id: args.id, ns: args.ns }) 
   if (!secret) throw new AppExc(A_SRV, '13-Secret inexistant')
+  args.varg.dv1 = args.txts ? args.v1 - secret.v1 : 0
+  args.info = volumesTr (cfg, args.varg, rowItems)
 
-  let deltav1 = 0, deltavm1 = 0, deltav2 = 0, deltavm2 = 0
-  const pv1 = args.v1 === null ? secret.v1 : args.v1
-  if (args.temp === null) {
-    // pas de changement perm / temp
-    if (secret.st === 99999) {
-      deltav1 = pv1 - secret.v1 // il était permanent
-    } else {
-      deltavm1 = pv1 - secret.v1
-    }
-  } else if (args.temp === 99999) { // devient permanent
-    deltav1 = pv1 // le volume permanent augmente du nouveau volume
-    deltavm1 = -secret.v1 // le volume temporaire diminue de l'ancien volume
-    deltav2 = secret.v2
-    deltavm2 = -secret.v2
-    secret.st = 99999
-  } else { // (args.temp > 0 && args.temp < 99999) - (re)devient temporaire
-    deltav1 = -secret.v1 // le volume permanent diminue de l'ancien volume
-    deltavm1 = pv1 // le volume temporaire augmente du nouveau volume
-    deltav2 = -secret.v2
-    deltavm2 = secret.v2
-    secret.st = args.temp
+  secret.v = args.varg.vs
+  if (args.txts !== null) {
+    secret.v1 = args.v1
+    secret.txts = args.txts
   }
-  
-  secret.v = args.v
-  secret.v1 = pv1
-  if (args.txts !== null) secret.txts = args.txts // sinon texte inchangé par convention
-  if (args.ts !== 2 && args.mc !== null) secret.mc = args.mc
-  if (args.ts === 2 && (args.mc !== null || args.mcg !== null)) {
-    const mc = secret.mc ? deserial(secret.mc) : { }
-    if (args.mc !== null) {
-      if (args.mc.length) {
-        mc[args.im] = args.mc
-      } else {
-        delete mc[args.im]
-      }
-    }
-    if (args.mcg !== null) {
-      if (args.mc.length) {
-        mc[0] = args.mcg
-      } else {
-        delete mc[0]
-      }
-    }
-    secret.mc = serial(mc)
+  if (args.xp !== null) secret.xp = args.xp
+  if (args.st !== null) secret.st = args.st
+  if (args.ts > 0) {
+    const x = secret.mc
+    if (args.ts === 2 && args.mcg !== null) x[0] = args.mcg
+    if (args.mc !== null) x[args.im] = args.mc
+    secret.mc = serial(x)
+  } else if (args.mc !== null) {
+    secret.mc = args.mc
   }
-  if (args.ora !== null) secret.ora = args.ora
-
-  let secret2
-  if (args.ts === 1) {
-    // secret2 PEUT avoir été détruit
-    secret2 = stmt(cfg, selsecretIdNs).get({ id: args.id2, ns: args.ns2 }) 
-    if (secret2) {
-      secret2.v = args.vb
-      secret2.st = secret.st
-      secret2.v1 = secret.v1
-      secret2.txts = secret.txts
-      secret2.ora = secret.ora
-    }
-  }
-
-  if (deltav1 || deltav2 || deltavm1 || deltavm2) {
-    const a = stmt(cfg, selavgrvqid).get({ id: args.id })
-    if (a) {
-      a.v1 = a.v1 + deltav1
-      a.vm1 = a.vm1 + deltavm1
-      a.v2 = a.v2 + deltav2
-      a.vm2 = a.vm2 + deltavm2
-    }
-    if (!a || a.v1 > a.q1 || a.vm1 > a.qm1 || a.v2 > a.q2 || a.vm2 > a.qm2) {
-      throw new AppExc(X_SRV, '12-Forfait dépassé')
-    }
-    stmt(cfg, updavgrvq).run(a)
-
-    if (secret2) {
-      const a = stmt(cfg, selavgrvqid).get({ id: args.id2 })
-      if (a) {
-        a.v1 = a.v1 + deltav1
-        a.vm1 = a.vm1 + deltavm1
-        a.v2 = a.v2 + deltav2
-        a.vm2 = a.vm2 + deltavm2
-        stmt(cfg, updavgrvq).run(a)
-      }
-    }
-  }
-
-  rowItems.push(newItem('secret', secret))
   stmt(cfg, upd1secret).run(secret)
-
-  if (secret2) {
-    stmt(cfg, upd1secret).run(secret2)
-    rowItems.push(newItem('secret', secret2))
-  }
+  rowItems.push(newItem('secret', secret))
 }
 
 /***************************************
@@ -2591,7 +2456,7 @@ export function volumes (cfg, args) {
 }
 
 export function volumesTr (cfg, args, rowItems) {
-  const c = stmt(cfg, selcomptaId).get({ id: args.id })
+  const c = stmt(cfg, selcomptaId).get({ id: args.idc })
   if (!c) throw new AppExc(A_SRV, '40-Comptabilité du compte principal non trouvée')
   const c2 = args.idc2 ? args.stmt(cfg, selcomptaId).get({ id: args.idc2 }) : null
   if (args.idc2 && !c2) throw new AppExc(A_SRV, '41-Comptabilité du compte secondaire non trouvée')
