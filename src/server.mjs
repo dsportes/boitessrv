@@ -11,7 +11,7 @@ const WebSocket = require('ws')
 import { encode, decode } from '@msgpack/msgpack'
 import { Session } from './session.mjs'
 import { AppExc, E_SRV, X_SRV, F_SRV, A_SRV, version } from './api.mjs'
-import { getFile /*, putFile */ } from './storage.mjs'
+import { FsProvider, S3Provider } from './storage.mjs'
 import { decryptersoft } from './webcrypto.mjs'
 
 import { m1fonctions } from './m1.mjs'
@@ -186,11 +186,12 @@ let cfg
 try {
   const options = { fileMustExist: true, verbose: trapSql }
   cfg = JSON.parse(configjson)
+  cfg.storage = cfg.storageprovider === 'fs' ? new FsProvider(cfg.fsconfig) : new S3Provider(cfg.s3config)
   for(const org in cfg.orgs) {
     const e = cfg.orgs[org]
     e.code = org
     e.isDev = dev
-    e.wwwdir = cfg.wwwdir
+    e.storage = cfg.storage
     e.db = require('better-sqlite3')(path.resolve(dirs.dbdir, org + '.db3'), options);
   }
 } catch(e) {
@@ -222,23 +223,34 @@ app.get('/ping', (req, res) => {
   setRes(res, 200, 'text/plain').send(new Date().toISOString())
 })
 
-app.use('/www/:org/:secid/:pjid', async (req, res) => {
-  if (!checkOrigin(req)) {
-    setRes(res, 402).send('Origine non autorisée')
-    return
-  }
-  const cfgorg = cfg.orgs[req.params.org]
-  if (!cfgorg) {
-    setRes(res, 402).send('Organisation inconnue')
-    return
-  }
-  const p = req.params
-  const bytes = await getFile(cfg, p.org, p.secid, p.pjid)
-  if (bytes) {
-    // putFile(cfg, p.org, p.secid, p.pjid, bytes) // pour test
-    setRes(res, 200, 'application/octet-stream').send(bytes)
-  } else {
+app.get('/storage/:arg', async (req, res) => {
+  try {
+    const [org, idcap, idf] = cfg.storage.decode3(req.params.arg)
+    const bytes = await cfg.storage.getFile(org, idcap, idf)
+    if (bytes) {
+      // cfg.storage.putFile(org, idcap, idf, bytes) // pour test
+      setRes(res, 200, 'application/octet-stream').send(bytes)
+    } else {
+      setRes(res, 404).send('File not found')
+    }
+  } catch (e) {
     setRes(res, 404).send('File not found')
+  }
+})
+
+app.put('/storage/:arg', async (req, res) => {
+  try {
+    const [org, idcap, idf] = cfg.storage.decode3(req.params.arg)
+    const bufs = [];
+    req.on('data', (chunk) => {
+      bufs.push(chunk);
+    }).on('end', async () => {
+      const bytes = Buffer.concat(bufs)
+      await cfg.storage.putFile(org, idcap, idf, bytes)
+      setRes(res, 200).send('OK')
+    })
+  } catch (e) {
+    setRes(res, 404).send('File not uploaded')
   }
 })
 

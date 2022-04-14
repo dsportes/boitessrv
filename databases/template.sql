@@ -309,3 +309,16 @@ CREATE TABLE IF NOT EXISTS "cv" (
 CREATE INDEX "id_v_cv" ON "cv" ( "id", "v");
 CREATE INDEX "dds_cv" ON "cv" ( "dds" ) WHERE "dds" > 0;
 CREATE INDEX "x_cv" ON "cv" ( "x" ) WHERE "x" = 1;
+
+CREATE TABLE IF NOT EXISTS "trec" (
+
+  "id"	INTEGER,
+
+  "idf" INTEGER,
+
+  "dlv" INTEGER,
+
+  PRIMARY KEY("id", "idf")
+
+  );
+CREATE INDEX "dlv_trec" ON "trec" ( "dlv" );

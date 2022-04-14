@@ -49,10 +49,10 @@ const config = {
   endpoint: 'http://192.168.1.10:9000',
   region: 'us-east-1',
   forcePathStyle: true,
-  signatureVersion: 'v4',
-  sha256: Hash.bind(null, 'sha256')
+  signatureVersion: 'v4'
 }
 const s3 = new S3Client(config)
+config.sha256 = Hash.bind(null, 'sha256')
 const signer = new S3RequestPresigner(config)
 
 const bucketName = 'boites';

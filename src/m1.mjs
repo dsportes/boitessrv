@@ -5,6 +5,8 @@ import { AppExc, X_SRV, E_WS, A_SRV, DateJour, Compteurs, UNITEV1, UNITEV2 } fro
 import { schemas, deserial, serial } from './schemas.mjs'
 import { putFile, delFile } from './storage.mjs'
 
+const enc = new TextEncoder()
+
 export const m1fonctions = { }
 const VERSIONS = 1
 
@@ -175,6 +177,8 @@ const insinvitgr = 'INSERT INTO invitgr (id, ni, datap) '
 // eslint-disable-next-line no-unused-vars
 const inscv = 'INSERT INTO cv (id, v, x, dds, cv, vsh) '
   + 'VALUES (@id, @v, @x, @dds, @cv, @vsh)'
+// eslint-disable-next-line no-unused-vars
+const instrec = 'INSERT INTO trec (id, idf, dlv) VALUES (@id, @idf, @dlv)'
 
 const selcompteId = 'SELECT * FROM compte WHERE id = @id'
 const selprefsId = 'SELECT * FROM prefs WHERE id = @id'
@@ -187,6 +191,7 @@ const selcvId = 'SELECT * FROM cv WHERE id = @id'
 const selsecretIdNs = 'SELECT * FROM secret WHERE id = @id AND ns = @ns'
 const selmembreIdIm = 'SELECT * FROM membre WHERE id = @id AND im = @im'
 const selinvitgrId = 'SELECT * FROM invitgr WHERE id = @id'
+const deltrecIdIdf = 'DELETE FROM trec WHERE id = @id AND idf = @idf'
 
 function idx (id) {
   return (id % (nbVersions - 1)) + 1
@@ -2403,6 +2408,107 @@ function refusInvitGroupeTr (cfg, args, rowItems) {
   rowItems.push(newItem('avatar', a))
 }
 
+/* Put URL ****************************************
+args :
+- sessionId
+- volarg : contrôle de volume
+Retour: sessionId, dh
+- idf : identifiant alloué du fichier
+- url : url à passer sur le PUT de son contenu
+Exceptions : volume en excédent
+*/
+
+async function putUrl (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+  volumes(cfg, args.volarg)
+  const idf = crypt.rnd6()
+  cfg.db.transaction(putUrlTr)(cfg, args, idf)
+  result.idf = idf
+  result.putUrl = cfg.storage.putUrl(cfg.code, args.volarg.id, idf)
+  return result
+}
+m1fonctions.putUrl = putUrl
+
+function putUrlTr (cfg, args, idf) {
+  volumesTr(cfg, args.volarg, null, true)
+  const trec = { id: args.volarg.id, idf, dlv: new DateJour().nbj }
+  stmt(cfg, instrec).run(trec)
+}
+
+/* validerUpload ****************************************
+args :
+- sessionId
+- id, ns : du secret
+- volarg : contrôle de volume
+- idf : identifiant du fichier
+- emap : entrée (de clé idf) de la map des fichiers attachés [lg, data]
+Retour: sessionId, dh
+Exceptions :
+- A_SRV, '25-Secret non trouvé'
+- volume en excédent
+*/
+const updmfassecret = 'UPDATE secret SET v = @v, v2 = @v2, mfas = @mfas WHERE id = @id AND ns = @ns'
+
+async function validerUpload (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+  volumes(cfg, args.volarg)
+  const rowItems = []
+  cfg.db.transaction(validerUploadTr)(cfg, args, rowItems)
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.validerUpload = validerUpload
+
+function validerUploadTr (cfg, args, rowItems) {
+  const secret = stmt(cfg, selsecretIdNs).get({ id: args.id, ns: args.ns })
+  if (!secret) throw new AppExc(A_SRV, '25-Secret non trouvé')
+  const [lg,] = deserial(args.emap)
+  args.volarg.dv2 = lg
+  volumesTr(cfg, args.volarg, rowItems)
+  secret.v = args.volarg.vs
+  const map = secret.mfas ? deserial(secret.mfas) : {}
+  map[args.idf] = args.emap
+  secret.mfas = serial(map)
+  secret.v2 = secret.v2 + lg
+  let v = 0
+  for (const idf of map) {
+    const x = deserial(map[idf])
+    v += x[0]
+  }
+  if (v !== secret.v2) {
+    console.log(`Discordance volume v2 : ${args.id} / ${args.ns} : idf: ${args.idf}. v2=${secret.v2} total-v-fichiers: ${v}`)
+  }
+  stmt(cfg, updmfassecret).run(secret)
+  rowItems.push(newItem('secret', secret))
+
+  const trec = { id: args.id, idf: args.idf }
+  stmt(cfg, deltrecIdIdf).run(trec)
+}
+
+/*****************************************
+!!GET!! getUrl : retourne l'URL de get d'un fichier
+args : 
+- sessionId
+- id
+- idf
+*/
+async function getUrl (cfg, args) {
+  checkSession(args.sessionId)
+  try {
+    const url = cfg.storage.getUrl(cfg.code, args.id, args.idf)
+    return { type: 'text/plain', bytes: enc(url) }
+  } catch (e) {
+    console.log(e)
+    return { bytes: bytes0 }
+  }
+}
+m1fonctions.getUrl = getUrl
+
 /* Contrôle des dépassements de volume:
 - sur couple
 - sur groupe
@@ -2455,7 +2561,8 @@ export function volumes (cfg, args) {
   setValue(cfg, VERSIONS)
 }
 
-export function volumesTr (cfg, args, rowItems) {
+export function volumesTr (cfg, args, rowItems, simul) {
+  // simul : si true n'enregistre PAS les volumes mais les exceptions sont levées comme si
   const c = stmt(cfg, selcomptaId).get({ id: args.idc })
   if (!c) throw new AppExc(A_SRV, '40-Comptabilité du compte principal non trouvée')
   const c2 = args.idc2 ? args.stmt(cfg, selcomptaId).get({ id: args.idc2 }) : null
@@ -2467,7 +2574,7 @@ export function volumesTr (cfg, args, rowItems) {
 
   const info = []
 
-  function f1 (c, c51, c52) {
+  function f1 (c, c51, c52, simul) {
     const compteurs = new Compteurs(c.data)
     let ok = compteurs.setV1(args.dv1)
     if (!ok) {
@@ -2479,13 +2586,14 @@ export function volumesTr (cfg, args, rowItems) {
       const m = ervol[c52] + ` [demande: ${compteurs.v2 + args.dv2} / forfait: ${compteurs.f2 * UNITEV2}]`
       if (args.dv2 > 0) throw new AppExc(X_SRV, m); else info.push(m)
     }
+    if (simul) return
     c.v = args.vc
     c.data = compteurs.calculauj().serial
     stmt(cfg, updcompta).run(c)
     rowItems.push(newItem('compta', c))
   }
 
-  function f2 () {
+  function f2 (simul) {
     {
       const dm = cp.v1 + args.dv1
       let mx = (args.im ? cp.mx11 : cp.mx10) * UNITEV1
@@ -2516,6 +2624,7 @@ export function volumesTr (cfg, args, rowItems) {
         }
       }
     }
+    if (simul) return
     cp.v = args.vs
     cp.v1 = cp.v1 + args.dv1
     cp.v2 = cp.v2 + args.dv2
@@ -2523,7 +2632,7 @@ export function volumesTr (cfg, args, rowItems) {
     rowItems.push(newItem('couple', cp))
   }
 
-  function f3() {
+  function f3(simul) {
     {
       const dm = gr.v1 + args.dv1
       const mx = gr.f1 * UNITEV1
@@ -2540,6 +2649,7 @@ export function volumesTr (cfg, args, rowItems) {
         if (args.dv2 > 0) throw new AppExc(X_SRV, m); else info.push(m)  
       }
     }
+    if (simul) return
     gr.v = args.vs
     gr.v1 = gr.v1 + args.dv1
     gr.v2 = gr.v2 + args.dv2
@@ -2548,14 +2658,14 @@ export function volumesTr (cfg, args, rowItems) {
   }
 
   if (args.ts === 0) { // perso
-    f1(c, 'c51', 'c52') // compta
+    f1(c, 'c51', 'c52', simul) // compta
   } else if (args.ts === 1) { // couple
-    f1(c, 'c51', 'c52') // compta
+    f1(c, 'c51', 'c52', simul) // compta
     if (args.c2) f1(c2, 'c53', 'c54') // compta 2
-    f2() // couple
+    f2(simul) // couple
   } else { // groupe
-    f1(c, 'c55', 'c56') // compta hébergeur
-    f3() // groupe
+    f1(c, 'c55', 'c56', simul) // compta hébergeur
+    f3(simul) // groupe
   }
-  return info
+  if (!simul) return info
 }

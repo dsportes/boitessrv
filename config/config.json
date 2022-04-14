@@ -6,5 +6,19 @@
     "doda": { "comptables": [5983374920213029] },
     "super": { "comptables": [5983374920213029] }
   },
-  "wwwdir": "./www"
+  "s3config": {
+    "credentials": {
+      "accessKeyId": "access-boites",
+      "secretAccessKey": "secret-boites"
+    },
+    "endpoint": "http://localhost:9000",
+    "region": "us-east-1",
+    "forcePathStyle": true,
+    "signatureVersion": "v4"
+  },
+  "fsconfig": {
+    "rootpath": "./www",
+    "rooturl": "https://test.sportes.fr:8443"
+  },
+  "storageprovider": "fs"
 }
