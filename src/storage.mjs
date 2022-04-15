@@ -5,6 +5,8 @@ import { serial, deserial } from './schemas.mjs'
 import { crypt, u8ToB64, idToSid, sidToId } from './crypto.mjs'
 import { b64ToU8 } from './webcrypto.mjs'
 
+export function delFile () {}
+export async function putFile () {}
 /*
 export async function getFile (cfg, org, secid, pjid) {
   try {
@@ -61,11 +63,11 @@ export class FsProvider {
   }
 
   async getUrl (org, idacp, idf) {
-    return this.rooturl + '/' + this.encode3(org, idToSid(idacp), idToSid(idf))
+    return this.rooturl + '/storage/' + this.encode3(org, idToSid(idacp), idToSid(idf))
   }
 
   async putUrl (org, idacp, idf) {
-    return this.rooturl + '/' + this.encode3(org, idToSid(idacp), idToSid(idf))
+    return this.rooturl + '/storage/' + this.encode3(org, idToSid(idacp), idToSid(idf))
   }
 
   async getFile (org, idacp, idf) {
@@ -81,7 +83,8 @@ export class FsProvider {
   async putFile (org, idacp, idf, data) {
     const dir = path.resolve(this.rootpath, org, idToSid(idacp))
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-    await fsp.writeFile(path.resolve(dir, idToSid(idf)), data)
+    const p = path.resolve(dir, idToSid(idf))
+    await fsp.writeFile(p, Buffer.from(data))
   }
 
   delFiles (org, idacp, lidf) {

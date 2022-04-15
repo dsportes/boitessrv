@@ -139,6 +139,11 @@ schemas.forSchema({
 })
 
 schemas.forSchema({
+  name: 'rowtrec',
+  cols: ['id', 'idf', 'dlv']
+})
+
+schemas.forSchema({
   name: 'syncList',
   cols: ['sessionId', 'dh', 'rowItems']
 })

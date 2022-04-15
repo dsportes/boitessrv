@@ -11,3 +11,4 @@ DELETE FROM membre;
 DELETE FROM contact;
 DELETE FROM secret;
 DELETE FROM versions;
+DELETE FROM trec;

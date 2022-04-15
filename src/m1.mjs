@@ -5,8 +5,6 @@ import { AppExc, X_SRV, E_WS, A_SRV, DateJour, Compteurs, UNITEV1, UNITEV2 } fro
 import { schemas, deserial, serial } from './schemas.mjs'
 import { putFile, delFile } from './storage.mjs'
 
-const enc = new TextEncoder()
-
 export const m1fonctions = { }
 const VERSIONS = 1
 
@@ -2426,7 +2424,7 @@ async function putUrl (cfg, args) {
   const idf = crypt.rnd6()
   cfg.db.transaction(putUrlTr)(cfg, args, idf)
   result.idf = idf
-  result.putUrl = cfg.storage.putUrl(cfg.code, args.volarg.id, idf)
+  result.putUrl = await cfg.storage.putUrl(cfg.code, args.volarg.id, idf)
   return result
 }
 m1fonctions.putUrl = putUrl
@@ -2467,19 +2465,16 @@ m1fonctions.validerUpload = validerUpload
 function validerUploadTr (cfg, args, rowItems) {
   const secret = stmt(cfg, selsecretIdNs).get({ id: args.id, ns: args.ns })
   if (!secret) throw new AppExc(A_SRV, '25-Secret non trouvé')
-  const [lg,] = deserial(args.emap)
+  const lg = args.emap[0]
   args.volarg.dv2 = lg
+  args.volarg.vt = lg
   volumesTr(cfg, args.volarg, rowItems)
   secret.v = args.volarg.vs
   const map = secret.mfas ? deserial(secret.mfas) : {}
   map[args.idf] = args.emap
   secret.mfas = serial(map)
   secret.v2 = secret.v2 + lg
-  let v = 0
-  for (const idf of map) {
-    const x = deserial(map[idf])
-    v += x[0]
-  }
+  let v = 0; for (const idf in map) v += map[idf][0]
   if (v !== secret.v2) {
     console.log(`Discordance volume v2 : ${args.id} / ${args.ns} : idf: ${args.idf}. v2=${secret.v2} total-v-fichiers: ${v}`)
   }
@@ -2490,18 +2485,84 @@ function validerUploadTr (cfg, args, rowItems) {
   stmt(cfg, deltrecIdIdf).run(trec)
 }
 
+/* supprFichier ****************************************
+args :
+- sessionId
+- id, ns : du secret
+- volarg : contrôle de volume
+- idf : identifiant du fichier
+Retour: sessionId, dh, info
+Exceptions :
+- A_SRV, '25-Secret non trouvé'
+*/
+
+async function supprFichier (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+  volumes(cfg, args.volarg)
+  const rowItems = []
+  cfg.db.transaction(supprFichierTr)(cfg, args, rowItems)
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  result.info = args.info
+  return result
+}
+m1fonctions.supprFichier = supprFichier
+
+function supprFichierTr (cfg, args, rowItems) {
+  const secret = stmt(cfg, selsecretIdNs).get({ id: args.id, ns: args.ns })
+  if (!secret) throw new AppExc(A_SRV, '25-Secret non trouvé')
+  const map = secret.mfas ? deserial(secret.mfas) : {}
+  const e = map[args.idf]
+  if (!e) return // déjà supprimé !
+  const x = deserial(e)
+  const dv2 = - x[0]
+  args.volarg.dv2 = dv2
+  secret.v2 += dv2
+  delete map[args.idf]
+  let v = 0; for (const idf in map) v += map[idf][0]
+  if (v !== secret.v2) {
+    console.log(`Discordance volume v2 : ${args.id} / ${args.ns} : idf: ${args.idf}. v2=${secret.v2} total-v-fichiers: ${v}`)
+  }
+  args.info = volumesTr(cfg, args.volarg, rowItems)
+  secret.v = args.volarg.vs
+  secret.mfas = serial(map)
+  stmt(cfg, updmfassecret).run(secret)
+  rowItems.push(newItem('secret', secret))
+}
+
 /*****************************************
 !!GET!! getUrl : retourne l'URL de get d'un fichier
 args : 
 - sessionId
-- id
-- idf
+- id : id du secret
+- idf : id du fichier
+- idc : id du compte demandeur
+- vt : volume du fichier (pour compta des volumes v2 transférés)
 */
 async function getUrl (cfg, args) {
-  checkSession(args.sessionId)
   try {
-    const url = cfg.storage.getUrl(cfg.code, args.id, args.idf)
-    return { type: 'text/plain', bytes: enc(url) }
+    checkSession(args.sessionId)
+    const dh = getdhc()
+    const a = {
+      id: parseInt(args.id),
+      ts: parseInt(args.ts),
+      dv1: 0,
+      dv2: 0,
+      vt: parseInt(args.vt),
+      idc2: null,
+      im: 0,
+      idc: parseInt(args.idc),
+      idf: parseInt(args.idf)
+    }
+    volumes(cfg, a)
+    const rowItems = []
+    cfg.db.transaction(volumesTr)(cfg, a, rowItems)
+    syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+    setImmediate(() => { processQueue() })    
+    const url = await cfg.storage.getUrl(cfg.code, a.id, a.idf)
+    return { type: 'text/plain', bytes: url }
   } catch (e) {
     console.log(e)
     return { bytes: bytes0 }
@@ -2588,6 +2649,7 @@ export function volumesTr (cfg, args, rowItems, simul) {
     }
     if (simul) return
     c.v = args.vc
+    if (args.vt) compteurs.setTr(args.vt) // volume transféré
     c.data = compteurs.calculauj().serial
     stmt(cfg, updcompta).run(c)
     rowItems.push(newItem('compta', c))
@@ -2661,7 +2723,11 @@ export function volumesTr (cfg, args, rowItems, simul) {
     f1(c, 'c51', 'c52', simul) // compta
   } else if (args.ts === 1) { // couple
     f1(c, 'c51', 'c52', simul) // compta
-    if (args.c2) f1(c2, 'c53', 'c54') // compta 2
+    if (args.c2) { // on n'impute pas vt au compte 2
+      const svvt = args.vt; args.vt = 0
+      f1(c2, 'c53', 'c54', simul) // compta 2
+      args.vt = svvt
+    }
     f2(simul) // couple
   } else { // groupe
     f1(c, 'c55', 'c56', simul) // compta hébergeur

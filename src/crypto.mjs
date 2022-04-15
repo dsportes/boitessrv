@@ -126,11 +126,11 @@ function intToU8 (n) {
   return u8
 }
 
-function sidToId (id) {
+export function sidToId (id) {
   return u8ToInt(b64ToU8(id, true)) // b64 -> buffer
 }
 
-function idToSid (id) { // to string (b64)
+export function idToSid (id) { // to string (b64)
   if (typeof id === 'string') return id // déjà en B64
   if (typeof id === 'number') return u8ToB64(intToU8(id), true) // int -> u8 -> b64
   return u8ToB64(id, true) // u8 -> b64
