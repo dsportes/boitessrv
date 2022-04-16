@@ -3,7 +3,6 @@ import { getdhc, sleep } from './util.mjs'
 import { getSession, syncListQueue, processQueue } from './session.mjs'
 import { AppExc, X_SRV, E_WS, A_SRV, DateJour, Compteurs, UNITEV1, UNITEV2 } from './api.mjs'
 import { schemas, deserial, serial } from './schemas.mjs'
-import { putFile, delFile } from './storage.mjs'
 
 export const m1fonctions = { }
 const VERSIONS = 1
@@ -833,8 +832,6 @@ function majCoupleTr (cfg, args, rowItems) {
 }
 
 /**************************************** */
-const selavgrvqid = ''
-const updavgrvq = ''
 
 const selsecret = 'SELECT * FROM secret WHERE id = @id AND v > @v'
 const selmembre = 'SELECT * FROM membre WHERE id = @id AND v > @v'
@@ -1198,163 +1195,6 @@ function maj1SecretTr (cfg, args, rowItems) {
   }
   stmt(cfg, upd1secret).run(secret)
   rowItems.push(newItem('secret', secret))
-}
-
-/***************************************
-Pièce jointe d'un secret - Ajout / modification / suppression
-Args : 
-- sessionId
-- { ts, id: s.id, ns: s.ns, cle, idc, buf, lg, id2, ns2 }
-- `cle` : hash court en base64 URL de nom.ext
-- `idc` : id complète de la pièce jointe (nom.txt/type/dh), cryptée par la clé du secret et en base64 URL.
-- buf : contenu binaire crypté.
-- lg : taille de la pièce jointe d'origine (non gzippée, non cryptée)
-
-Suppression : buf et idc sont null
-
-Retour :
-- sessionId
-- dh
-Exception : dépassement des quotas 
-*/
-const upd2secret = 'UPDATE secret SET v = @v, v2 = @v2, mpjs = @mpjs WHERE id = @id AND ns = @ns'
-
-async function pjSecret (cfg, args) {
-  checkSession(args.sessionId)
-  const dh = getdhc()
-
-  const versions = getValue(cfg, VERSIONS)
-  const j = idx(args.id)
-  versions[j]++
-  setValue(cfg, VERSIONS)
-  args.v = versions[j]
-
-  if (args.ts ===1) {
-    const j2 = idx(args.id2)
-    versions[j2]++
-    setValue(cfg, VERSIONS)
-    args.vb = versions[j2]
-  }
-
-  const secret = stmt(cfg, selsecretIdNs).get({ id: args.id, ns: args.ns })
-  if (!secret) throw new AppExc(A_SRV, '13-Secret inexistant')
-
-  // calcul de v2 et de mpjs
-  const mpjs = !secret.mpjs ? {} : deserial(secret.mpjs)
-  if (args.idc === null) {
-    if (args.idc === null) {
-      delete mpjs[args.cle]
-    } else {
-      mpjs[args.cle] = [args.idc, args.lg]
-    }
-  } else {
-    mpjs[args.cle] = [args.idc, args.lg]
-  }
-  let v = 0, deltav2 = 0, deltavm2 = 0
-  for (const c in mpjs) v += mpjs[c][1]
-  if (secret.st === 99999) { // permanent
-    deltav2 = v - secret.v2
-    deltavm2 = 0
-  } else {
-    deltav2 = 0
-    deltavm2 = v - secret.v2
-  }
-  if (deltav2 || deltavm2 && args.buf) {
-    const a = stmt(cfg, selavgrvqid).get({ id: args.id })
-    if (a) {
-      a.v2 = a.v2 + deltav2
-      a.vm2 = a.vm2 + deltavm2
-    }
-    if (!a || a.v1 > a.q1 || a.vm1 > a.qm1 || a.v2 > a.q2 || a.vm2 > a.qm2) {
-      throw new AppExc(X_SRV, '12-Forfait dépassé')
-    }
-  }
-
-  let secid = crypt.idToSid(args.id) + '@' + crypt.idToSid(args.ns)
-  if (args.ts === 1 && args.id2 < args.id) secid = crypt.idToSid(args.id2) + '@' + crypt.idToSid(args.ns2)
-
-  const pjid = args.idc ? args.cle + '@' + args.idc : null
-
-  if (args.idc) {
-    // stockage nouvelle version
-    await putFile (cfg, cfg.code, secid, pjid, args.buf)
-  }
-
-  const rowItems = []
-
-  try {
-    cfg.db.transaction(pjSecretTr)(cfg, args, rowItems)
-    // suppressions des anciennes versions (même clé) mais pas de la nouvelle 
-    // SAUF si pjid est null auquel cas c'est une suppression
-    delFile (cfg, cfg.code, secid, args.cle, pjid)
-    syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
-    setImmediate(() => { processQueue() })
-    return { sessionId: args.sessionId, dh: dh }
-  } catch (ex) {
-    // "rollback" sur stockage nouvelle version SAUF si pjid null (on ne supprime surtout pas)
-    if (pjid !== null) delFile (cfg, cfg.code, secid, null, pjid) 
-    throw ex
-  }
-}
-m1fonctions.pjSecret = pjSecret
-
-function pjSecretTr (cfg, args, rowItems) {
-
-  const secret = stmt(cfg, selsecretIdNs).get({ id: args.id, ns: args.ns }) 
-  if (!secret) throw new AppExc(A_SRV, '13-Secret inexistant')
-
-  secret.v = args.v
-  // calcul de v2 et de mpjs
-  const mpjs = !secret.mpjs ? {} : deserial(secret.mpjs)
-  if (args.idc === null) {
-    delete mpjs[args.cle]
-  } else {
-    mpjs[args.cle] = [args.idc, args.lg]
-  }
-  let v = 0, deltav2 = 0, deltavm2 = 0
-  for (const c in mpjs) v += mpjs[c][1]
-  secret.mpjs = serial(mpjs)
-  secret.v2 = v
-  rowItems.push(newItem('secret', secret))
-  stmt(cfg, upd2secret).run(secret)
-
-  let secret2
-  if (args.ts === 1) {
-    // secret2 PEUT avoir été détruit
-    secret2 = stmt(cfg, selsecretIdNs).get({ id: args.id2, ns: args.ns2 }) 
-    if (secret2) {
-      secret2.v = args.vb
-      secret2.v2 = secret.v2
-      secret2.mpjs = secret.mpjs
-      stmt(cfg, upd2secret).run(secret2)
-      rowItems.push(newItem('secret', secret2))
-    }
-  }
-
-  if (secret.st === 99999) { // permanent
-    deltav2 = v - secret.v2
-    deltavm2 = 0
-  } else {
-    deltav2 = 0
-    deltavm2 = v - secret.v2
-  }
-  if (deltav2 || deltavm2) {
-    const a = stmt(cfg, selavgrvqid).get({ id: args.id })
-    if (a) {
-      a.v2 = a.v2 + deltav2
-      a.vm2 = a.vm2 + deltavm2
-      stmt(cfg, updavgrvq).run(a)
-    }
-
-    if (secret2) {
-      const a = stmt(cfg, selavgrvqid).get({ id: args.id2 })
-      if (a) {
-        a.v2 = a.v2 + deltav2
-        a.vm2 = a.vm2 + deltavm2
-        stmt(cfg, updavgrvq).run(a)
-      }
-    }
-  }
 }
 
 /******************************************************************
@@ -2200,8 +2040,8 @@ function majvmaxGroupeTr (cfg, args, rowItems) {
   if (groupe.imh !== args.imh) 
     throw new AppExc(X_SRV, '22-Groupe hébergé par un autre compte')
 
-  const ok1 = args.forfaits[0] > (groupe.v1 * 1000000)
-  const ok2 = args.forfaits[1] > (groupe.v2 * 100000000)
+  const ok1 = args.forfaits[0] > (groupe.v1 * UNITEV1)
+  const ok2 = args.forfaits[1] > (groupe.v2 * UNITEV2)
   if (!ok1 || !ok2) {
     const f = !ok1 && ok2 ? 'V1' : (ok1 && !ok2 ? 'V2' : 'V1 et V2')
     throw new AppExc(X_SRV, '21-Forfaits (' + f + ') insuffisants pour héberger le groupe.')
@@ -2506,6 +2346,7 @@ async function supprFichier (cfg, args) {
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
   result.info = args.info
+  await cfg.storage.delFiles(cfg.code, args.id, [args.idf])
   return result
 }
 m1fonctions.supprFichier = supprFichier
@@ -2516,8 +2357,7 @@ function supprFichierTr (cfg, args, rowItems) {
   const map = secret.mfas ? deserial(secret.mfas) : {}
   const e = map[args.idf]
   if (!e) return // déjà supprimé !
-  const x = deserial(e)
-  const dv2 = - x[0]
+  const dv2 = - e[0]
   args.volarg.dv2 = dv2
   secret.v2 += dv2
   delete map[args.idf]

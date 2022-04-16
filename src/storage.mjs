@@ -5,49 +5,6 @@ import { serial, deserial } from './schemas.mjs'
 import { crypt, u8ToB64, idToSid, sidToId } from './crypto.mjs'
 import { b64ToU8 } from './webcrypto.mjs'
 
-export function delFile () {}
-export async function putFile () {}
-/*
-export async function getFile (cfg, org, secid, pjid) {
-  try {
-    const p = path.resolve(cfg.wwwdir, org, secid, pjid)
-    return await fsp.readFile(p)
-  } catch (err) {
-    // console.log(err.toString())
-    return null
-  }
-}
-
-export async function putFile (cfg, org, secid, pjid, data) {
-  const x = secid === 'secret1' ? 'secret2' : secid // pour test
-  const dir = path.resolve(cfg.wwwdir, org, x)
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-  await fsp.writeFile(path.resolve(dir, pjid), data)
-}
-*/
-/*
-Si cle != null: suppression de TOUS les fichiers qui commencent par cle@ ... SAUF pjid si pjid non null
-Si pjid non null et cle null : suppression DU fichier pjid (qui d'ailleurs commen,ce par cle@...)
-
-export function delFile (cfg, org, secid, cle, pjid) {
-  try {
-    const dir = path.resolve(cfg.wwwdir, org, secid)
-    if (fs.existsSync(dir)) {
-      if (!cle) {
-        fs.unlinkSync(path.resolve(dir, pjid))
-      } else {
-        const files = fs.readdirSync(dir)
-        if (files && files.length) files.forEach(name => {
-          if ((!pjid || name !== pjid) && name.startsWith(cle + '@')) fs.unlinkSync(path.resolve(dir, name));
-        })
-      }
-    }
-  } catch (err) {
-    console.log(err.toString())
-  }
-}
-*/
-
 export class FsProvider {
   constructor (config) {
     this.rootpath = config.rootpath
@@ -92,7 +49,7 @@ export class FsProvider {
     try {
       const dir = path.resolve(this.rootpath, org, idToSid(idacp))
       if (fs.existsSync(dir)) {
-        for (const sidf in lidf) fs.unlinkSync(path.resolve(dir, sidf))
+        for (let i = 0; i < lidf.length; i++) fs.unlinkSync(path.resolve(dir, idToSid(lidf[i])))
       }
     } catch (err) {
       console.log(err.toString())
