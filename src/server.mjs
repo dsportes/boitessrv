@@ -231,10 +231,10 @@ app.get('/storage/:arg', async (req, res) => {
       // cfg.storage.putFile(org, idcap, idf, bytes) // pour test
       setRes(res, 200, 'application/octet-stream').send(bytes)
     } else {
-      setRes(res, 404).send('File not found')
+      setRes(res, 404).send('Fichier non trouvé')
     }
   } catch (e) {
-    setRes(res, 404).send('File not found')
+    setRes(res, 404).send('Fichier non trouvé')
   }
 })
 
