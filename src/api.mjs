@@ -46,7 +46,7 @@ export const MC = {
 }
 
 export const t0n = new Set(['compte', 'compta', 'prefs']) // singletons
-export const t1n = new Set(['avatar', 'couple', 'groupe']) // clé à 1 niveau
+export const t1n = new Set(['avatar', 'couple', 'groupe', 'fetat', 'avsecret']) // clé à 1 niveau
 export const t2n = new Set(['membre', 'secret']) // clé à 2 niveaux
 
 /*
@@ -136,6 +136,16 @@ schemas.forSchema({
 schemas.forSchema({
   name: 'idbCv',
   cols: ['id', 'v', 'x', 'dds', 'cv', 'vsh']
+})
+
+schemas.forSchema({
+  name: 'idbFetat',
+  cols: ['id', 'dhd', 'dhc', 'dhx', 'lg', 'nom', 'info', 'ids', 'ns', 'err']
+})
+
+schemas.forSchema({
+  name: 'idbAvSecret',
+  cols: ['id', 'ns', 'v', 'lidf', 'mnom']
 })
 
 schemas.forSchema({
