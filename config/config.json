@@ -7,18 +7,21 @@
     "super": { "comptables": [5983374920213029] }
   },
   "s3config": {
-    "credentials": {
-      "accessKeyId": "access-boites",
-      "secretAccessKey": "secret-boites"
+    "s3" : {
+      "credentials": {
+        "accessKeyId": "access-boites",
+        "secretAccessKey": "secret-boites"
+      },
+      "endpoint": "http://192.168.5.61:9000",
+      "region": "us-east-1",
+      "forcePathStyle": true,
+      "signatureVersion": "v4"
     },
-    "endpoint": "http://localhost:9000",
-    "region": "us-east-1",
-    "forcePathStyle": true,
-    "signatureVersion": "v4"
+    "bucket": "boites"
   },
   "fsconfig": {
     "rootpath": "./www",
     "rooturl": "https://test.sportes.fr:8443"
   },
-  "storageprovider": "fs"
+  "storageprovider": "s3"
 }

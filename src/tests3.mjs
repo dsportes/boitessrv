@@ -12,7 +12,7 @@ Alias : access-boites
 AccessKey : access-boites
 Secret-Key: secret-boites
 
-Buckets :
+Buckets : boites
 boites
 */
 
@@ -31,7 +31,7 @@ Contournement OK fourni par AWS S3 client : https://github.com/aws/aws-sdk-js-v3
 Les import de createRequest Hash et formatUrl découle du besoin de signer une request (et non plus juste une commande)
 */
 
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { /* getSignedUrl, */ S3RequestPresigner } from '@aws-sdk/s3-request-presigner'
 import { createRequest } from '@aws-sdk/util-create-request'
 import { Hash } from '@aws-sdk/hash-node'
@@ -46,7 +46,7 @@ const config = {
     secretAccessKey: 'secret-boites'
   },
   // endpoint: 'https://play.min.io:9000',
-  endpoint: 'http://192.168.1.10:9000',
+  endpoint: 'http://192.168.5.61:9000', // http://192.168.5.61:9000 http://192.168.1.10:9000
   region: 'us-east-1',
   forcePathStyle: true,
   signatureVersion: 'v4'
@@ -59,41 +59,48 @@ const bucketName = 'boites';
 
 (async () => {
   try {
-    const objectKey = 'first-entry.txt'
-    const bucketParams = { Bucket: bucketName, Key: objectKey, Body: 'Hello there again 4' }
-    const putCmd = new PutObjectCommand(bucketParams)
-    // await s3.send(putCmd) // ça marche : mais on peut aussi utiliser l'url signée ce qui est l'objectif ici
+    const testdel = true
+    const objectKey = '/toto/titi/second-entry.txt'
+    if (!testdel) {
+      const bucketParams = { Bucket: bucketName, Key: objectKey, Body: 'Hello there again 5' }
+      const putCmd = new PutObjectCommand(bucketParams)
+      // await s3.send(putCmd) // ça marche : mais on peut aussi utiliser l'url signée ce qui est l'objectif ici
 
-    // const putUrl = await getSignedUrl(s3, putCmd, { expiresIn: 3600 }) // KO : voir bug ci-dessus
-    const putReq = await createRequest(s3, putCmd)
-    // Append the port to generate a valid signature. // contournement proposé par S3
-    putReq.headers.host = `${ putReq.hostname }:${ putReq.port }`
-    const url1 = await signer.presign(putReq)
-    const putUrl = formatUrl(url1)
-    console.log('putURL:' + putUrl)
+      // const putUrl = await getSignedUrl(s3, putCmd, { expiresIn: 3600 }) // KO : voir bug ci-dessus
+      const putReq = await createRequest(s3, putCmd)
+      // Append the port to generate a valid signature. // contournement proposé par S3
+      putReq.headers.host = `${ putReq.hostname }:${ putReq.port }`
+      const url1 = await signer.presign(putReq)
+      const putUrl = formatUrl(url1)
+      console.log('putURL:' + putUrl)
 
-    console.log(`\nPutting "${bucketParams.Key}" using signedUrl with body "${bucketParams.Body}" in v3`)
-    const response = await fetch(putUrl, {method: 'PUT', body: bucketParams.Body})
-    console.log(`\nResponse returned by signed URL: ${await response.text()}\n`)
+      console.log(`\nPutting "${bucketParams.Key}" using signedUrl with body "${bucketParams.Body}" in v3`)
+      const response = await fetch(putUrl, {method: 'PUT', body: bucketParams.Body})
+      console.log(`\nResponse returned by signed URL: ${await response.text()}\n`)
 
-    const getCmd = new GetObjectCommand({ Bucket: bucketName, Key: objectKey })
-    const res = await s3.send(getCmd)
-    const buffer = await stream2buffer(res.Body)
-    console.log('Lecture OK: ' + buffer.length)
-    console.log(buffer.toString())
-    // const url2 = await getSignedUrl(s3, getCmd, { expiresIn: 3600 }) // KO : voir bug ci-dessus
-    // console.log('URL:' + url2)
+      const getCmd = new GetObjectCommand({ Bucket: bucketName, Key: objectKey })
+      const res = await s3.send(getCmd)
+      const buffer = await stream2buffer(res.Body)
+      console.log('Lecture OK: ' + buffer.length)
+      console.log(buffer.toString())
+      // const url2 = await getSignedUrl(s3, getCmd, { expiresIn: 3600 }) // KO : voir bug ci-dessus
+      // console.log('URL:' + url2)
 
-    const getReq = await createRequest(s3, getCmd)
-    // Append the port to generate a valid signature.
-    getReq.headers.host = `${ getReq.hostname }:${ getReq.port }`
-    const url2 = await signer.presign(getReq)
-    const getUrl = formatUrl(url2)
-    console.log('getURL:' + getUrl)
+      const getReq = await createRequest(s3, getCmd)
+      // Append the port to generate a valid signature.
+      getReq.headers.host = `${ getReq.hostname }:${ getReq.port }`
+      const url2 = await signer.presign(getReq)
+      const getUrl = formatUrl(url2)
+      console.log('getURL:' + getUrl)
 
-    const resGet = await fetch(getUrl)
-    const buf = await resGet.arrayBuffer()
-    console.log(buf.length)
+      const resGet = await fetch(getUrl)
+      const buf = Buffer.from(await resGet.arrayBuffer())
+      console.log(buf.length)
+    } else {
+      const delCmd = new DeleteObjectCommand({ Bucket: bucketName, Key: objectKey })
+      // eslint-disable-next-line no-unused-vars
+      const res1 = await s3.send(delCmd)
+    }
 
   } catch (err) {
     console.log('Error', err)
