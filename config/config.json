@@ -12,7 +12,7 @@
         "accessKeyId": "access-boites",
         "secretAccessKey": "secret-boites"
       },
-      "endpoint": "http://192.168.5.61:9000",
+      "endpoint": "https://localhost:9000",
       "region": "us-east-1",
       "forcePathStyle": true,
       "signatureVersion": "v4"

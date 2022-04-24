@@ -14,6 +14,13 @@ Secret-Key: secret-boites
 
 Buckets : boites
 boites
+
+Le server minio peut fonctionner en https :
+- copier databases/minio-certs dans ~.minio/certs
+- dans Chrome accéder à https://localhost:9090 et lui autoriser l'accès
+- ça marche
+Sino il faut laisser http (sans s) et autoriser Chrome aux contenus mixtes.
+- Clic sur le cadenus / Paramètres du site / Contenus non sécurisés
 */
 
 function stream2buffer(stream) {
@@ -46,7 +53,7 @@ const config = {
     secretAccessKey: 'secret-boites'
   },
   // endpoint: 'https://play.min.io:9000',
-  endpoint: 'http://192.168.5.61:9000', // http://192.168.5.61:9000 http://192.168.1.10:9000
+  endpoint: 'https://localhost:9000', // http://192.168.5.61:9000 http://192.168.1.10:9000
   region: 'us-east-1',
   forcePathStyle: true,
   signatureVersion: 'v4'
