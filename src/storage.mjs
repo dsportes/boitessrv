@@ -5,7 +5,7 @@ import { serial, deserial } from './schemas.mjs'
 import { crypt, u8ToB64, idToSid, sidToId } from './crypto.mjs'
 import { b64ToU8 } from './webcrypto.mjs'
 
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsCommand } from '@aws-sdk/client-s3'
 import { /* getSignedUrl, */ S3RequestPresigner } from '@aws-sdk/s3-request-presigner'
 import { createRequest } from '@aws-sdk/util-create-request'
 import { Hash } from '@aws-sdk/hash-node'
@@ -62,7 +62,7 @@ export class FsProvider {
     }
   }
 
-  delDir (org, idacp) {
+  async delACP (org, idacp) {
     try {
       const dir = path.resolve(this.rootpath, org, idToSid(idacp))
       fs.rmSync(dir, { recursive: true, force: true })
@@ -71,7 +71,7 @@ export class FsProvider {
     }
   }
 
-  listDir (org, idacp) { // utilité ?
+  async listFiles (org, idacp) {
     try {
       const lst = []
       const dir = path.resolve(this.rootpath, org, idacp)
@@ -84,7 +84,21 @@ export class FsProvider {
       console.log(err.toString())
     }
   }
-  
+
+  async listACP (org) {
+    try {
+      const lst = []
+      const dir = path.resolve(this.rootpath, org)
+      if (fs.existsSync(dir)) {
+        const files = fs.readdirSync(dir)
+        if (files && files.length) files.forEach(name => { lst.push(sidToId(name)) })
+      }
+      return lst
+    } catch (err) {
+      console.log(err.toString())
+    }
+  }
+
 }
 
 export class S3Provider {
@@ -152,6 +166,60 @@ export class S3Provider {
       console.log(err.toString())
     }
   }
+
+  async delACP (org, idacp) {
+    const lst = []
+    const bucketParams = { Bucket: this.bucketName, Prefix: org + '/' + idToSid(idacp) + '/', Delimiter: '/', MaxKeys: 10000 }
+    let truncated = true
+    while (truncated) {
+      const response = await this.s3.send(new ListObjectsCommand(bucketParams))
+      if (response.Contents) response.Contents.forEach((item) => { lst.push(item.Key) })
+      truncated = response.IsTruncated
+      if (truncated) bucketParams.Marker = response.NextMarker
+    }
+    for (let i = 0; i < lst.length; i++) {
+      const delCmd = new DeleteObjectCommand({ Bucket: this.bucketName, Key: lst[i] })
+      await this.s3.send(delCmd)
+    }
+  }
+
+  async listFiles (org, idacp) {
+    const lst = []
+    const pfx = org + '/' + idToSid(idacp) + '/'
+    const l = pfx.length
+    const bucketParams = { Bucket: this.bucketName, Prefix: pfx, Delimiter: '/', MaxKeys: 10000 }
+    let truncated = true
+    while (truncated) {
+      const response = await this.s3.send(new ListObjectsCommand(bucketParams))
+      if (response.Contents) response.Contents.forEach((item) => {
+        const s = item.Key
+        const s2 = s.substring(l, s.length - 1)
+        lst.push(sidToId(s2))
+      })
+      truncated = response.IsTruncated
+      if (truncated) bucketParams.Marker = response.NextMarker
+    }
+    return lst
+  }
+
+  async listACP (org) {
+    const lst = []
+    const l = (org + '/').length
+    const bucketParams = { Bucket: this.bucketName, Prefix: org + '/', Delimiter: '/', MaxKeys: 10000 }
+    let truncated = true
+    while (truncated) {
+      const response = await this.s3.send(new ListObjectsCommand(bucketParams))
+      if (response.CommonPrefixes) response.CommonPrefixes.forEach((item) => {
+        const s = item.Prefix
+        const s2 = s.substring(l, s.length - 1)
+        lst.push(sidToId(s2))
+      })
+      truncated = response.IsTruncated
+      if (truncated) bucketParams.Marker = response.NextMarker
+    }
+    return lst
+  }
+
 }
 
 function stream2buffer(stream) {

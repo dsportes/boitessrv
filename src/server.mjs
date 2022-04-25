@@ -198,6 +198,14 @@ try {
   throw new Error(' Erreur de parsing de config.json : ' + e.message)
 }
 
+/*
+(async () => {
+  const p = cfg.storage
+  const lst = await p.listACP('doda', 6055320813519765)
+  lst.forEach(x => { console.log(x) })
+})()
+*/
+
 // Les sites appelent souvent favicon.ico
 const favicon = fs.readFileSync(path.resolve(dirs.configdir, './favicon.ico'))
 // const deficon = 'data:image/png;base64,' + fs.readFileSync('./anonymous.png', 'base64')
