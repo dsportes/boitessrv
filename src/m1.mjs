@@ -2466,11 +2466,11 @@ export function volumesTr (cfg, args, rowItems, simul) {
   // simul : si true n'enregistre PAS les volumes mais les exceptions sont levées comme si
   const c = stmt(cfg, selcomptaId).get({ id: args.idc })
   if (!c) throw new AppExc(A_SRV, '40-Comptabilité du compte principal non trouvée')
-  const c2 = args.idc2 ? args.stmt(cfg, selcomptaId).get({ id: args.idc2 }) : null
+  const c2 = args.idc2 ? stmt(cfg, selcomptaId).get({ id: args.idc2 }) : null
   if (args.idc2 && !c2) throw new AppExc(A_SRV, '41-Comptabilité du compte secondaire non trouvée')
-  const cp = args.ts === 1 ? args.stmt(cfg, selcoupleId).get({ id: args.id }) : null
+  const cp = args.ts === 1 ? stmt(cfg, selcoupleId).get({ id: args.id }) : null
   if (args.ts === 1 && !cp) throw new AppExc(A_SRV, '42-Couple non trouvée')
-  const gr = args.ts === 2 ? args.stmt(cfg, selgroupeId).get({ id: args.id }) : null
+  const gr = args.ts === 2 ? stmt(cfg, selgroupeId).get({ id: args.id }) : null
   if (args.ts === 2 && !gr) throw new AppExc(A_SRV, '43-Groupe non trouvée')
 
   const info = []
