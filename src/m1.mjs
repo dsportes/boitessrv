@@ -1186,7 +1186,7 @@ function maj1SecretTr (cfg, args, rowItems) {
   if (args.xp !== null) secret.xp = args.xp
   if (args.st !== null) secret.st = args.st
   if (args.ts > 0) {
-    const x = secret.mc
+    const x = secret.mc ? deserial(secret.mc) : {}
     if (args.ts === 2 && args.mcg !== null) x[0] = args.mcg
     if (args.mc !== null) x[args.im] = args.mc
     secret.mc = serial(x)
