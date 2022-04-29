@@ -1209,7 +1209,7 @@ Retour :
 - info
 Exceptions
 */
-const upd2secret = 'UPDATE secret SET v = @v, st = 0, xp = 0, v1 = 0, txts = null, mc = null, mfas = null WHERE id = @id AND ns = @ns'
+const upd2secret = 'UPDATE secret SET v = @v, x = @x, st = 0, xp = 0, v1 = 0, v2 = 0, txts = null, mc = null, mfas = null WHERE id = @id AND ns = @ns'
 
 async function supprSecret (cfg, args) {
   checkSession(args.sessionId)
@@ -1229,17 +1229,18 @@ m1fonctions.supprSecret = supprSecret
 
 function supprSecretTr (cfg, args, rowItems) {
 
-  const secret = stmt(cfg, selsecretIdNs).get({ id: args.id, ns: args.ns }) 
-  if (!secret) throw new AppExc(A_SRV, '13-Secret inexistant')
-  args.varg.dv1 = -args.v1
-  args.varg.dv2 = -args.v2
+  const s = stmt(cfg, selsecretIdNs).get({ id: args.id, ns: args.ns }) 
+  if (!s) throw new AppExc(A_SRV, '13-Secret inexistant')
+  args.varg.dv1 = s.v1 ? -s.v1 : 0
+  args.varg.dv2 = s.v2 ? -s.v2 : 0 // par erreur v1 ou v2 ont pu avoir null
   args.info = volumesTr (cfg, args.varg, rowItems)
 
-  secret.v = args.varg.vs
-  secret.x = new DateJour().nbj
-  args.lidf = secret.mfas ? Object.keys(secret.mfas) : [] // liste des idf du secret
-  stmt(cfg, upd2secret).run(secret)
-  rowItems.push(newItem('secret', secret))
+  s.v = args.varg.vs
+  s.x = new DateJour().nbj
+  s.st = 0; s.xp = 0; s.v1 = 0; s.v2 = 0; s.txts = null; s.mc = null; s.mfas = null
+  args.lidf = s.mfas ? Object.keys(s.mfas) : [] // liste des idf du secret
+  stmt(cfg, upd2secret).run(s)
+  rowItems.push(newItem('secret', s))
 }
 
 /******************************************************************
