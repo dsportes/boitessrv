@@ -1197,6 +1197,51 @@ function maj1SecretTr (cfg, args, rowItems) {
   rowItems.push(newItem('secret', secret))
 }
 
+/***************************************
+MAJ secret
+Args : 
+- sessionId
+- ts, id, ns, varg
+refs N'EST PAS mis à null : reste nécessaire pour la synchronisation (mise à jour des voisins)
+Retour :
+- sessionId
+- dh
+- info
+Exceptions
+*/
+const upd2secret = 'UPDATE secret SET v = @v, st = 0, xp = 0, v1 = 0, txts = null, mc = null, mfas = null WHERE id = @id AND ns = @ns'
+
+async function supprSecret (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+
+  volumes (cfg, args.varg)
+  const rowItems = []
+
+  cfg.db.transaction(supprSecretTr)(cfg, args, rowItems)
+  if (args.lidf.length) cfg.storage.delFiles(cfg.code, args.id, args.lidf)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return { sessionId: args.sessionId, dh: dh, info: args.info }
+}
+m1fonctions.supprSecret = supprSecret
+
+function supprSecretTr (cfg, args, rowItems) {
+
+  const secret = stmt(cfg, selsecretIdNs).get({ id: args.id, ns: args.ns }) 
+  if (!secret) throw new AppExc(A_SRV, '13-Secret inexistant')
+  args.varg.dv1 = -args.v1
+  args.varg.dv2 = -args.v2
+  args.info = volumesTr (cfg, args.varg, rowItems)
+
+  secret.v = args.varg.vs
+  secret.x = new DateJour().nbj
+  args.lidf = secret.mfas ? Object.keys(secret.mfas) : [] // liste des idf du secret
+  stmt(cfg, upd2secret).run(secret)
+  rowItems.push(newItem('secret', secret))
+}
+
 /******************************************************************
 Parrainage : args de m1/nouveauParrainage
   - sessionId: data.sessionId,
