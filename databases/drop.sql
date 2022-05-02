@@ -1,10 +1,14 @@
-
-
+DROP TABLE avatar;
+DROP TABLE avrsa;
+DROP TABLE compta;
+DROP TABLE compte;
 DROP TABLE contact;
+DROP TABLE couple;
+DROP TABLE cv;
 DROP TABLE groupe;
 DROP TABLE invitgr;
 DROP TABLE membre;
-DROP TABLE parrain;
-DROP TABLE rencontre;
+DROP TABLE prefs;
 DROP TABLE secret;
+DROP TABLE trec;
 DROP TABLE versions;
