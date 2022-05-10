@@ -218,18 +218,18 @@ function creationCompte (cfg, args) {
   let j = idx(compte.id)
   versions[j]++
   compte.v = versions[j]
-  compta.v = versions[j]
   prefs.v = versions[j]
 
   j = idx(avatar.id)
   versions[j]++
   avatar.v = versions[j]
+  compta.v = versions[j]
 
   versions[0]++
   cv.v = versions[0]
   setValue(cfg, VERSIONS)
 
-  compta.dds = new DateJour().nbj
+  compte.dds = new DateJour().nbj
   cv.dds = ddsAvatarGroupeCouple(0)
   const avrsa = { id: avatar.id, clepub: args.clePubAv, vsh: 0 }
 
@@ -269,9 +269,9 @@ RAZ des abonnements en cours et abonnement au compte
 args
 - dpbh
 - pcbh
-- vcompte vprefs vcompta
+- vcompte vprefs
 Retour
-- rowCompte, rowPrefs, rowCompa (null si pas plus récent)
+- rowCompte, rowPrefs (null si pas plus récent)
 - estComtable si la phrase du compte est enregistrée comme comptable dans la configuration
 */
 async function connexionCompte (cfg, args) {
@@ -294,11 +294,8 @@ function connexionCompteTr(cfg, args, result) {
   }
   args.id = compte.id
   const prefs = stmt(cfg, selprefs).get({ id: compte.id, v: args.vprefs })
-  const compta = stmt(cfg, selcompta).get({ id: compte.id, v: args.vcompta })
-
   result.rowCompte = compte.v > args.vcompte ? newItem('compte', compte) : null
   result.rowPrefs = prefs ? newItem('prefs', prefs) : null
-  result.rowCompta = compta ? newItem('compta', compta) : null
   result.estComptable = cfg.comptables.indexOf(compte.pcbh) !== -1
 }
 
@@ -318,30 +315,35 @@ Retour
 - rowItems : les avatars ayant une version plus récente
 - ok : true si le compte a toujours la version vc
 */
-async function chargerAv (cfg, args) {
+async function chargerAvatars (cfg, args) {
   const session = checkSession(args.sessionId)
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const rowItems = []
-  cfg.db.transaction(chargerAvTr)(cfg, args, rowItems)
+  cfg.db.transaction(chargerAvatarsTr)(cfg, args, rowItems)
   result.rowItems = rowItems
   result.ok = args.ok
   session.plusAvatars(args.ids)
   return result
 }
-m1fonctions.chargerAv = chargerAv
+m1fonctions.chargerAvatars = chargerAvatars
 
 const selavatar = 'SELECT * FROM avatar WHERE id = @id AND v > @v'
 
-function chargerAvTr(cfg, args, rowItems) {
+function chargerAvatarsTr(cfg, args, rowItems) {
   const c = stmt(cfg, selcompteidv).get({ id : args.idc })
   if (!c || c.v > args.vc) { args.ok = false; return }
+  args.ok = true
   args.ids = []
   for(const ids in args.idsVers) {
     const id = parseInt(ids)
     args.ids.push(id)
     const row = stmt(cfg, selavatar).get({ id, v: args.idsVers[id] })
     if (row) rowItems.push(newItem('avatar', row))
-    args.ok = true
+  }
+  for(const ids in args.cptidsVers) {
+    const id = parseInt(ids)
+    const row = stmt(cfg, selcompta).get({ id, v: args.cptidsVers[id] })
+    if (row) rowItems.push(newItem('compta', row))
   }
 }
 
@@ -503,17 +505,17 @@ function chargerGrCpTr(cfg, args, grIds, cpIds, rowItems) {
   args.ok = true
 }
 
-const updddscompta = 'UPDATE compta SET dds = @dds WHERE id = @id'
+const updddscompte = 'UPDATE compte SET dds = @dds WHERE id = @id'
 const updddscv= 'UPDATE cv SET dds = @dds WHERE id = @id'
-const ddscompta = 'SELECT dds FROM compta WHERE id = @id'
+const ddscompte = 'SELECT dds FROM compte WHERE id = @id'
 const ddscv = 'SELECT dds FROM cv WHERE id = @id'
 
 function signatures (cfg, idc, lagc) {
   if (idc) {
-    const a = stmt(cfg, ddscompta).get({ id: idc })
+    const a = stmt(cfg, ddscompte).get({ id: idc })
     if (a) {
       const j = new DateJour().nbj
-      if (a.dds < j) stmt(cfg, updddscompta).run({ id: idc, dds:j })
+      if (a.dds < j) stmt(cfg, updddscompte).run({ id: idc, dds:j })
     }
   }
   lagc.forEach((id) => {
@@ -616,6 +618,9 @@ function chargerCVsTr (cfg, session, args, rowItems) {
 - vcav: version du compte avant (ne doit pas avoir changé),
 - mack: map des avatars dans le compte
 - rowAvatar
+- rowCompta
+- forfaits: prélevés sur l'avatar primitif
+- idPrimitif
 Retour :
 - sessionId
 - dh
@@ -626,6 +631,7 @@ function creationAvatar (cfg, args) {
 
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const avatar = schemas.deserialize('rowavatar', args.rowAvatar)
+  const compta = schemas.deserialize('rowcompta', args.rowCompta)
   const avrsa = { id: avatar.id, clepub: args.clePub, vsh: 0 }
   const cv = { id: avatar.id, v: 0, x: 0, dds: ddsAvatarGroupeCouple(0), cv: null, vsh: 0 }
 
@@ -637,13 +643,18 @@ function creationAvatar (cfg, args) {
   j = idx(avatar.id)
   versions[j]++
   avatar.v = versions[j]
+  compta.v = versions[j]
+
+  j = idx(args.idPrimitif)
+  versions[j]++
+  args.vprim = versions[j]
 
   versions[0]++ // version des CVs
   cv.v = versions[0]
   setValue(cfg, VERSIONS)
 
   const rowItems = []
-  cfg.db.transaction(creationAvatarTr)(cfg, session, args, avatar, avrsa, cv, rowItems)
+  cfg.db.transaction(creationAvatarTr)(cfg, session, args, avatar, compta, avrsa, cv, rowItems)
 
   if (args.statut === 1) {
     result.statut = 1
@@ -659,7 +670,7 @@ m1fonctions.creationAvatar = creationAvatar
 
 const upd1compte = 'UPDATE compte SET v = @v, mack = @mack WHERE id = @id'
 
-function creationAvatarTr (cfg, session, args, avatar, avrsa, cv, rowItems) {
+function creationAvatarTr (cfg, session, args, avatar, compta, avrsa, cv, rowItems) {
   const c = stmt(cfg, selcompteId).get({ id: args.idc })
   if (!c) throw new AppExc(A_SRV, '06-Compte non trouvé')
   if (c && c.v !== args.vcav) {
@@ -670,6 +681,10 @@ function creationAvatarTr (cfg, session, args, avatar, avrsa, cv, rowItems) {
   c.mack = args.mack
   stmt(cfg, upd1compte).run(c)
   rowItems.push(newItem('compte', c))
+
+  const cprim = stmt(cfg, selcomptaId).get({ id: args.idPrimitif })
+  if (!cprim) throw new AppExc(A_SRV, '06-Compte non trouvé')
+
 
   stmt(cfg, insavatar).run(avatar)
   rowItems.push(newItem('avatar', avatar))
@@ -1298,7 +1313,7 @@ function nouveauParrainageTr (cfg, args, contact, couple, cv, rowItems) {
   rowItems.push(newItem('couple', couple))
 
   const a = stmt(cfg, selavatarId).get({ id: args.id })
-  if (!a) throw new AppExc(X_SRV, '23-Avatar non trouvé.')
+  if (!a) throw new AppExc(A_SRV, '23-Avatar non trouvé.')
   const map = a.lcck ? deserial(a.lcck) : {}
   if (map[args.ni]) return // déjà fait
   map[args.ni] = args.datak
@@ -1312,7 +1327,7 @@ function nouveauParrainageTr (cfg, args, contact, couple, cv, rowItems) {
 }
 
 /******************************************************************
-Acceptation
+Acceptation d'un parrainage
     sessionId: data.sessionId,
     clePubAv: kpav.publicKey, // clé publique de l'avatar créé
     rowCompte, // compte créé
@@ -1321,7 +1336,6 @@ Acceptation
     rowPrefs, // préférences du compte créé
     idCouple: couple.id, // id du couple
     phch: arg.phch, // hash de la phrase de contact
-    idcp, // id du compte parrain
     idavp: couple.idE, // id de l'avatar parrain
     dr1: arg.estPar ? d.r1 + d.f1 : d.f1, // montant à réduire de sa réserve
     dr2: arg.estPar ? d.r2 + d.f2 : d.f2,
@@ -1334,6 +1348,11 @@ Refus
     idCouple: couple.id, // id du couple
     ardc // ardoise du couple
 Retour : sessionId, dh, si ok : rowItems : compte, compta, prefs, avatar, contactf
+X_SRV, '03-Phrase secrète probablement déjà utilisée. Vérifier que le compte n\'existe pas déjà en essayant de s\'y connecter avec la phrase secrète')
+X_SRV, '04-Une phrase secrète semblable est déjà utilisée. Changer a minima la première ligne de la phrase secrète pour ce nouveau compte')
+X_SRV, '18-Réserves de volume insuffisantes du parrain pour les forfaits attribués compte'
+A_SRV, '17-Avatar parrain : données de comptabilité absentes'
+A_SRV, '24-Couple non trouvé'
 */
 
 const delcontact = 'DELETE FROM contact WHERE phch = @phch'
@@ -1355,23 +1374,23 @@ async function acceptParrainage (cfg, args) {
 
   const versions = getValue(cfg, VERSIONS)
 
-  let j = idx(args.idcp)
+  let j = idx(args.idavp)
   versions[j]++
   args.vcp = versions[j] // version de compta parrain (L'AUTRE)
 
   j = idx(compte.id)
   versions[j]++
   compte.v = versions[j] // version du compte filleul (MOI)
-  compta.v = versions[j] // version de compta filleul (MOI)
   prefs.v = versions[j] // version de prefs filleul (MOI)
 
   j = idx(avatar.id)
   versions[j]++
   avatar.v = versions[j] // version de l'avatar filleul (MOI)
+  compta.v = versions[j] // version de compta filleul (MOI)
 
   j = idx(args.idCouple)
   versions[j]++
-  args.vcouple = versions[j] // version de l'avatar filleul (MOI)
+  args.vcouple = versions[j] // version du couple
 
   j = idx(0)
   versions[j]++
@@ -1415,10 +1434,9 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
 
   stmt(cfg, delcontact).run({ phch: args.phch }) // suppression du contact
 
-  const comptaP = stmt(cfg, selcomptaId).get({ id: args.idcp })
-  if (!comptaP) {
-    throw new AppExc(A_SRV, '17-Compte parrain : données de comptabilité absentes')
-  }
+  const comptaP = stmt(cfg, selcomptaId).get({ id: args.idavp })
+  if (!comptaP) throw new AppExc(A_SRV, '17-Avatar parrain : données de comptabilité absentes')
+
   const compteurs = new Compteurs(comptaP.data)
   const ok = compteurs.setRes([-args.dr1, -args.dr2])
   if (!ok) throw new AppExc(X_SRV, '18-Réserves de volume insuffisantes du parrain pour les forfaits attribués compte')
@@ -1428,12 +1446,12 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
   items.comptaP = comptaP
 
   // Insertion des nouveaux compte, avatar, prefs du filleul
+  compte.dds = new DateJour().nbj
   stmt(cfg, inscompte).run(compte)
 
-  compta.dds = new DateJour().nbj
-  stmt(cfg, inscompta).run(compta)
-
   stmt(cfg, insprefs).run(prefs)
+
+  stmt(cfg, inscompta).run(compta)
 
   stmt(cfg, insavatar).run(avatar)
 
@@ -1460,7 +1478,7 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
 const upd2parrain = 'UPDATE parrain SET v = @v,  datax = null, datak = null, data2k = null WHERE pph = @pph'
 const upd3parrain = 'UPDATE parrain SET v = @v, dlv = @dlv WHERE pph = @pph'
 /******************************************************************
-Refus
+Refus d'un parrainage
   sessionId: data.sessionId,
   pph: parrain.pph,
   ardc: await crypt.crypter(parrain.data.cc, serial([new Date().getTime(), arg.ard]))
