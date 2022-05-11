@@ -23,5 +23,5 @@
     "rootpath": "./www",
     "rooturl": "https://test.sportes.fr:8443"
   },
-  "storageprovider": "s3"
+  "storageprovider": "fs"
 }

@@ -149,8 +149,8 @@ function newItem (table, row) {
 /******************************************/
 const inscompte = 'INSERT INTO compte (id, v, dpbh, pcbh, kx, mack, vsh) '
   + 'VALUES (@id, @v, @dpbh, @pcbh, @kx, @mack, @vsh)'
-const inscompta = 'INSERT INTO compta (id, idp, v, dds, st, dst, data, dh, ard, vsh) '
-  + 'VALUES (@id, @idp, @v, @dds, @st, @dst, @data, @dh, @ard, @vsh)'
+const inscompta = 'INSERT INTO compta (id, idp, v, st, dst, data, dh, ard, flag, vsh) '
+  + 'VALUES (@id, @idp, @v, @st, @dst, @data, @dh, @ard, @flag, @vsh)'
 const insprefs = 'INSERT INTO prefs (id, v, mapk, vsh) '
   + 'VALUES (@id, @v, @mapk, @vsh)'
 const insavatar = 'INSERT INTO avatar (id, v, lgrk, lcck, vsh) '
@@ -691,9 +691,9 @@ function creationAvatarTr (cfg, session, args, avatar, compta, avrsa, cv, rowIte
   {
     cprim.v = args.vprim
     const compteurs = new Compteurs(cprim.data)
-    let ok = compteurs.setF1(-args.forfaits[0])
+    let ok = compteurs.setF1(compteurs.f1 - args.forfaits[0])
     if (!ok) throw new AppExc(X_SRV, '26-Forfait V1 insuffisant pour l\'attribution souhaitée au nouvel avatar')
-    ok = compteurs.setF2(-args.forfaits[2])
+    ok = compteurs.setF2(compteurs.f2 - args.forfaits[1])
     if (!ok) throw new AppExc(X_SRV, '27-Forfait V2 insuffisant pour l\'attribution souhaitée au nouvel avatar')
     cprim.data = compteurs.serial
     stmt(cfg, updcompta).run(cprim)
