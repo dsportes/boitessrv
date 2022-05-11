@@ -612,19 +612,22 @@ function chargerCVsTr (cfg, session, args, rowItems) {
 }
 
 /* Creation nouvel avatar ****************************************
-- sessionId, 
+- sessionId,
 - clePub,
 - idc: numéro du compte
 - vcav: version du compte avant (ne doit pas avoir changé),
 - mack: map des avatars dans le compte
-- rowAvatar
-- rowCompta
+- rowAvatar: du nouvel avatar
+- rowCompta: du nouvel avatar
 - forfaits: prélevés sur l'avatar primitif
-- idPrimitif
+- idPrimitif: id de l'avatar primitif du compte sur lequel les forfaits sont prélevés
 Retour :
 - sessionId
 - dh
 - statut : 0:OK, 1:retry (version compte ayant évolué)
+X_SRV, '26-Forfait V1 insuffisant pour l\'attribution souhaitée au nouvel avatar'
+X_SRV, '27-Forfait V2 insuffisant pour l\'attribution souhaitée au nouvel avatar'
+A_SRV, '06-Compte non trouvé'
 */
 function creationAvatar (cfg, args) {
   const session = checkSession(args.sessionId)
@@ -685,6 +688,25 @@ function creationAvatarTr (cfg, session, args, avatar, compta, avrsa, cv, rowIte
   const cprim = stmt(cfg, selcomptaId).get({ id: args.idPrimitif })
   if (!cprim) throw new AppExc(A_SRV, '06-Compte non trouvé')
 
+  {
+    cprim.v = args.vprim
+    const compteurs = new Compteurs(cprim.data)
+    let ok = compteurs.setF1(-args.forfaits[0])
+    if (!ok) throw new AppExc(X_SRV, '26-Forfait V1 insuffisant pour l\'attribution souhaitée au nouvel avatar')
+    ok = compteurs.setF2(-args.forfaits[2])
+    if (!ok) throw new AppExc(X_SRV, '27-Forfait V2 insuffisant pour l\'attribution souhaitée au nouvel avatar')
+    cprim.data = compteurs.serial
+    stmt(cfg, updcompta).run(cprim)
+    rowItems.push(newItem('compta', cprim))
+  }
+  {
+    const compteurs = new Compteurs(compta.data)
+    compteurs.setF1(args.forfaits[0])
+    compteurs.setF2(args.forfaits[1])
+    compta.data = compteurs.serial
+    stmt(cfg, updcompta).run(compta)
+    rowItems.push(newItem('compta', compta))  
+  }
 
   stmt(cfg, insavatar).run(avatar)
   rowItems.push(newItem('avatar', avatar))
@@ -1939,12 +1961,13 @@ function majinfoMembreTr (cfg, session, args, rowItems) {
 /* Fin d'hébergement d'un groupe ****************************************
 args :
 - sessionId
-- idc, idg : id du compte, id = groupe
+- idh : id de l'avatar hébergeur
+- idg : id du groupe
 - imh : indice de l'avatar membre hébergeur
 Retour: sessionId, dh
 A_SRV, '10-Données de comptabilité absentes'
 A_SRV, '18-Groupe non trouvé'
-X_SRV, '22-Ce compte n\'est pas l\'hébergeur actuel du groupe'
+X_SRV, '22-Cet avatar n\'est pas l\'hébergeur actuel du groupe'
 */
 
 async function finhebGroupe (cfg, args) {
@@ -1953,9 +1976,9 @@ async function finhebGroupe (cfg, args) {
   const result = { sessionId: args.sessionId, dh: dh }
 
   const versions = getValue(cfg, VERSIONS)
-  let j = idx(args.idc)
+  let j = idx(args.idh)
   versions[j]++
-  args.vc = versions[j]
+  args.vh = versions[j]
   j = idx(args.idg)
   versions[j]++
   args.vg = versions[j]
@@ -1973,15 +1996,15 @@ m1fonctions.finhebGroupe = finhebGroupe
 const updhebgroupe= 'UPDATE groupe SET v = @v, dfh = @dfh, idhg = @idhg, imh = @imh WHERE id = @id'
 
 function finhebGroupeTr (cfg, args, rowItems) {
-  const compta = stmt(cfg, selcomptaId).get({ id: args.idc })
+  const compta = stmt(cfg, selcomptaId).get({ id: args.idh })
   if (!compta) throw new AppExc(A_SRV, '10-Données de comptabilité absentes')
   const groupe = stmt(cfg, selgroupeId).get({ id: args.idg })
   if (!groupe) throw new AppExc(A_SRV, '18-Groupe non trouvé')
 
-  if (groupe.idhg === null || groupe.imh !== args.imh)
-    throw new AppExc(X_SRV, '22-Ce compte n\'est pas l\'hébergeur actuel du groupe')
+  if (groupe.imh !== args.imh)
+    throw new AppExc(X_SRV, '22-Cet avatar n\'est pas l\'hébergeur actuel du groupe')
 
-  compta.v = args.vc
+  compta.v = args.vh
   const compteurs = new Compteurs(compta.data)
   compteurs.setV1(-groupe.v1)
   compteurs.setV2(-groupe.v2)
@@ -1990,7 +2013,6 @@ function finhebGroupeTr (cfg, args, rowItems) {
   rowItems.push(newItem('compta', compta))
 
   groupe.v = args.vg
-  groupe.idhg = null
   groupe.imh = 0
   groupe.dfh = new DateJour().nbj
   stmt(cfg, updhebgroupe).run(groupe)
@@ -2000,13 +2022,13 @@ function finhebGroupeTr (cfg, args, rowItems) {
 /* Début d'hébergement d'un groupe ****************************************
 args :
 - sessionId
-- idc, idg : id du compte, id = groupe,
-- idhg : idg crypté par la clé G du groupe
+- idg : du groupe,
+- idh : de l'avatar hébergeur
 - imh : indice de l'avatar membre hébergeur
 Retour: sessionId, dh
 A_SRV, '10-Données de comptabilité absentes'
 A_SRV, '18-Groupe non trouvé'
-X_SRV, '20-Groupe encore hébergé : un nouvel hébergeur ne peut se proposer que si le groupe n\'a plus de compte hébergeur'
+X_SRV, '20-Groupe encore hébergé : un nouvel hébergeur ne peut se proposer que si le groupe n\'a plus d'avatar hébergeur'
 X_SRV, '21-Forfaits (' + f + ') insuffisants pour héberger le groupe.'
 */
 
@@ -2016,9 +2038,9 @@ async function debhebGroupe (cfg, args) {
   const result = { sessionId: args.sessionId, dh: dh }
 
   const versions = getValue(cfg, VERSIONS)
-  let j = idx(args.idc)
+  let j = idx(args.idh)
   versions[j]++
-  args.vc = versions[j]
+  args.vh = versions[j]
   j = idx(args.idg)
   versions[j]++
   args.vg = versions[j]
@@ -2034,15 +2056,15 @@ async function debhebGroupe (cfg, args) {
 m1fonctions.debhebGroupe = debhebGroupe
 
 function debhebGroupeTr (cfg, args, rowItems) {
-  const compta = stmt(cfg, selcomptaId).get({ id: args.idc })
-  if (!compta) throw new AppExc(A_SRV, '10-Données de comptabilité absentes')
+  const compta = stmt(cfg, selcomptaId).get({ id: args.idh })
+  if (!compta) throw new AppExc(A_SRV, '10-Données de comptabilité de l\'hébergeur absentes')
   const groupe = stmt(cfg, selgroupeId).get({ id: args.idg })
   if (!groupe) throw new AppExc(A_SRV, '18-Groupe non trouvé')
 
-  if (groupe.idhg !== null) 
+  if (groupe.imh) 
     throw new AppExc(X_SRV, '20-Groupe encore hébergé : un nouvel hébergeur ne peut se proposer que si le groupe n\'a plus de compte hébergeur')
 
-  compta.v = args.vc
+  compta.v = args.vh
   const compteurs = new Compteurs(compta.data)
   const ok1 = compteurs.setV1(groupe.v1)
   const ok2 = compteurs.setV2(groupe.v2)
@@ -2056,7 +2078,6 @@ function debhebGroupeTr (cfg, args, rowItems) {
   rowItems.push(newItem('compta', compta))
 
   groupe.v = args.vg
-  groupe.idhg = args.idhg
   groupe.imh = args.imh
   groupe.dfh = 0
   stmt(cfg, updhebgroupe).run(groupe)
@@ -2482,9 +2503,9 @@ Imputation aux compte(s) et respects des forfaits,
 args :
 - id : du secret
 - ts : 0 (personnel), 1 (couple), 2 (groupe)
-- idc : identifiant du compte sur qui imputer: perso, perso-1, hébergeur
-- idc2 : identifiant du second compte pour un secret de couple. Est null si le couple est solo.
-  Le "premier" compte est celui de l'auteur du secret.
+- idc : identifiant de l'avatar sur qui imputer: perso, perso-1, hébergeur
+- idc2 : identifiant du second avatar pour un secret de couple. Est null si le couple est solo.
+  Le "premier" avatar est celui de l'auteur du secret.
 - dv1 : delta de volume v1. Si > 0 c'est une augmentation de volume
 - dv2 : delta de volume v2.
 - im : auteur dans le secret de couple : 0 ou 1
@@ -2496,12 +2517,12 @@ Retour : liste de diagnostics pour information.
   X_SRV, '51-Forfait du compte personnel dépassé pour le volume V1'
 */
 const ervol = {
-  c51: '51-Forfait du compte personnel dépassé pour le volume V1',
-  c52: '52-Forfait du compte personnel dépassé pour le volume V2',
-  c53: '53-Forfait du compte du conjoint dépassé pour le volume V1',
-  c54: '54-Forfait du compte du conjoint dépassé pour le volume V2',
-  c55: '55-Forfait du compte hébergeur du groupe dépassé pour le volume V1',
-  c56: '56-Forfait du compte hébergeur du groupe dépassé pour le volume V2',
+  c51: '51-Forfait personnel dépassé pour le volume V1',
+  c52: '52-Forfait personnel dépassé pour le volume V2',
+  c53: '53-Forfait du conjoint dépassé pour le volume V1',
+  c54: '54-Forfait du conjoint dépassé pour le volume V2',
+  c55: '55-Forfait de l\'hébergeur du groupe dépassé pour le volume V1',
+  c56: '56-Forfait de l\'hébergeur du groupe dépassé pour le volume V2',
   c61: '61-Maximum de volume V1 du couple dépassé (attribué par l\'auteur du secret)',
   c62: '62-Maximum de volume V2 du couple dépassé (attribué par l\'auteur du secret)',
   c63: '63-Maximum de volume V1 du couple dépassé (attribué par le conjoint dans le couple de l\'auteur du secret)',
@@ -2520,18 +2541,22 @@ export function volumes (cfg, args) {
     versions[j]++
     args.vc2 = versions[j]
   }
-  j = idx(args.id) // version du secret / couple / groupe
-  versions[j]++
-  args.vs = versions[j]
-  setValue(cfg, VERSIONS)
+  if (args.ts === 0) {
+    args.vs = versions[j] // version du secret personnel
+  } else {
+    j = idx(args.id) // version du secret de couple ou groupe
+    versions[j]++
+    args.vs = versions[j]
+    setValue(cfg, VERSIONS)
+  }
 }
 
 export function volumesTr (cfg, args, rowItems, simul) {
   // simul : si true n'enregistre PAS les volumes mais les exceptions sont levées comme si
   const c = stmt(cfg, selcomptaId).get({ id: args.idc })
-  if (!c) throw new AppExc(A_SRV, '40-Comptabilité du compte principal non trouvée')
+  if (!c) throw new AppExc(A_SRV, '40-Comptabilité de l\'avatar principal non trouvée')
   const c2 = args.idc2 ? stmt(cfg, selcomptaId).get({ id: args.idc2 }) : null
-  if (args.idc2 && !c2) throw new AppExc(A_SRV, '41-Comptabilité du compte secondaire non trouvée')
+  if (args.idc2 && !c2) throw new AppExc(A_SRV, '41-Comptabilité de l\'avatar conjoint non trouvée')
   const cp = args.ts === 1 ? stmt(cfg, selcoupleId).get({ id: args.id }) : null
   if (args.ts === 1 && !cp) throw new AppExc(A_SRV, '42-Couple non trouvée')
   const gr = args.ts === 2 ? stmt(cfg, selgroupeId).get({ id: args.id }) : null

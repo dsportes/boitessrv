@@ -45,8 +45,8 @@ export const MC = {
   ATRAITER: 245
 }
 
-export const t0n = new Set(['compte', 'compta', 'prefs']) // singletons
-export const t1n = new Set(['avatar', 'couple', 'groupe', 'fetat', 'avsecret']) // clé à 1 niveau
+export const t0n = new Set(['compte', 'prefs']) // singletons
+export const t1n = new Set(['avatar', 'compta', 'couple', 'groupe', 'fetat', 'avsecret']) // clé à 1 niveau
 export const t2n = new Set(['membre', 'secret']) // clé à 2 niveaux
 
 /*
@@ -80,7 +80,7 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowcompte',
-  cols: ['id', 'v', 'dpbh', 'pcbh', 'kx', 'mack', 'vsh']
+  cols: ['id', 'v', 'dds', 'dpbh', 'pcbh', 'kx', 'mack', 'vsh']
 })
 
 schemas.forSchema({
@@ -90,7 +90,7 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowcompta',
-  cols: ['id', 'idp', 'v', 'dds', 'st', 'dst', 'data', 'dh', 'ard', 'vsh']
+  cols: ['id', 'idp', 'v', 'st', 'dst', 'data', 'dh', 'flag', 'ard', 'vsh']
 })
 
 schemas.forSchema({
