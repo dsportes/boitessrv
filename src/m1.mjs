@@ -1336,7 +1336,8 @@ function nouveauParrainageTr (cfg, args, contact, couple, cv, rowItems) {
 
   const a = stmt(cfg, selavatarId).get({ id: args.id })
   if (!a) throw new AppExc(A_SRV, '23-Avatar non trouvé.')
-  const map = a.lcck ? deserial(a.lcck) : {}
+  const m = a.lcck ? deserial(a.lcck) : null
+  const map = m || {}
   if (map[args.ni]) return // déjà fait
   map[args.ni] = args.datak
   a.v = args.v
