@@ -100,7 +100,7 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowgroupe',
-  cols: ['id', 'v', 'dfh', 'st', 'mxim', 'idhg', 'imh', 'v1', 'v2', 'f1', 'f2', 'mcg', 'vsh']
+  cols: ['id', 'v', 'dfh', 'st', 'mxim', 'imh', 'v1', 'v2', 'f1', 'f2', 'mcg', 'vsh']
 })
 
 schemas.forSchema({

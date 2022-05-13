@@ -165,8 +165,8 @@ const inscontact = 'INSERT INTO contact (phch, dlv, ccx, vsh) '
 // eslint-disable-next-line no-unused-vars
 const inscouple = 'INSERT INTO couple (id, v, st, v1, v2, mx10, mx20, mx11, mx21, dlv, datac, infok0, infok1, mc0, mc1, ardc, vsh) '
  + 'VALUES (@id, @v, @st, @v1, @v2, @mx10, @mx20, @mx11, @mx21, @dlv, @datac, @infok0, @infok1, @mc0, @mc1, @ardc, @vsh)'
-const insgroupe = 'INSERT INTO groupe (id, v, dfh, st, mxim, idhg, imh, v1, v2, f1, f2, mcg, vsh)'
- + 'VALUES (@id, @v, @dfh, @st, @mxim, @idhg, @imh, @v1, @v2, @f1, @f2, @mcg, @vsh)'
+const insgroupe = 'INSERT INTO groupe (id, v, dfh, st, mxim, imh, v1, v2, f1, f2, mcg, vsh)'
+ + 'VALUES (@id, @v, @dfh, @st, @mxim, @imh, @v1, @v2, @f1, @f2, @mcg, @vsh)'
 const insmembre = 'INSERT INTO membre (id, im, v, st, vote, mc, infok, datag, ardg, vsh)'
  + 'VALUES (@id, @im, @v, @st, @vote, @mc, @infok, @datag, @ardg, @vsh)'
 const insinvitgr = 'INSERT INTO invitgr (id, ni, datap) '
@@ -1658,7 +1658,8 @@ m1fonctions.creationGroupe = creationGroupe
 function creationGroupeTr (cfg, session, args, groupe, membre, cv, rowItems) {
   const a = stmt(cfg, selavatarId).get({ id: args.ida })
   if (!a) throw new AppExc(A_SRV, '17-Avatar non trouvé')
-  const map = a.lgrk ? deserial(a.lgrk) : {}
+  const m = a.lgrk ? deserial(a.lgrk) : null
+  const map = m || {}
   if (!map[args.ni]) {
     map[args.ni] = args.datak
     a.v = args.v
@@ -2287,6 +2288,7 @@ args :
 - ni: numéro d'invitation au groupe
 Retour: sessionId, dh
 A_SRV, '19-Membre non trouvé
+A_SRV, '17-Avatar non trouvé'
 */
 
 async function refusInvitGroupe (cfg, args) {
@@ -2319,11 +2321,77 @@ function refusInvitGroupeTr (cfg, args, rowItems) {
   if (!a) throw new AppExc(A_SRV, '17-Avatar non trouvé')
   
   membre.v = args.vg
-  membre.st = 0
+  const stp = membre.st % 10
+  membre.st = 30 + stp
   stmt(cfg, updstmembre).run(membre)
   rowItems.push(newItem('membre', membre))
 
-  const map = a.lgrk ? deserial(a.lgrk) : {}
+  const m = a.lgrk ? deserial(a.lgrk) : null
+  const map = m || {}
+  if (!map[args.ni]) return // déjà fait
+  delete map[args.ni]
+  a.v = args.va
+  a.lgrk = serial(map)
+  stmt(cfg, upd1avatar).run(a)
+  rowItems.push(newItem('avatar', a))
+}
+
+/* Résilier un membre d'un groupe ****************************************
+args :
+- sessionId
+- id, im : id du membre
+- ida: id de l'avatar
+- ni: numéro d'invitation au groupe
+Retour: sessionId, dh
+A_SRV, '19-Membre non trouvé
+A_SRV, '17-Avatar non trouvé'
+*/
+
+async function resilierMembreGroupe (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+
+  const versions = getValue(cfg, VERSIONS)
+  let j = idx(args.id)
+  versions[j]++
+  args.vg = versions[j]
+  j = idx(args.ida)
+  versions[j]++
+  args.va = versions[j]
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(resilierMembreGroupeTr)(cfg, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.resilierMembreGroupe = resilierMembreGroupe
+
+function resilierMembreGroupeTr (cfg, args, rowItems) {
+  const membre = stmt(cfg, selmembreIdIm).get({ id: args.id, im: args.im })
+  if (!membre) throw new AppExc(A_SRV, '19-Membre non trouvé')
+  const a = stmt(cfg, selavatarId).get({ id: args.ida })
+  if (!a) throw new AppExc(A_SRV, '17-Avatar non trouvé')
+  
+  membre.v = args.vg
+  const stp = membre.st % 10
+  let stx = Math.floor(membre.st / 10)
+  if (stx < 2) {
+    stx = 0
+  } else if (stx === 2) {
+    stx = 4
+  }
+  membre.st = (stx * 10) + stp
+  stmt(cfg, updstmembre).run(membre)
+  rowItems.push(newItem('membre', membre))
+
+  stmt(cfg, delinvitgr).run({ id: args.ida, ni: args.ni })
+  
+  const m = a.lgrk ? deserial(a.lgrk) : null
+  const map = m || {}
   if (!map || !map[args.ni]) return // déjà fait
   delete map[args.ni]
   a.v = args.va
