@@ -250,6 +250,8 @@ CREATE TABLE IF NOT EXISTS "secret" (
 
 	"ns"	INTEGER,
 
+  "x"  INTEGER,
+
 	"v"	INTEGER,
 
 	"st"	INTEGER,

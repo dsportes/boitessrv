@@ -2536,31 +2536,26 @@ args :
 - vt : volume du fichier (pour compta des volumes v2 transférés)
 */
 async function getUrl (cfg, args) {
-  try {
-    checkSession(args.sessionId)
-    const dh = getdhc()
-    const a = {
-      id: parseInt(args.id),
-      ts: parseInt(args.ts),
-      dv1: 0,
-      dv2: 0,
-      vt: parseInt(args.vt),
-      idc2: null,
-      im: 0,
-      idc: parseInt(args.idc),
-      idf: parseInt(args.idf)
-    }
-    volumes(cfg, a)
-    const rowItems = []
-    cfg.db.transaction(volumesTr)(cfg, a, rowItems)
-    syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
-    setImmediate(() => { processQueue() })    
-    const url = await cfg.storage.getUrl(cfg.code, a.id, a.idf)
-    return { type: 'text/plain', bytes: url }
-  } catch (e) {
-    console.log(e)
-    return { bytes: bytes0 }
+  checkSession(args.sessionId)
+  const dh = getdhc()
+  const a = {
+    id: parseInt(args.id),
+    ts: parseInt(args.ts),
+    dv1: 0,
+    dv2: 0,
+    vt: parseInt(args.vt),
+    idc2: null,
+    im: 0,
+    idc: parseInt(args.ida),
+    idf: parseInt(args.idf)
   }
+  volumes(cfg, a)
+  const rowItems = []
+  cfg.db.transaction(volumesTr)(cfg, a, rowItems)
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })    
+  const url = await cfg.storage.getUrl(cfg.code, a.id, a.idf)
+  return { type: 'text/plain', bytes: url }
 }
 m1fonctions.getUrl = getUrl
 
