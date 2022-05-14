@@ -151,7 +151,7 @@ export class Session {
         break
       }
       case 'compta' : {
-        if (rowItem.id === this.compteId) msg.rowItems.push(rowItem)
+        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
         break
       }
       case 'avatar' : {

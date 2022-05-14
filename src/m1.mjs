@@ -704,7 +704,7 @@ function creationAvatarTr (cfg, session, args, avatar, compta, avrsa, cv, rowIte
     compteurs.setF1(args.forfaits[0])
     compteurs.setF2(args.forfaits[1])
     compta.data = compteurs.serial
-    stmt(cfg, updcompta).run(compta)
+    stmt(cfg, inscompta).run(compta)
     rowItems.push(newItem('compta', compta))  
   }
 
@@ -1461,8 +1461,9 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
   if (!comptaP) throw new AppExc(A_SRV, '17-Avatar parrain : données de comptabilité absentes')
 
   const compteurs = new Compteurs(comptaP.data)
-  const ok = compteurs.setRes([-args.dr1, -args.dr2])
+  const ok = compteurs.setFF(args.dr1, args.dr2)
   if (!ok) throw new AppExc(X_SRV, '18-Réserves de volume insuffisantes du parrain pour les forfaits attribués compte')
+  compteurs.setRes([-args.dr1, -args.dr2])
   comptaP.v = args.vcp
   comptaP.data = compteurs.calculauj().serial
   stmt(cfg, updcompta).run(comptaP)

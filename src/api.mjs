@@ -193,7 +193,6 @@ export class Compteurs {
     this.trm = src ? src.trm : 0
     this.f1 = src ? src.f1 : 0
     this.f2 = src ? src.f2 : 0
-    this.rtr = src ? src.rtr : 0
     if (src) {
       this.tr = src.tr
       this.hist = src.hist
@@ -203,11 +202,17 @@ export class Compteurs {
       this.hist = new Array(12)
       for (let i = 0; i < 12; i++) this.hist[i] = new Uint8Array([0, 0, 0, 0, 0])
     }
+    this.setRtr()
     this.res1 = src ? src.res1 : 0
     this.res2 = src ? src.res2 : 0
     this.t1 = src ? src.t1 : 0
     this.t2 = src ? src.t2 : 0
     this.maj = false
+  }
+
+  setRtr () {
+    let s = 0; this.tr.forEach(n => { s += n })
+    this.rtr = mx255(s / (this.f2 * UNITEV2))
   }
 
   get copie () { // retourne un {...} contenant les champs (ce N'EST PAS un OBJET Compteurs)
@@ -251,9 +256,7 @@ export class Compteurs {
     this.trm = Math.round(((this.trm * this.dj.jj) + delta) / this.dj.jj)
     this.hist[this.dj.mm - 1][4] = mx255(this.trm / this.f2 * UNITEV2)
     this.tr[0] = this.tr[0] + delta
-    let s = 0
-    this.tr.forEach(n => { s += n })
-    this.rtr = mx255(s / this.f2 * UNITEV2)
+    this.setRtr()
     this.maj = true
     return true
   }
@@ -302,15 +305,13 @@ export class Compteurs {
       // eslint-disable-next-line for-direction
       for (let i = NTRJ - 1; i >= 0; i--) this.tr[i] = i > nj ? this.tr[i - nj] : 0
     }
-    let s = 0
-    this.tr.forEach(n => { s += n })
-    this.rtr = mx255(s / this.f2 * UNITEV2)
+    this.setRtr()
   }
 
   calculauj () { // recalcul à aujourd'hui en fonction du dernier jour de calcul
     // Contournement
-    if (isNaN(this.res1)) this.res1 = 64
-    if (isNaN(this.res2)) this.res2 = 64
+    // if (isNaN(this.res1)) this.res1 = 64
+    // if (isNaN(this.res2)) this.res2 = 64
     const dj = new DateJour()
     this.dj = dj
     if (dj.nbj === this.j) return this // déjà normalisé, calculé aujourd'hui
