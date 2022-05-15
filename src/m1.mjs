@@ -2588,10 +2588,8 @@ const ervol = {
   c54: '54-Forfait du conjoint dépassé pour le volume V2',
   c55: '55-Forfait de l\'hébergeur du groupe dépassé pour le volume V1',
   c56: '56-Forfait de l\'hébergeur du groupe dépassé pour le volume V2',
-  c61: '61-Maximum de volume V1 du couple dépassé (attribué par l\'auteur du secret)',
-  c62: '62-Maximum de volume V2 du couple dépassé (attribué par l\'auteur du secret)',
-  c63: '63-Maximum de volume V1 du couple dépassé (attribué par le conjoint dans le couple de l\'auteur du secret)',
-  c64: '64-Maximum de volume V2 du couple dépassé (attribué par le conjoint dans le couple de l\'auteur du secret)',
+  c61: '61-Maximum de volume V1 du couple dépassé',
+  c62: '62-Maximum de volume V2 du couple dépassé',
   c65: '65-Maximum de volume V1 du groupe dépassé (attribué par le compte hébergeur du groupe)',
   c66: '66-Maximum de volume V2 du couple dépassé (attribué par le compte hébergeur du groupe)'
 }
@@ -2649,36 +2647,34 @@ export function volumesTr (cfg, args, rowItems, simul) {
     rowItems.push(newItem('compta', c))
   }
 
+  function min (a, b) { return a > b ? b : a }
+
   function f2 (simul) {
     {
       const dm = cp.v1 + args.dv1
-      let mx = (args.im ? cp.mx11 : cp.mx10) * UNITEV1
-      if (dm > mx) {
-        const m = ervol.c61 + ` [demande: ${dm} / forfait: ${mx}]`
-        if (args.dv1 > 0) throw new AppExc(X_SRV, m); else info.push(m)  
+      let mx
+      if (args.idc2) {
+        mx = min(cp.mx10, cp.mx11) * UNITEV1
+      } else { // im: 1 ou 2
+        mx = (args.im === 1 ? cp.mx10 : cp.mx11) * UNITEV1
       }
-      if (args.idc2) { // le couple peut être un solo
-        mx = (args.im ? cp.mx10 : cp.mx11) * UNITEV1
-        if (dm > mx) {
-          const m = ervol.c63 + ` [demande: ${dm} / forfait: ${mx}]`
-          if (args.dv1 > 0) throw new AppExc(X_SRV, m); else info.push(m)  
-        }
+      if (dm > mx) {
+        const m = ervol.c61 + ` [demande: ${dm} / maximum: ${mx}]`
+        if (args.dv1 > 0) throw new AppExc(X_SRV, m); else info.push(m)  
       }
     }
     {
       const dm = cp.v2 + args.dv2
-      let mx = (args.im ? cp.mx21 : cp.mx20) * UNITEV2
+      let mx
+      if (args.idc2) {
+        mx = min(cp.mx20, cp.mx21) * UNITEV2
+      } else { // im: 1 ou 2
+        mx = (args.im === 1 ? cp.mx20 : cp.mx21) * UNITEV2
+      }
       if (dm > mx) {
-        const m = ervol.c62 + ` [demande: ${dm} / forfait: ${mx}]`
+        const m = ervol.c62 + ` [demande: ${dm} / maximum: ${mx}]`
         if (args.dv2 > 0) throw new AppExc(X_SRV, m); else info.push(m)  
-      }
-      if (args.idc2) { // le couple peut être un solo
-        mx = (args.im ? cp.mx20 : cp.mx21) * UNITEV1
-        if (dm > mx) {
-          const m = ervol.c64 + ` [demande: ${dm} / forfait: ${mx}]`
-          if (args.dv2 > 0) throw new AppExc(X_SRV, m); else info.push(m)  
-        }
-      }
+      }      
     }
     if (simul) return
     cp.v = args.vs
@@ -2717,7 +2713,7 @@ export function volumesTr (cfg, args, rowItems, simul) {
     f1(c, 'c51', 'c52', simul) // compta
   } else if (args.ts === 1) { // couple
     f1(c, 'c51', 'c52', simul) // compta
-    if (args.c2) { // on n'impute pas vt au compte 2
+    if (args.idc2) { // on n'impute pas vt au compte 2
       const svvt = args.vt; args.vt = 0
       f1(c2, 'c53', 'c54', simul) // compta 2
       args.vt = svvt
