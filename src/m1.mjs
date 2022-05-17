@@ -2032,7 +2032,7 @@ Retour: sessionId, dh
 A_SRV, '10-Données de comptabilité absentes'
 A_SRV, '18-Groupe non trouvé'
 X_SRV, '20-Groupe encore hébergé : un nouvel hébergeur ne peut se proposer que si le groupe n\'a plus d'avatar hébergeur'
-X_SRV, '21-Forfaits (' + f + ') insuffisants pour héberger le groupe.'
+X_SRV, '21-Limite de volume (' + f + ') insuffisante pour héberger le volume actuel groupe.'
 */
 
 async function debhebGroupe (cfg, args) {
@@ -2064,8 +2064,7 @@ function debhebGroupeTr (cfg, args, rowItems) {
   const groupe = stmt(cfg, selgroupeId).get({ id: args.idg })
   if (!groupe) throw new AppExc(A_SRV, '18-Groupe non trouvé')
 
-  if (groupe.imh) 
-    throw new AppExc(X_SRV, '20-Groupe encore hébergé : un nouvel hébergeur ne peut se proposer que si le groupe n\'a plus de compte hébergeur')
+  if (groupe.imh) throw new AppExc(X_SRV, '20-Groupe encore hébergé : un nouvel hébergeur ne peut se proposer que si le groupe n\'a plus de compte hébergeur')
 
   compta.v = args.vh
   const compteurs = new Compteurs(compta.data)
@@ -2073,7 +2072,7 @@ function debhebGroupeTr (cfg, args, rowItems) {
   const ok2 = compteurs.setV2(groupe.v2)
   if (!ok1 || !ok2) {
     const f = !ok1 && ok2 ? 'V1' : (ok1 && !ok2 ? 'V2' : 'V1 et V2')
-    throw new AppExc(X_SRV, '21-Forfaits (' + f + ') insuffisants pour héberger le groupe.')
+    throw new AppExc(X_SRV, '21-Limite de volume (' + f + ') insuffisante pour héberger le volume actuel groupe.')
   }
 
   compta.data = compteurs.serial
@@ -2095,8 +2094,8 @@ args :
 - forfaits: [max1, max2]
 Retour: sessionId, dh
 A_SRV, '18-Groupe non trouvé'
-A_SRV, '22-Groupe hébergé par un autre compte'
-X_SRV, '21-Forfaits (' + f + ') insuffisants pour héberger le groupe.'
+A_SRV, '22-Groupe hébergé par un autre avatar'
+X_SRV, '21-Limite de volume (' + f + ') insuffisante pour héberger le groupe avec son volume actuel.'
 */
 
 async function majvmaxGroupe (cfg, args) {
@@ -2126,13 +2125,13 @@ function majvmaxGroupeTr (cfg, args, rowItems) {
   if (!groupe) throw new AppExc(A_SRV, '18-Groupe non trouvé')
 
   if (groupe.imh !== args.imh) 
-    throw new AppExc(X_SRV, '22-Groupe hébergé par un autre compte')
+    throw new AppExc(X_SRV, '22-Groupe hébergé par un autre avatar')
 
   const ok1 = args.forfaits[0] > (groupe.v1 * UNITEV1)
   const ok2 = args.forfaits[1] > (groupe.v2 * UNITEV2)
   if (!ok1 || !ok2) {
     const f = !ok1 && ok2 ? 'V1' : (ok1 && !ok2 ? 'V2' : 'V1 et V2')
-    throw new AppExc(X_SRV, '21-Forfaits (' + f + ') insuffisants pour héberger le groupe.')
+    throw new AppExc(X_SRV, '21-Limite de volume (' + f + ') insuffisante pour héberger le groupe avec son volume actuel.')
   }
   
   groupe.v = args.vg
@@ -2140,6 +2139,48 @@ function majvmaxGroupeTr (cfg, args, rowItems) {
   groupe.f2 = args.forfaits[1]
   stmt(cfg, updvmaxgroupe).run(groupe)
   rowItems.push(newItem('groupe', groupe))
+}
+
+/* Maj du statut LAA d'un membre d'un groupe ****************************************
+args :
+- sessionId
+- idg : du groupe,
+- im : de l'avatar membre
+- laa: 0 1 2
+Retour: sessionId, dh
+A_SRV, '18-Groupe non trouvé'
+A_SRV, '19-Membre non trouvé'
+*/
+
+async function majLAAMembre (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.idg)
+  versions[j]++
+  args.vg = versions[j]
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(majLAAMembreTr)(cfg, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.majLAAMembre = majLAAMembre
+
+function majLAAMembreTr (cfg, args, rowItems) {
+  const m = stmt(cfg, selmembreIdIm).get({ id: args.idg, im: args.im })
+  if (!m) throw new AppExc(A_SRV, '19-Membre non trouvé')
+
+  m.v = args.vg
+  const stx = Math.floor(m.st / 10)
+  m.st = (stx * 10) + args.laa
+  stmt(cfg, updstmembre).run(m)
+  rowItems.push(newItem('membre', m))
 }
 
 /* Contact d'un groupe ****************************************
