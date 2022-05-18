@@ -1766,7 +1766,6 @@ function majarchGroupeTr (cfg, session, args, rowItems) {
 args :
 - sessionId
 - idg : id du groupe
-- blocage : cv cryptée par la cle G
 Retour: sessionId, dh
 A_SRV, '18-Groupe non trouvé'
 */
@@ -1791,14 +1790,79 @@ async function majBIGroupe (cfg, args) {
 }
 m1fonctions.majBIGroupe = majBIGroupe
 
+const selanimactifmembre = 'SELECT * FROM membre WHERE id = @id AND st >= 12 AND st <= 22 AND (st % 10) = 2'
+const updvotemembre = 'UPDATE membre SET v = @v, vote = @vote WHERE id = @id AND im = @im'
+
 function majBIGroupeTr (cfg, session, args, rowItems) {
   const g = stmt(cfg, selgroupeId).get({ id: args.idg })
   if (!g) throw new AppExc(A_SRV, '18-Groupe non trouvé')
   g.v = args.v
   const sty = g.st % 10
-  g.st = sty + (args.blocage ? 20 : 10)
+  g.st = sty + 20
   stmt(cfg, updstgroupe).run(g)
   rowItems.push(newItem('groupe', g))
+  const rows = stmt(cfg, selanimactifmembre).all({ id: args.idg })
+  for (const row of rows) {
+    if (row.vote === 0) {
+      row.v =args.v
+      row.vote = 1
+      stmt(cfg, updvotemembre).run(row)
+      rowItems.push(newItem('membre', row))
+    }
+  }
+}
+
+/* Maj statut déblocage des invitations d'un groupe ****************************************
+args :
+- sessionId
+- idg : id du groupe
+- im : im
+Retour: sessionId, dh
+A_SRV, '18-Groupe non trouvé'
+*/
+
+async function majDBIGroupe (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.idg)
+  versions[j]++
+  args.v = versions[j] // version du groupe
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(majDBIGroupeTr)(cfg, session, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems }) // à synchroniser
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.majDBIGroupe = majDBIGroupe
+
+const countvotemembre = 'SELECT COUNT(im) FROM membre WHERE id = @id AND st >= 12 AND st <= 22 AND (st % 10) = 2 AND vote = 1'
+
+function majDBIGroupeTr (cfg, session, args, rowItems) {
+  const g = stmt(cfg, selgroupeId).get({ id: args.idg })
+  if (!g) throw new AppExc(A_SRV, '18-Groupe non trouvé')
+
+  const m = stmt(cfg, selmembreIdIm).get({ id: args.idg, im: args.im })
+  if (!m) return
+
+  m.v =args.v
+  m.vote = 0
+  stmt(cfg, updvotemembre).run(m)
+  rowItems.push(newItem('membre', m))
+
+  const r = stmt(cfg, countvotemembre).get({ id: args.idg })
+  if (r['COUNT(im)'] === 0) {
+    g.v = args.v
+    const sty = g.st % 10
+    g.st = sty + 10
+    stmt(cfg, updstgroupe).run(g)
+    rowItems.push(newItem('groupe', g))
+  }
 }
 
 /* Maj mots clés spécifiques d'un groupe ****************************************
