@@ -1289,7 +1289,7 @@ Parrainage : args de m1/nouveauParrainage
   - ni: clé d'accès à lcck de l'avatar
   - datak : clé cc cryptée par la clé k
   Retour : dh
-  X_SRV, '14-Cette phrase de parrainage est trop proche d\'une déjà enregistrée'
+  X_SRV, '14-Cette phrase de parrainage / rencontre est trop proche d\'une déjà enregistrée'
   X_SRV, '23-Avatar non trouvé.'
 */
 // eslint-disable-next-line no-unused-vars
@@ -1329,7 +1329,7 @@ m1fonctions.nouveauParrainage = nouveauParrainage
 
 function nouveauParrainageTr (cfg, args, contact, couple, cv, rowItems) {
   const p = stmt(cfg, selcontactPhch).get({ phch: contact.phch })
-  if (p) throw new AppExc(X_SRV, '14-Cette phrase de parrainage est trop proche d\'une déjà enregistrée.')
+  if (p) throw new AppExc(X_SRV, '14-Cette phrase de parrainage / rencontre est trop proche d\'une déjà enregistrée.')
   stmt(cfg, inscontact).run(contact)
   stmt(cfg, inscouple).run(couple)
   rowItems.push(newItem('couple', couple))
@@ -1585,7 +1585,7 @@ function supprParrainageTr (cfg, parrain) {
 async function getContact (cfg, args) {
   try {
     const c = stmt(cfg, selcontactPhch).get({ phch: parseInt(args.phch) })
-    if (!c) return { bytes0 }
+    if (!c) return { bytes: bytes0 }
     const b = serial(c)
     return { bytes: b }
   } catch (e) {
