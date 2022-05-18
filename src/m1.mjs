@@ -2352,6 +2352,7 @@ async function refusInvitGroupe (cfg, args) {
 
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
+  if (args.purgefic) await cfg.storage.delACP(cfg.code, args.id)
   return result
 }
 m1fonctions.refusInvitGroupe = refusInvitGroupe
@@ -2362,11 +2363,20 @@ function refusInvitGroupeTr (cfg, args, rowItems) {
   const a = stmt(cfg, selavatarId).get({ id: args.ida })
   if (!a) throw new AppExc(A_SRV, '17-Avatar non trouvé')
   
-  membre.v = args.vg
-  const stp = membre.st % 10
-  membre.st = 30 + stp
-  stmt(cfg, updstmembre).run(membre)
-  rowItems.push(newItem('membre', membre))
+  const nb = nbmembresactifsinvitesTr (cfg, args.id)
+
+  if (nb === 1) {
+    // destruction du groupe - dernier mebre actif / invité
+    purgegroupeTr(cfg, args.id)
+    args.purgefic = true
+  } else {
+    // simple maj du statut, il reste d'autres membres actifs / invités
+    membre.v = args.vg
+    const stp = membre.st % 10
+    membre.st = 30 + stp
+    stmt(cfg, updstmembre).run(membre)
+    rowItems.push(newItem('membre', membre))
+  }
 
   const m = a.lgrk ? deserial(a.lgrk) : null
   const map = m || {}
@@ -2405,9 +2415,9 @@ async function resilierMembreGroupe (cfg, args) {
 
   const rowItems = []
   cfg.db.transaction(resilierMembreGroupeTr)(cfg, args, rowItems)
-
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
+  if (args.purgefic) await cfg.storage.delACP(cfg.code, args.id)
   return result
 }
 m1fonctions.resilierMembreGroupe = resilierMembreGroupe
@@ -2418,18 +2428,26 @@ function resilierMembreGroupeTr (cfg, args, rowItems) {
   const a = stmt(cfg, selavatarId).get({ id: args.ida })
   if (!a) throw new AppExc(A_SRV, '17-Avatar non trouvé')
   
-  membre.v = args.vg
-  const stp = membre.st % 10
-  let stx = Math.floor(membre.st / 10)
-  if (stx < 2) {
-    stx = 0
-  } else if (stx === 2) {
-    stx = 4
-  }
-  membre.st = (stx * 10) + stp
-  stmt(cfg, updstmembre).run(membre)
-  rowItems.push(newItem('membre', membre))
+  const nb = nbmembresactifsinvitesTr (cfg, args.id)
 
+  if (nb === 1) {
+    // destruction du groupe - dernier mebre actif / invité
+    purgegroupeTr(cfg, args.id)
+    args.purgefic = true
+  } else {
+    // simple maj du statut, il reste d'autres membres actifs / invités
+    membre.v = args.vg
+    const stp = membre.st % 10
+    let stx = Math.floor(membre.st / 10)
+    if (stx < 2) {
+      stx = 0
+    } else if (stx === 2) {
+      stx = 4
+    }
+    membre.st = (stx * 10) + stp
+    stmt(cfg, updstmembre).run(membre)
+    rowItems.push(newItem('membre', membre))
+  }
   stmt(cfg, delinvitgr).run({ id: args.ida, ni: args.ni })
   
   const m = a.lgrk ? deserial(a.lgrk) : null
@@ -2635,7 +2653,7 @@ const ervol = {
   c66: '66-Maximum de volume V2 du couple dépassé (attribué par le compte hébergeur du groupe)'
 }
 
-export function volumes (cfg, args) {
+function volumes (cfg, args) {
   const versions = getValue(cfg, VERSIONS)
   let j = idx(args.idc)
   versions[j]++
@@ -2655,7 +2673,7 @@ export function volumes (cfg, args) {
   }
 }
 
-export function volumesTr (cfg, args, rowItems, simul) {
+function volumesTr (cfg, args, rowItems, simul) {
   // simul : si true n'enregistre PAS les volumes mais les exceptions sont levées comme si
   const c = stmt(cfg, selcomptaId).get({ id: args.idc })
   if (!c) throw new AppExc(A_SRV, '40-Comptabilité de l\'avatar principal non trouvée')
@@ -2765,4 +2783,21 @@ export function volumesTr (cfg, args, rowItems, simul) {
     f3(simul) // groupe
   }
   if (!simul) return info
+}
+
+const selactifsmembre = 'SELECT COUNT(im) FROM membre WHERE id = @id AND st >= 10 AND st < 30'
+
+function nbmembresactifsinvitesTr (cfg, idg) {
+  const r = stmt(cfg, selactifsmembre).get({ id: idg })
+  return r['COUNT(im)']
+}
+
+const delmembre = 'DELETE FROM membre WHERE id = @id'
+const delgroupe = 'DELETE FROM groupe WHERE id = @id'
+const delsecret = 'DELETE FROM secret WHERE id = @id'
+
+function purgegroupeTr (cfg, idg) {
+  stmt(cfg, delmembre).run({ id: idg })
+  stmt(cfg, delgroupe).run({ id: idg })
+  stmt(cfg, delsecret).run({ id: idg })
 }
