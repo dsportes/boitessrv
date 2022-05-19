@@ -1348,6 +1348,162 @@ function nouveauParrainageTr (cfg, args, contact, couple, cv, rowItems) {
   stmt(cfg, inscv).run(cv)
   rowItems.push(newItem('cv', cv))
 }
+/************************************************************
+Suppression d'un couple
+args:
+- sessionId: data.sessionId,
+- idc : id du couple
+- ni : numéro d'invitation du couple pour l'avatar avid
+- avid : id de l'avatar demandeur
+- phch : id du contact ou 0 si non active
+Retour:
+A_SRV, '17-Avatar non trouvé'
+A_SRV, '17-Avatar : données de comptabilité absentes'
+*/
+async function suppressionCouple (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+
+  const versions = getValue(cfg, VERSIONS)
+  let j = idx(args.avid)
+  versions[j]++
+  args.vav = versions[j] // version de l'avatar
+
+  j = idx(0)
+  versions[j]++
+  args.vcv = versions[j] // version de la carte de visite
+  setValue(cfg, VERSIONS)
+
+  const rowItems = [] // contiendra après l'appel : compta, avatar
+  cfg.db.transaction(suppressionCoupleTr)(cfg, args, rowItems)
+
+  result.rowItems = rowItems
+  syncListQueue.push({ sessionId: args.sessionId, dh, rowItems}) // à synchroniser
+  setImmediate(() => { processQueue() })
+
+  // Désabonnements du compte
+  session.moinsCouples([args.idc])
+  session.moinsCvs([args.idc])
+  return result
+}
+m1fonctions.suppressionCouple = suppressionCouple
+
+const delcouple = 'DELETE FROM couple WHERE id = @id'
+
+function suppressionCoupleTr (cfg, args, rowItems) {
+  if (args.phch) stmt(cfg, delcontact).run({ phch: args.phch }) // suppression du contact
+
+  const a = stmt(cfg, selavatarId).get({ id: args.avid })
+  if (!a) throw new AppExc(A_SRV, '17-Avatar non trouvé')
+  const compta = stmt(cfg, selcomptaId).get({ id: args.avid })
+  if (!compta) throw new AppExc(A_SRV, '17-Avatar : données de comptabilité absentes')
+  const couple = stmt(cfg, selcoupleId).get({ id: args.idc })
+
+  if (couple) {
+    const compteurs = new Compteurs(compta.data)
+    compteurs.setV1(-couple.v1)
+    compteurs.setV2(-couple.v2)
+    compta.v = args.vav
+    compta.data = compteurs.calculauj().serial
+    stmt(cfg, updcompta).run(compta)
+    rowItems.push(newItem('compta', compta))
+    stmt(cfg, delcouple).run({ id: args.idc })
+  }
+
+  const m = a.lcck ? deserial(a.lcck) : null
+  const map = m || {}
+  delete map[args.ni]
+  a.v = args.vav
+  a.lcck = serial(map)
+  stmt(cfg, upd2avatar).run(a)
+  rowItems.push(newItem('avatar', a))
+
+  stmt(cfg, delsecret).run({ id: args.idc })
+}
+
+/************************************************************
+Acceptation d'une rencontre
+args :
+  - sessionid
+  - idc: id du couple
+  - phch: id du contact
+  - id: id de l'avatar
+  - ni: clé d'accès à lcck de l'avatar
+  - datak : terme ni de lcck
+  - datac : datac du contact
+  - vmax : [mx11 mx21]
+  - ardc : du contact
+Retour:
+A_SRV, '17-Avatar non trouvé'
+A_SRV, '17-Avatar : données de comptabilité absentes'
+*/
+async function acceptRencontre (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+
+  const versions = getValue(cfg, VERSIONS)
+  let j = idx(args.id)
+  versions[j]++
+  args.vav = versions[j] // version de l'avatar
+
+  j = idx(args.idc)
+  versions[j]++
+  args.vc = versions[j] // version du couple
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(acceptRencontreTr)(cfg, args, rowItems)
+
+  result.rowItems = rowItems
+  syncListQueue.push({ sessionId: args.sessionId, dh, rowItems}) // à synchroniser
+  setImmediate(() => { processQueue() })
+
+  // Abonnements du compte
+  session.plusCouples([args.idc])
+  session.plusCvs([args.idc])
+  return result
+}
+m1fonctions.acceptRencontre = acceptRencontre
+
+function acceptRencontreTr (cfg, args, rowItems) {
+  if (args.phch) stmt(cfg, delcontact).run({ phch: args.phch }) // suppression du contact
+
+  const a = stmt(cfg, selavatarId).get({ id: args.id })
+  if (!a) throw new AppExc(A_SRV, '17-Avatar non trouvé')
+  const compta = stmt(cfg, selcomptaId).get({ id: args.id })
+  if (!compta) throw new AppExc(A_SRV, '17-Avatar : données de comptabilité absentes')
+  const couple = stmt(cfg, selcoupleId).get({ id: args.idc })
+  if (!couple) throw new AppExc(A_SRV, '17-Couple non trouvé')
+
+  const compteurs = new Compteurs(compta.data)
+  let ok = compteurs.setV1(couple.v1)
+  if (!ok) throw new AppExc(X_SRV, '17-Forfait V1 insuffisant pour les volumes V1 des secrets actuels du couple')
+  ok = compteurs.setV2(couple.v2)
+  if (!ok) throw new AppExc(X_SRV, '17-Forfait V2 insuffisant pour les volumes V2 des secrets actuels du couple')
+  compta.v = args.vav
+  compta.data = compteurs.calculauj().serial
+  stmt(cfg, updcompta).run(compta)
+  rowItems.push(newItem('compta', compta))
+
+  const m = a.lcck ? deserial(a.lcck) : null
+  const map = m || {}
+  map[args.ni] = args.datak
+  a.v = args.vav
+  a.lcck = serial(map)
+  stmt(cfg, upd2avatar).run(a)
+  rowItems.push(newItem('avatar', a))
+
+  couple.v = args.vc
+  couple.ardc = args.ardc
+  couple.datac = args.datac
+  couple.st = 3011
+  couple.mx11 = args.vmax[0]
+  couple.mx21 = args.vmax[1]
+  stmt(cfg, upd3couple).run(couple)
+  rowItems.push(newItem('couple', couple))
+}
 
 /******************************************************************
 Acceptation d'un parrainage
@@ -1381,6 +1537,7 @@ A_SRV, '24-Couple non trouvé'
 const delcontact = 'DELETE FROM contact WHERE phch = @phch'
 const updcompta = 'UPDATE compta SET v = @v, data = @data WHERE id = @id'
 const upd2couple = 'UPDATE couple SET v = @v, st = @st, dlv = 0, ardc = @ardc, mc0 = @mc0, mc1 = @mc1 WHERE id = @id'
+const upd3couple = 'UPDATE couple SET v = @v, st = @st, dlv = 0, mx11 = @mx11, mx21 = @mx21, ardc = @ardc, datac = @datac WHERE id = @id'
 const updv1v2couple = 'UPDATE couple SET v = @v, v1 = @v1, v2 = @v2 WHERE id = @id'
 const updv1v2groupe = 'UPDATE groupe SET v = @v, v1 = @v1, v2 = @v2 WHERE id = @id'
 
