@@ -1356,11 +1356,12 @@ args:
 - ni : numéro d'invitation du couple pour l'avatar avid
 - avid : id de l'avatar demandeur
 - phch : id du contact ou 0 si non active
+- avc : l'avatar demandeur est le 0 ou le 1
 Retour:
 A_SRV, '17-Avatar non trouvé'
 A_SRV, '17-Avatar : données de comptabilité absentes'
 */
-async function suppressionCouple (cfg, args) {
+async function quitterCouple (cfg, args) {
   const session = checkSession(args.sessionId)
   const dh = getdhc()
   const result = { sessionId: args.sessionId, dh: dh }
@@ -1376,7 +1377,7 @@ async function suppressionCouple (cfg, args) {
   setValue(cfg, VERSIONS)
 
   const rowItems = [] // contiendra après l'appel : compta, avatar
-  cfg.db.transaction(suppressionCoupleTr)(cfg, args, rowItems)
+  cfg.db.transaction(quitterCoupleTr)(cfg, args, rowItems)
 
   result.rowItems = rowItems
   syncListQueue.push({ sessionId: args.sessionId, dh, rowItems}) // à synchroniser
@@ -1387,11 +1388,11 @@ async function suppressionCouple (cfg, args) {
   session.moinsCvs([args.idc])
   return result
 }
-m1fonctions.suppressionCouple = suppressionCouple
+m1fonctions.quitterCouple = quitterCouple
 
 const delcouple = 'DELETE FROM couple WHERE id = @id'
 
-function suppressionCoupleTr (cfg, args, rowItems) {
+function quitterCoupleTr (cfg, args, rowItems) {
   if (args.phch) stmt(cfg, delcontact).run({ phch: args.phch }) // suppression du contact
 
   const a = stmt(cfg, selavatarId).get({ id: args.avid })
@@ -1399,17 +1400,16 @@ function suppressionCoupleTr (cfg, args, rowItems) {
   const compta = stmt(cfg, selcomptaId).get({ id: args.avid })
   if (!compta) throw new AppExc(A_SRV, '17-Avatar : données de comptabilité absentes')
   const couple = stmt(cfg, selcoupleId).get({ id: args.idc })
+  if (!couple) throw new AppExc(A_SRV, '17-Couple non trouvé')
 
-  if (couple) {
-    const compteurs = new Compteurs(compta.data)
-    compteurs.setV1(-couple.v1)
-    compteurs.setV2(-couple.v2)
-    compta.v = args.vav
-    compta.data = compteurs.calculauj().serial
-    stmt(cfg, updcompta).run(compta)
-    rowItems.push(newItem('compta', compta))
-    stmt(cfg, delcouple).run({ id: args.idc })
-  }
+  const compteurs = new Compteurs(compta.data)
+  compteurs.setV1(-couple.v1)
+  compteurs.setV2(-couple.v2)
+  compta.v = args.vav
+  compta.data = compteurs.calculauj().serial
+  stmt(cfg, updcompta).run(compta)
+  rowItems.push(newItem('compta', compta))
+  stmt(cfg, delcouple).run({ id: args.idc })
 
   const m = a.lcck ? deserial(a.lcck) : null
   const map = m || {}
@@ -1419,7 +1419,18 @@ function suppressionCoupleTr (cfg, args, rowItems) {
   stmt(cfg, upd2avatar).run(a)
   rowItems.push(newItem('avatar', a))
 
-  stmt(cfg, delsecret).run({ id: args.idc })
+  const stp = parseInt(('' + couple.st).charAt(0))
+  // const ste = parseInt(('' + couple.st).charAt(1))
+
+  if (stp !== 3) {
+    // suppression, l'avatar était le seul restant
+    stmt(cfg, delsecret).run({ id: args.idc })
+    stmt(cfg, delcouple).run({ id: args.idc })
+    args.suppr = true
+  } else {
+    // TODO
+  }
+  
 }
 
 /************************************************************
