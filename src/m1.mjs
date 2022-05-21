@@ -1412,7 +1412,6 @@ function quitterCoupleTr (cfg, args, rowItems) {
   compta.data = compteurs.calculauj().serial
   stmt(cfg, updcompta).run(compta)
   rowItems.push(newItem('compta', compta))
-  stmt(cfg, delcouple).run({ id: args.idc })
 
   const m = a.lcck ? deserial(a.lcck) : null
   const map = m || {}
@@ -1426,7 +1425,7 @@ function quitterCoupleTr (cfg, args, rowItems) {
   if (args.idx) stmt(cfg, updxcontactstd).run({ id: args.idx, nx : args.nx, x: jourj }) // suppression du contact
 
   decorCouple(couple, jourj)
-  if (args.stp !== 3) {
+  if (couple.stp !== 3) {
     // suppression, l'avatar était le seul restant
     stmt(cfg, delsecret).run({ id: args.idc })
     stmt(cfg, delcouple).run({ id: args.idc })
