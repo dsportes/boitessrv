@@ -1355,7 +1355,8 @@ args:
 - idc : id du couple
 - ni : numéro d'invitation du couple pour l'avatar avid
 - avid : id de l'avatar demandeur
-- phch : id du contact ou 0 si non active
+- phch : id du contact rencontre / parrain  à supprimer
+- idx, nx : id du contact standard à supprimer
 - avc : l'avatar demandeur est le 0 ou le 1
 Retour:
 A_SRV, '17-Avatar non trouvé'
@@ -1371,12 +1372,12 @@ async function quitterCouple (cfg, args) {
   versions[j]++
   args.vav = versions[j] // version de l'avatar
 
-  j = idx(0)
+  j = idx(args.idc)
   versions[j]++
-  args.vcv = versions[j] // version de la carte de visite
+  args.vc = versions[j] // version du couple
   setValue(cfg, VERSIONS)
 
-  const rowItems = [] // contiendra après l'appel : compta, avatar
+  const rowItems = []
   cfg.db.transaction(quitterCoupleTr)(cfg, args, rowItems)
 
   result.rowItems = rowItems
@@ -1386,14 +1387,16 @@ async function quitterCouple (cfg, args) {
   // Désabonnements du compte
   session.moinsCouples([args.idc])
   session.moinsCvs([args.idc])
+  if (args.purgefic) await cfg.storage.delACP(cfg.code, args.idc)
   return result
 }
 m1fonctions.quitterCouple = quitterCouple
 
 const delcouple = 'DELETE FROM couple WHERE id = @id'
+const updxcontactstd = 'UPDATE contactstd SET x = @x WHERE id = @id AND nx = @nx'
 
 function quitterCoupleTr (cfg, args, rowItems) {
-  if (args.phch) stmt(cfg, delcontact).run({ phch: args.phch }) // suppression du contact
+  const jourj = new DateJour().nbj
 
   const a = stmt(cfg, selavatarId).get({ id: args.avid })
   if (!a) throw new AppExc(A_SRV, '17-Avatar non trouvé')
@@ -1419,18 +1422,45 @@ function quitterCoupleTr (cfg, args, rowItems) {
   stmt(cfg, upd2avatar).run(a)
   rowItems.push(newItem('avatar', a))
 
-  const stp = parseInt(('' + couple.st).charAt(0))
-  // const ste = parseInt(('' + couple.st).charAt(1))
+  if (args.phch) stmt(cfg, delcontact).run({ phch: args.phch }) // suppression du contact
+  if (args.idx) stmt(cfg, updxcontactstd).run({ id: args.idx, nx : args.nx, x: jourj }) // suppression du contact
 
-  if (stp !== 3) {
+  decorCouple(couple, jourj)
+  if (args.stp !== 3) {
     // suppression, l'avatar était le seul restant
     stmt(cfg, delsecret).run({ id: args.idc })
     stmt(cfg, delcouple).run({ id: args.idc })
-    args.suppr = true
+    args.purgefic = true
   } else {
-    // TODO
+    couple.v = args.vc
+    couple.stp = 4
+    couple.ste = 0
+    if (args.avc === 0) couple.st0 = 0; else couple.st1 = 0
+    stmt(cfg, updstcouple).run(setSt(couple))
+    rowItems.push(newItem('couple', couple))
   }
-  
+}
+
+function decorCouple (c, jourj) {
+  if (!jourj) jourj = new DateJour().nbj
+  const x = '' + c.st
+  c.stp = parseInt(x.charAt(0))
+  c.ste = parseInt(x.charAt(1))
+  c.st0 = parseInt(x.charAt(2))
+  c.st1 = parseInt(x.charAt(3))
+  if (c.dlv && c.dlv < jourj) {
+    if (c.stp === 1) { // si attente, passe en phase 2 et états hors délai
+      c.stp = 2; c.ste += 1
+    } else if (c.stp === 4 && this.ste === 1) {
+      c.ste = 2
+    }
+  }
+  return setSt(c)
+}
+
+function setSt (c) {
+  c.st = c.st0 + (10 * c.st1) + (100 * c.ste) + (1000 * c.stp)
+  return c
 }
 
 /************************************************************

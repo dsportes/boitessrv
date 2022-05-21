@@ -158,6 +158,10 @@ export class Session {
         if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
         break
       }
+      case 'contactstd' : {
+        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
+        break
+      }
       case 'groupe' : {
         if (this.agroupe(rowItem)) msg.rowItems.push(rowItem)
         break

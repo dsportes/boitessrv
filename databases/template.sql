@@ -111,6 +111,24 @@ CREATE TABLE IF NOT EXISTS "contact" (
 
 );
 CREATE INDEX "dlv_contact" ON "contact" ( "dlv" );
+CREATE TABLE IF NOT EXISTS "contactstd" (
+
+  "id"   INTEGER,
+
+  "nx"	INTEGER,
+
+  "x" INTEGER,
+
+  "dlv"	INTEGER,
+
+  "ccp"  BLOB,
+
+  "vsh" INTEGER,
+
+  PRIMARY KEY("id", "nx")
+
+);
+CREATE INDEX "dlv_contactstd" ON "contactstd" ( "dlv" );
 CREATE TABLE IF NOT EXISTS "couple" (
 
   "id"   INTEGER,

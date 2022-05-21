@@ -47,7 +47,7 @@ export const MC = {
 
 export const t0n = new Set(['compte', 'prefs']) // singletons
 export const t1n = new Set(['avatar', 'compta', 'couple', 'groupe', 'fetat', 'avsecret']) // clé à 1 niveau
-export const t2n = new Set(['membre', 'secret']) // clé à 2 niveaux
+export const t2n = new Set(['membre', 'secret', 'contactstd']) // clé à 2 niveaux
 
 /*
 - `versions` (id) : table des prochains numéros de versions (actuel et dernière sauvegarde) et autres singletons clé / valeur
@@ -116,6 +116,11 @@ schemas.forSchema({
 schemas.forSchema({
   name: 'rowcontact',
   cols: ['phch', 'dlv', 'ccx', 'vsh']
+})
+
+schemas.forSchema({
+  name: 'rowcontactstd',
+  cols: ['id', 'nx', 'x', 'dlv', 'ccp', 'vsh']
 })
 
 schemas.forSchema({
