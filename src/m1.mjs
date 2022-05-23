@@ -1358,7 +1358,7 @@ async function nouveauCouple (cfg, args) {
   const session = checkSession(args.sessionId)
   const dh = getdhc()
   const couple = deserial(args.rowCouple)
-  const invitcp = deserial(args.invitcp)
+  const invitcp = deserial(args.rowInvitcp)
 
   const versions = getValue(cfg, VERSIONS)
   let j = idx(args.idc)
