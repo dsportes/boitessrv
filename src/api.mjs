@@ -47,7 +47,7 @@ export const MC = {
 
 export const t0n = new Set(['compte', 'prefs']) // singletons
 export const t1n = new Set(['avatar', 'compta', 'couple', 'groupe', 'fetat', 'avsecret']) // clé à 1 niveau
-export const t2n = new Set(['membre', 'secret', 'contactstd']) // clé à 2 niveaux
+export const t2n = new Set(['membre', 'secret']) // clé à 2 niveaux
 
 /*
 - `versions` (id) : table des prochains numéros de versions (actuel et dernière sauvegarde) et autres singletons clé / valeur
@@ -66,6 +66,7 @@ __**Tables transmises au client**_
 - `secret` (id, ns) : données d'un secret d'un avatar, couple ou groupe
 - `contact` (phch) : parrainage ou rencontre de A0 vers un A1 à créer ou inconnu par une phrase de contact
 - `invitgr` (id, ni) : **NON persistante en IDB**. invitation reçue par un avatar à devenir membre d'un groupe
+- `invitcp` (id, ni) : **NON persistante en IDB**. invitation reçue par un avatar à devenir membre d'un couple
 */
 
 schemas.forSchema({
@@ -109,6 +110,11 @@ schemas.forSchema({
 })
 
 schemas.forSchema({
+  name: 'rowinvitcp',
+  cols: ['id', 'ni', 'datap']
+})
+
+schemas.forSchema({
   name: 'rowmembre',
   cols: ['id', 'im', 'v', 'st', 'vote', 'mc', 'infok', 'datag', 'ardg', 'vsh']
 })
@@ -116,11 +122,6 @@ schemas.forSchema({
 schemas.forSchema({
   name: 'rowcontact',
   cols: ['phch', 'dlv', 'ccx', 'vsh']
-})
-
-schemas.forSchema({
-  name: 'rowcontactstd',
-  cols: ['id', 'nx', 'x', 'dlv', 'ccp', 'vsh']
 })
 
 schemas.forSchema({

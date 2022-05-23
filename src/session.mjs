@@ -158,10 +158,6 @@ export class Session {
         if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
         break
       }
-      case 'contactstd' : {
-        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
-        break
-      }
       case 'groupe' : {
         if (this.agroupe(rowItem)) msg.rowItems.push(rowItem)
         break
@@ -180,6 +176,10 @@ export class Session {
       }
       case 'cv' : {
         if (this.acv(rowItem)) msg.rowItems.push(rowItem)
+        break
+      }
+      case 'invitcp' : {
+        if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
         break
       }
       case 'invitgr' : {

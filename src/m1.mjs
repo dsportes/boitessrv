@@ -172,9 +172,10 @@ const insmembre = 'INSERT INTO membre (id, im, v, st, vote, mc, infok, datag, ar
 const insinvitgr = 'INSERT INTO invitgr (id, ni, datap) '
   + 'VALUES (@id, @ni, @datap)'
 // eslint-disable-next-line no-unused-vars
+const insinvitcp = 'INSERT INTO invitcp (id, ni, datap) '
+  + 'VALUES (@id, @ni, @datap)'
 const inscv = 'INSERT INTO cv (id, v, x, dds, cv, vsh) '
   + 'VALUES (@id, @v, @x, @dds, @cv, @vsh)'
-// eslint-disable-next-line no-unused-vars
 const instrec = 'INSERT INTO trec (id, idf, dlv) VALUES (@id, @idf, @dlv)'
 
 const selcompteId = 'SELECT * FROM compte WHERE id = @id'
@@ -188,6 +189,7 @@ const selcvId = 'SELECT * FROM cv WHERE id = @id'
 const selsecretIdNs = 'SELECT * FROM secret WHERE id = @id AND ns = @ns'
 const selmembreIdIm = 'SELECT * FROM membre WHERE id = @id AND im = @im'
 const selinvitgrId = 'SELECT * FROM invitgr WHERE id = @id'
+const selinvitcpId = 'SELECT * FROM invitcp WHERE id = @id'
 const deltrecIdIdf = 'DELETE FROM trec WHERE id = @id AND idf = @idf'
 
 function idx (id) {
@@ -876,17 +878,21 @@ const selmembre = 'SELECT * FROM membre WHERE id = @id AND v > @v'
 const updstmembre = 'UPDATE membre SET v = @v, st = @st WHERE id = @id AND im = @im'
 const updstcouple = 'UPDATE couple SET v = @v, st = @st WHERE id = @id'
 
-/* Régularisation Groupe ****************************************
-Mise à jour de lgrk dans l'avatar et suppression du row invitgr
+/* Régularisation Groupe / Couple ****************************************
+Mise à jour de lgrk / lcck dans l'avatar et suppression du row invitgr / invitcp
 args
 - id : de l'avatar
-- idg: id du groupe (pour s'abonner)
+- idg / idc: id du groupe / couple (pour s'abonner)
 - ni : numéro d'invitation du groupe à inscrire
-- datak : [nom, rnd, im] du groupe à inscrire dans lgrk de l'avatar
+- datak : 
+  - [nom, rnd, im] du groupe à inscrire dans lgrk de l'avatar
+  - cc clé du couple à inscrire dans lcck de l'avatar
 */
 
 const upd1avatar = 'UPDATE avatar SET v = @v, lgrk = @lgrk WHERE id = @id'
+const upd2avatar = 'UPDATE avatar SET v = @v, lcck = @lcck WHERE id = @id'
 const delinvitgr = 'DELETE from invitgr WHERE id = @id AND ni = @ni'
+const delinvitcp = 'DELETE from invitcp WHERE id = @id AND ni = @ni'
 
 async function regulGr (cfg, args) {
   const session = checkSession(args.sessionId)
@@ -923,6 +929,40 @@ function regulGrTr (cfg, session, args, rowItems) {
   session.plusGroupes([args.idg])
 }
 
+async function regulCp (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+  
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.id)
+  versions[j]++
+  args.v = versions[j]
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(regulCpTr)(cfg, session, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.regulCp = regulCp
+
+function regulCpTr (cfg, session, args, rowItems) {
+  const a = stmt(cfg, selavatarId).get({ id: args.id })
+  if (!a) return // avatar supprimé depuis (?)
+  let map = a.lgrk ? deserial(a.lcck) : {}
+  if (!map) map = {}
+  if (map[args.ni]) return // déjà fait
+  map[args.ni] = args.datak
+  a.v = args.v
+  a.lcck = serial(map)
+  stmt(cfg, upd2avatar).run(a)
+  rowItems.push(newItem('avatar', a))
+  stmt(cfg, delinvitcp).run({ id: args.id, ni: args.ni })
+  session.plusCouples([args.idc])
+}
 /* Suppression d'accès à un groupe pour un avatar ****************************************
 Suppression de l'entrée de lgrk d'un avatar correspondant à un groupe
 - (1) détecté zombi par une session (expiration d'une période post fin d'hébergement)
@@ -1070,6 +1110,24 @@ async function chargerInvitGr (cfg, args) {
   return result
 }
 m1fonctions.chargerInvitGr = chargerInvitGr
+
+/*****************************************
+Chargement des invitCp des avatars d'un compte
+- sessionId, ids (array des ids des avatars)
+*/
+
+async function chargerInvitCp (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc(), rowItems: [] }
+  for (let i = 0; i < args.ids.length; i++) {
+    const rows = stmt(cfg, selinvitcpId).all({ id: args.ids[i] })
+    rows.forEach((row) => {
+      result.rowItems.push(newItem('invitcp', row))
+    })
+  }
+  return result
+}
+m1fonctions.chargerInvitCp = chargerInvitCp
 
 /*****************************************
 !!GET!! getcv : retourne la CV d'un avatar
@@ -1281,6 +1339,79 @@ function supprSecretTr (cfg, args, rowItems) {
 }
 
 /******************************************************************
+Nouveau Couple :
+/* `lcck` : map : de avatar
+    - _clé_ : `ni`, numéro pseudo aléatoire. Hash de (`cc` en hexa suivi de `0` ou `1`).
+    - _valeur_ : clé `cc` cryptée par la clé K de l'avatar cible. Le hash d'une clé d'un couple donne son id.
+args :
+  - sessionid
+  - idc: id du couple
+  - id: id de l'avatar,
+  - ni: clé d'accès à lcck de l'avatar
+  - datak : terme ni de lcck
+  - rowCouple
+  - rowInvitcp
+A_SRV, '23-Avatar non trouvé.'
+*/
+
+async function nouveauCouple (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const dh = getdhc()
+  const couple = deserial(args.rowCouple)
+  const invitcp = deserial(args.invitcp)
+
+  const versions = getValue(cfg, VERSIONS)
+  let j = idx(args.idc)
+  versions[j]++
+  couple.vc = versions[j] // version du row couple
+
+  j = idx(args.id)
+  versions[j]++
+  args.v = versions[j] // version du row avatar 0
+
+  j = idx(invitcp.id)
+  versions[j]++
+  invitcp.v = versions[j] // version du row avatar 1
+
+  const cv = { id: couple.id, v: 0, x: 0, dds: ddsAvatarGroupeCouple(0), cv: null, vsh: 0 }
+  j = idx(0)
+  versions[j]++
+  cv.v = versions[j] // version de la cv du couple
+
+  setValue(cfg, VERSIONS)
+  const rowItems = []
+
+  cfg.db.transaction(nouveauCoupleTr)(cfg, args, couple, invitcp, cv, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  session.plusCouples([args.idc])
+  session.plusCvs([args.idc])
+  return { sessionId: args.sessionId, dh: dh }
+}
+m1fonctions.nouveauCouple = nouveauCouple
+
+function nouveauCoupleTr (cfg, args, couple, invitcp, cv, rowItems) {
+  const a = stmt(cfg, selavatarId).get({ id: args.id }) 
+  if (!a) throw new AppExc(A_SRV, '13-Avatar A0 inexistant')
+
+  stmt(cfg, inscouple).run(couple)
+  rowItems.push(newItem('couple', couple))
+  stmt(cfg, inscv).run(cv)
+  rowItems.push(newItem('cv', cv))
+  stmt(cfg, insinvitcp).run(invitcp)
+  rowItems.push(newItem('invitcp', invitcp))
+
+  const m = a.lcck ? deserial(a.lcck) : null
+  const map = m || {}
+  map[args.ni] = args.datak
+  a.v = args.v
+  a.lcck = serial(map)
+  stmt(cfg, upd2avatar).run(a)
+  rowItems.push(newItem('avatar', a))
+}
+
+/******************************************************************
 Parrainage : args de m1/nouveauParrainage
   - sessionId: data.sessionId,
   - rowCouple
@@ -1294,7 +1425,6 @@ Parrainage : args de m1/nouveauParrainage
 */
 // eslint-disable-next-line no-unused-vars
 const updcontact = 'UPDATE contact SET dlv = @dlv WHERE pph = @pph'
-const upd2avatar = 'UPDATE avatar SET v = @v, lcck = @lcck WHERE id = @id'
 
 async function nouveauParrainage (cfg, args) {
   const session = checkSession(args.sessionId)
