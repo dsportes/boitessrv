@@ -1363,7 +1363,7 @@ async function nouveauCouple (cfg, args) {
   const versions = getValue(cfg, VERSIONS)
   let j = idx(args.idc)
   versions[j]++
-  couple.vc = versions[j] // version du row couple
+  couple.v = versions[j] // version du row couple
 
   j = idx(args.id)
   versions[j]++
