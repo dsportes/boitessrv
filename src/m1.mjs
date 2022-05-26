@@ -1412,6 +1412,154 @@ function nouveauCoupleTr (cfg, args, couple, invitcp, cv, rowItems) {
 }
 
 /******************************************************************
+Accepter contact
+/* args :
+  - sessionid
+  - idc: id du couple
+  - id: id de l'avatar
+  - avc : avatar 0 ou 1 du couple
+  - ard: ardoise
+  - vmax : [mx10 mx20] ou [mx11 mx21]
+A_SRV, '23-Avatar non trouvé.'
+*/
+
+async function accepterContact (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+
+  const versions = getValue(cfg, VERSIONS)
+  let j = idx(args.idc)
+  versions[j]++
+  args.vc = versions[j] // version du row couple
+  j = idx(args.id)
+  versions[j]++
+  args.va = versions[j] // version de l'avatar / compta
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+
+  cfg.db.transaction(accepterContactTr)(cfg, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return { sessionId: args.sessionId, dh: dh }
+}
+m1fonctions.accepterContact = accepterContact
+
+const upd4couple = 'UPDATE couple SET v = @v, st = @st, dlv = 0, mx11 = @mx11, mx21 = @mx21, mx10 = @mx10, mx20 = @mx20, ardc = @ardc WHERE id = @id'
+
+function accepterContactTr (cfg, args, couple, invitcp, cv, rowItems) {
+  const c = stmt(cfg, selcoupleId).get({ id: args.id }) 
+  if (!c) throw new AppExc(A_SRV, '13-Couple non trouvé')
+  const compta = stmt(cfg, selcomptaId).get({ id: args.id }) 
+  if (!compta) throw new AppExc(A_SRV, '13-Comptabilité de l\'avatar non trouvé')
+
+  c.v = args.vc
+  decorCouple(c)
+  c.stp = 3
+  c.ste = 0
+  if (args.avc === 0) {
+    c.st0 = 1
+    c.mx10 = args.vmax[0]
+    c.mx20 = args.vmax[1]
+  } else {
+    c.st1 = 1
+    c.mx11 = args.vmax[0]
+    c.mx21 = args.vmax[1]
+  }
+  setSt(c)
+  c.ardc = args.ardc
+  stmt(cfg, upd4couple).run(c)
+  rowItems.push(newItem('couple', c))
+
+  const compteurs = new Compteurs(compta.data)
+  let ok = compteurs.setV1(c.v1)
+  if (!ok) {
+    const m = ervol[ervol.c51] + ` [demande: ${compteurs.v1 + c.v1} / forfait: ${compteurs.f1 * UNITEV1}]`
+    throw new AppExc(X_SRV, m)
+  }
+  ok = compteurs.setV2(c.v2)
+  if (!ok) {
+    const m = ervol[ervol.c52] + ` [demande: ${compteurs.v2 + c.v2} / forfait: ${compteurs.f2 * UNITEV2}]`
+    throw new AppExc(X_SRV, m)
+  }
+  compta.v = args.va
+  compta.data = compteurs.calculauj().serial
+  stmt(cfg, updcompta).run(compta)
+  rowItems.push(newItem('compta', compta))
+}
+
+/******************************************************************
+Décliner contact
+/* args :
+   - sessionid
+  - idc: id du couple
+  - id: id de l'avatar
+  - ni : numéro d'invitation au couple
+  - avc : avatar 0 ou 1 du couple
+  - ard: ardoise
+A_SRV, '23-Avatar non trouvé.'
+*/
+
+async function declinerContact (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const dh = getdhc()
+
+  const versions = getValue(cfg, VERSIONS)
+  let j = idx(args.idc)
+  versions[j]++
+  args.vc = versions[j] // version du row couple
+  j = idx(args.id)
+  versions[j]++
+  args.va = versions[j] // version de l'avatar
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+
+  cfg.db.transaction(declinerContactTr)(cfg, args, rowItems)
+
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  session.moinsCouples([args.idc])
+  session.moinsCvs([args.idc])
+  return { sessionId: args.sessionId, dh: dh }
+}
+m1fonctions.declinerContact = declinerContact
+
+function declinerContactTr (cfg, args, couple, invitcp, cv, rowItems) {
+  const c = stmt(cfg, selcoupleId).get({ id: args.id }) 
+  if (!c) throw new AppExc(A_SRV, '13-Couple non trouvé')
+
+  c.v = args.vc
+  decorCouple(c)
+  c.stp = 2
+  c.ste = 3
+  if (args.avc === 0) {
+    c.st0 = 0
+    c.mx10 = 0
+    c.mx20 = 0
+  } else {
+    c.st1 = 0
+    c.mx11 = 0
+    c.mx21 = 0
+  }
+  setSt(c)
+  c.ardc = args.ardc
+  stmt(cfg, upd4couple).run(c)
+  rowItems.push(newItem('couple', c))
+
+  const a = stmt(cfg, selavatarId).get({ id: args.id }) 
+  if (!a) throw new AppExc(A_SRV, '13-Avatar non trouvé')
+  const m = a.lcck ? deserial(a.lcck) : null
+  const map = m || {}
+  delete map[args.ni]
+  a.v = args.va
+  a.lcck = serial(map)
+  stmt(cfg, upd2avatar).run(a)
+  rowItems.push(newItem('avatar', a))
+}
+
+/******************************************************************
 Parrainage : args de m1/nouveauParrainage
   - sessionId: data.sessionId,
   - rowCouple
@@ -1478,6 +1626,7 @@ function nouveauParrainageTr (cfg, args, contact, couple, cv, rowItems) {
   stmt(cfg, inscv).run(cv)
   rowItems.push(newItem('cv', cv))
 }
+
 /************************************************************
 Suppression d'un couple
 args:
@@ -1486,7 +1635,6 @@ args:
 - ni : numéro d'invitation du couple pour l'avatar avid
 - avid : id de l'avatar demandeur
 - phch : id du contact rencontre / parrain  à supprimer
-- idx, nx : id du contact standard à supprimer
 - avc : l'avatar demandeur est le 0 ou le 1
 Retour:
 A_SRV, '17-Avatar non trouvé'
@@ -1523,7 +1671,6 @@ async function quitterCouple (cfg, args) {
 m1fonctions.quitterCouple = quitterCouple
 
 const delcouple = 'DELETE FROM couple WHERE id = @id'
-const updxcontactstd = 'UPDATE contactstd SET x = @x WHERE id = @id AND nx = @nx'
 
 function quitterCoupleTr (cfg, args, rowItems) {
   const jourj = new DateJour().nbj
@@ -1552,7 +1699,7 @@ function quitterCoupleTr (cfg, args, rowItems) {
   rowItems.push(newItem('avatar', a))
 
   if (args.phch) stmt(cfg, delcontact).run({ phch: args.phch }) // suppression du contact
-  if (args.idx) stmt(cfg, updxcontactstd).run({ id: args.idx, nx : args.nx, x: jourj }) // suppression du contact
+  if (args.idx) stmt(cfg, delinvitcp).run({ id: args.avid, ni : args.ni }) // suppression du contact
 
   decorCouple(couple, jourj)
   if (couple.stp !== 3) {
