@@ -1079,15 +1079,12 @@ async function coupleDisparu (cfg, args) {
 m1fonctions.coupleDisparu = coupleDisparu
 
 function coupleDisparuTr (cfg, args, rowItems) {
-  const c = stmt(cfg, selcoupleId).get({ id: args.id, im:args.im })
+  const c = stmt(cfg, selcoupleId).get({ id: args.id })
   if (!c) return
-  const st01 = c.st % 100
-  let st0 = Math.floor(st01 / 10)
-  let st1 = st01 % 10
-  if (args.idx) st1 = 0; else st0 = 0
-  const nst = 5000 + (st0 * 10) + st1
-  if (nst === c.st) return
-  c.st = nst
+  decorCouple(c)
+  c.stp = 5
+  if (args.idx === 0) c.st0 = 2; else c.st1 = 2
+  setSt(c)
   c.v = args.v
   stmt(cfg, updstcouple).run(c)
   rowItems.push(newItem('couple', c))
@@ -1721,14 +1718,12 @@ function decorCouple (c, jourj) {
   if (!jourj) jourj = new DateJour().nbj
   const x = '' + c.st
   c.stp = parseInt(x.charAt(0))
-  c.ste = parseInt(x.charAt(1))
+  c.sto = parseInt(x.charAt(1))
   c.st0 = parseInt(x.charAt(2))
   c.st1 = parseInt(x.charAt(3))
   if (c.dlv && c.dlv < jourj) {
-    if (c.stp === 1) { // si attente, passe en phase 2 et états hors délai
-      c.stp = 2; c.ste += 1
-    } else if (c.stp === 4 && this.ste === 1) {
-      c.ste = 2
+    if (c.stp === 1) { // si 1 attente, passe en phase 2 hors délai
+      c.stp = 2
     }
   }
   return setSt(c)
