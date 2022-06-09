@@ -74,10 +74,11 @@ export class Session {
 
   raz () {
     this.compteId = null
-    this.avatarsIds = new Set() // Set
-    this.groupesIds = new Set // Set
-    this.couplesIds = new Set // Set
-    this.cvsIds = new Set() // Set
+    this.avatarsIds = new Set()
+    this.groupesIds = new Set()
+    this.couplesIds = new Set()
+    this.couples2Ids = new Set() // couples accédant à leurs secrets
+    this.cvsIds = new Set()
   }
 
   setCompte (id) {
@@ -97,6 +98,10 @@ export class Session {
     if (ar && ar.length) ar.forEach(id => { this.couplesIds.add(id) })
   }
 
+  plusCouples2 (ar) {
+    if (ar && ar.length) ar.forEach(id => { this.couples2Ids.add(id) })
+  }
+
   plusCvs (ar) {
     if (ar && ar.length) ar.forEach(id => { this.cvsIds.add(id) })
   }
@@ -113,6 +118,10 @@ export class Session {
     if (ar && ar.length) ar.forEach(id => { this.couplesIds.delete(id) })
   }
 
+  moinsCouples2 (ar) {
+    if (ar && ar.length) ar.forEach(id => { this.couples2Ids.delete(id) })
+  }
+
   moinsCvs (ar) {
     if (ar && ar.length) ar.forEach(id => { this.cvsIds.delete(id) })
   }
@@ -127,6 +136,10 @@ export class Session {
 
   acouple (rowItem) {
     return this.couplesIds && this.couplesIds.has(rowItem.id)
+  }
+
+  acouple2 (rowItem) {
+    return this.couples2Ids && this.couples2Ids.has(rowItem.id)
   }
 
   acv (rowItem) {
@@ -171,7 +184,7 @@ export class Session {
         break
       }
       case 'secret' : {
-        if (this.aavatar(rowItem) || this.agroupe(rowItem) || this.acouple(rowItem)) msg.rowItems.push(rowItem)
+        if (this.aavatar(rowItem) || this.agroupe(rowItem) || this.acouple2(rowItem)) msg.rowItems.push(rowItem)
         break
       }
       case 'cv' : {

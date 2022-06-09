@@ -370,16 +370,27 @@ async function chargerAS (cfg, args) {
 }
 m1fonctions.chargerAS = chargerAS
 
-async function chargerCS (cfg, args) {
+async function chargerC (cfg, args) {
   const session = checkSession(args.sessionId)
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const rowItems = []
-  cfg.db.transaction(chargerCSTr)(cfg, args.id, rowItems)
+  cfg.db.transaction(chargerCTr)(cfg, args.id, rowItems)
   result.rowItems = rowItems
   session.plusCouples([args.id])
   return result
 }
-m1fonctions.chargerCS = chargerCS
+m1fonctions.chargerC = chargerC
+
+async function chargerS (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const rowItems = []
+  cfg.db.transaction(chargerSTr)(cfg, args.id, rowItems)
+  result.rowItems = rowItems
+  session.plusCouples2([args.id])
+  return result
+}
+m1fonctions.chargerS = chargerS
 
 async function chargerGMS (cfg, args) {
   const session = checkSession(args.sessionId)
@@ -417,15 +428,14 @@ function chargerGMSTr(cfg, id, rowItems) {
   }
 }
 
-function chargerCSTr(cfg, id, rowItems) {
-  {
-    const rows = stmt(cfg, selsecretId).all({ id : id })
-    rows.forEach((row) => { rowItems.push(newItem('secret', row)) })
-  }
-  {
-    const row = stmt(cfg, selcoupleId).get({ id : id })
-    rowItems.push(newItem('couple', row))
-  }
+function chargerSTr(cfg, id, rowItems) {
+  const rows = stmt(cfg, selsecretId).all({ id : id })
+  rows.forEach((row) => { rowItems.push(newItem('secret', row)) })
+}
+
+function chargerCTr(cfg, id, rowItems) {
+  const row = stmt(cfg, selcoupleId).get({ id : id })
+  rowItems.push(newItem('couple', row))
 }
 
 /********************************************************
@@ -536,12 +546,13 @@ args :
 - sessionId
 - id : id de l'objet maître
 - v : version min
+- cpl : si true, c'est un couple à abonner aux secrets
 Retour
 - rowItems : contient des rowItems de secrets
 (ceux ayant une version supérieure à celle détenue en session)
 */
 async function chargerSc (cfg, args) {
-  checkSession(args.sessionId)
+  const session = checkSession(args.sessionId)
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const rowItems = []
   result.rowItems = rowItems
@@ -549,6 +560,7 @@ async function chargerSc (cfg, args) {
   rows.forEach((row) => {
     result.rowItems.push(newItem('secret', row))
   })
+  if (args.cpl) session.plusCouples2(args.id)
   return result
 }
 m1fonctions.chargerSc = chargerSc
