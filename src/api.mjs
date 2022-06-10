@@ -285,8 +285,9 @@ export class Compteurs {
     return true
   }
 
-  setRes (delta) { // maj réserve de forfaits à attribués aux dilleuls
+  setRes (delta) { // maj réserve de forfaits à attribués aux filleuls
     this.calculauj()
+    if ((this.res1 + delta[0] < 0) || (this.res2 + delta[1]) < 0) return false
     this.res1 = this.res1 + delta[0]
     this.res2 = this.res2 + delta[1]
     this.maj = true

@@ -918,15 +918,16 @@ async function regulGr (cfg, args) {
   setValue(cfg, VERSIONS)
 
   const rowItems = []
-  cfg.db.transaction(regulGrTr)(cfg, session, args, rowItems)
+  cfg.db.transaction(regulGrTr)(cfg, args, rowItems)
 
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
+  session.plusGroupes([args.idg])
   return result
 }
 m1fonctions.regulGr = regulGr
 
-function regulGrTr (cfg, session, args, rowItems) {
+function regulGrTr (cfg, args, rowItems) {
   const a = stmt(cfg, selavatarId).get({ id: args.id })
   if (!a) return // avatar supprimé depuis (?)
   let map = a.lgrk ? deserial(a.lgrk) : {}
@@ -938,7 +939,6 @@ function regulGrTr (cfg, session, args, rowItems) {
   stmt(cfg, upd1avatar).run(a)
   rowItems.push(newItem('avatar', a))
   stmt(cfg, delinvitgr).run({ id: args.id, ni: args.ni })
-  session.plusGroupes([args.idg])
 }
 
 async function regulCp (cfg, args) {
@@ -953,15 +953,16 @@ async function regulCp (cfg, args) {
   setValue(cfg, VERSIONS)
 
   const rowItems = []
-  cfg.db.transaction(regulCpTr)(cfg, session, args, rowItems)
+  cfg.db.transaction(regulCpTr)(cfg, args, rowItems)
 
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
+  session.plusCouples([args.idc])
   return result
 }
 m1fonctions.regulCp = regulCp
 
-function regulCpTr (cfg, session, args, rowItems) {
+function regulCpTr (cfg, args, rowItems) {
   const a = stmt(cfg, selavatarId).get({ id: args.id })
   if (!a) return // avatar supprimé depuis (?)
   let map = a.lgrk ? deserial(a.lcck) : {}
@@ -973,7 +974,6 @@ function regulCpTr (cfg, session, args, rowItems) {
   stmt(cfg, upd2avatar).run(a)
   rowItems.push(newItem('avatar', a))
   stmt(cfg, delinvitcp).run({ id: args.id, ni: args.ni })
-  session.plusCouples([args.idc])
 }
 /* Suppression d'accès à un groupe pour un avatar ****************************************
 Suppression de l'entrée de lgrk d'un avatar correspondant à un groupe
@@ -1354,10 +1354,10 @@ Nouveau Couple :
     - _valeur_ : clé `cc` cryptée par la clé K de l'avatar cible. Le hash d'une clé d'un couple donne son id.
 args :
   - sessionid
-  - idc: id du couple
   - id: id de l'avatar,
   - ni: clé d'accès à lcck de l'avatar
   - datak : terme ni de lcck
+  - sec : true si avatar accède aux secrets du contact
   - rowCouple
   - rowInvitcp
 A_SRV, '23-Avatar non trouvé.'
@@ -1370,7 +1370,7 @@ async function nouveauCouple (cfg, args) {
   const invitcp = deserial(args.rowInvitcp)
 
   const versions = getValue(cfg, VERSIONS)
-  let j = idx(args.idc)
+  let j = idx(couple.id)
   versions[j]++
   couple.v = versions[j] // version du row couple
 
@@ -1394,8 +1394,9 @@ async function nouveauCouple (cfg, args) {
 
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
-  session.plusCouples([args.idc])
-  session.plusCvs([args.idc])
+  session.plusCouples([couple.id])
+  if (args.sec) session.plusCouples2([couple.id])
+  session.plusCvs([couple.id])
   return { sessionId: args.sessionId, dh: dh }
 }
 m1fonctions.nouveauCouple = nouveauCouple
@@ -1421,19 +1422,18 @@ function nouveauCoupleTr (cfg, args, couple, invitcp, cv, rowItems) {
 }
 
 /******************************************************************
-Accepter contact
+Accepter couple
 /* args :
   - sessionid
   - idc: id du couple
   - id: id de l'avatar
-  - avc : avatar 0 ou 1 du couple
   - ard: ardoise
   - vmax : [mx10 mx20] ou [mx11 mx21]
 A_SRV, '23-Avatar non trouvé.'
 */
 
-async function accepterContact (cfg, args) {
-  checkSession(args.sessionId)
+async function accepterCouple (cfg, args) {
+  const session = checkSession(args.sessionId)
   const dh = getdhc()
 
   const versions = getValue(cfg, VERSIONS)
@@ -1447,17 +1447,18 @@ async function accepterContact (cfg, args) {
 
   const rowItems = []
 
-  cfg.db.transaction(accepterContactTr)(cfg, args, rowItems)
+  cfg.db.transaction(accepterCoupleTr)(cfg, args, rowItems)
 
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
+  if (args.vmax[0]) session.plusCouples2([args.idc])
   return { sessionId: args.sessionId, dh: dh }
 }
-m1fonctions.accepterContact = accepterContact
+m1fonctions.accepterCouple = accepterCouple
 
 const upd4couple = 'UPDATE couple SET v = @v, st = @st, dlv = 0, mx11 = @mx11, mx21 = @mx21, mx10 = @mx10, mx20 = @mx20, ardc = @ardc WHERE id = @id'
 
-function accepterContactTr (cfg, args, couple, invitcp, cv, rowItems) {
+function accepterCoupleTr (cfg, args, rowItems) {
   const c = stmt(cfg, selcoupleId).get({ id: args.id }) 
   if (!c) throw new AppExc(A_SRV, '13-Couple non trouvé')
   const compta = stmt(cfg, selcomptaId).get({ id: args.id }) 
@@ -1465,17 +1466,10 @@ function accepterContactTr (cfg, args, couple, invitcp, cv, rowItems) {
 
   c.v = args.vc
   decorCouple(c)
-  c.stp = 3
-  c.ste = 0
-  if (args.avc === 0) {
-    c.st0 = 1
-    c.mx10 = args.vmax[0]
-    c.mx20 = args.vmax[1]
-  } else {
-    c.st1 = 1
-    c.mx11 = args.vmax[0]
-    c.mx21 = args.vmax[1]
-  }
+  c.stp = 4
+  c.st1 = args.vmax[0] === 0 ? 0 : 1
+  c.mx11 = args.vmax[0]
+  c.mx21 = args.vmax[1]
   setSt(c)
   c.ardc = args.ardc
   stmt(cfg, upd4couple).run(c)
@@ -1499,18 +1493,17 @@ function accepterContactTr (cfg, args, couple, invitcp, cv, rowItems) {
 }
 
 /******************************************************************
-Décliner contact
+Décliner couple
 /* args :
-   - sessionid
+  - sessionid
   - idc: id du couple
   - id: id de l'avatar
   - ni : numéro d'invitation au couple
-  - avc : avatar 0 ou 1 du couple
   - ard: ardoise
 A_SRV, '23-Avatar non trouvé.'
 */
 
-async function declinerContact (cfg, args) {
+async function declinerCouple (cfg, args) {
   const session = checkSession(args.sessionId)
   const dh = getdhc()
 
@@ -1525,34 +1518,28 @@ async function declinerContact (cfg, args) {
 
   const rowItems = []
 
-  cfg.db.transaction(declinerContactTr)(cfg, args, rowItems)
+  cfg.db.transaction(declinerCoupleTr)(cfg, args, rowItems)
 
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
   session.moinsCouples([args.idc])
+  session.moinsCouples2([args.idc])
   session.moinsCvs([args.idc])
   return { sessionId: args.sessionId, dh: dh }
 }
-m1fonctions.declinerContact = declinerContact
+m1fonctions.declinerCouple = declinerCouple
 
-function declinerContactTr (cfg, args, couple, invitcp, cv, rowItems) {
+function declinerCoupleTr (cfg, args, rowItems) {
   const c = stmt(cfg, selcoupleId).get({ id: args.id }) 
   if (!c) throw new AppExc(A_SRV, '13-Couple non trouvé')
 
   c.v = args.vc
   decorCouple(c)
-  c.stp = 2
-  c.ste = 3
-  if (args.avc === 0) {
-    c.st0 = 0
-    c.mx10 = 0
-    c.mx20 = 0
-  } else {
-    c.st1 = 0
-    c.mx11 = 0
-    c.mx21 = 0
-  }
+  c.stp = 3
+  c.st1 = 0
   setSt(c)
+  c.mx11 = 0
+  c.mx21 = 0
   c.ardc = args.ardc
   stmt(cfg, upd4couple).run(c)
   rowItems.push(newItem('couple', c))
@@ -1569,19 +1556,18 @@ function declinerContactTr (cfg, args, couple, invitcp, cv, rowItems) {
 }
 
 /******************************************************************
-Parrainage : args de m1/nouveauParrainage
+Nouveau parrainage / rencontre : args de m1/nouveauParrainage
   - sessionId: data.sessionId,
   - rowCouple
   - rowContact
   - id: id de l'avatar
   - ni: clé d'accès à lcck de l'avatar
   - datak : clé cc cryptée par la clé k
+  - sec : true si avatar accède aux secrets du contact
   Retour : dh
   X_SRV, '14-Cette phrase de parrainage / rencontre est trop proche d\'une déjà enregistrée'
   X_SRV, '23-Avatar non trouvé.'
 */
-// eslint-disable-next-line no-unused-vars
-const updcontact = 'UPDATE contact SET dlv = @dlv WHERE pph = @pph'
 
 async function nouveauParrainage (cfg, args) {
   const session = checkSession(args.sessionId)
@@ -1610,6 +1596,7 @@ async function nouveauParrainage (cfg, args) {
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems })
   setImmediate(() => { processQueue() })
   session.plusCouples([couple.id])
+  if (args.sec) session.plusCouples2([couple.id])
   return { sessionId: args.sessionId, dh: dh }
 }
 m1fonctions.nouveauParrainage = nouveauParrainage
@@ -1634,6 +1621,51 @@ function nouveauParrainageTr (cfg, args, contact, couple, cv, rowItems) {
 
   stmt(cfg, inscv).run(cv)
   rowItems.push(newItem('cv', cv))
+}
+
+/***********************************************
+Prolongation d'un parrainage / rencontre
+args
+  - sessionId
+  - idc : id du couple
+  - phch : hash de la phrase de contact
+  - dlv : nouvelle dlv
+A_SRV, '14-Phrase de parrainage / rencontre non trouvée.'
+A_SRV, '16-Couple non trouvé.'
+*/
+async function prolongerParrainage (cfg, args) {
+  checkSession(args.sessionId)
+  const dh = getdhc()
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.idc)
+  versions[j]++
+  args.v = versions[j] // version du row couple
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(prolongerParrainageTr)(cfg, args, rowItems)
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems })
+  setImmediate(() => { processQueue() })
+  return { sessionId: args.sessionId, dh: dh }
+}
+m1fonctions.prolongerParrainage = prolongerParrainage
+
+const updcontact = 'UPDATE contact SET dlv = @dlv WHERE pph = @pph'
+const upddlvcouple = 'UPDATE couple SET dlv = @dlv, v = @v WHERE id = @id'
+
+function prolongerParrainageTr (cfg, args, rowItems) {
+  const p = stmt(cfg, selcontactPhch).get({ phch: args.phch })
+  if (p) throw new AppExc(A_SRV, '14-Phrase de parrainage / rencontre non trouvée.')
+  p.dlv = args.dlv
+  stmt(cfg, updcontact).run(p)
+
+  const c = stmt(cfg, selcoupleId).get({ id: args.ids })
+  if (!c) throw new AppExc(A_SRV, '16-Couple non trouvé.')
+  c.dlv = args.dlv
+  c.v = args.v
+  stmt(cfg, upddlvcouple).run(c)
+  rowItems.push(newItem('couple', c))
 }
 
 /************************************************************
@@ -1758,6 +1790,7 @@ args :
   - datac : datac du contact
   - vmax : [mx11 mx21]
   - ardc : du contact
+  - sec : true si l'avatar accède aux secrets du couple
 Retour:
 A_SRV, '17-Avatar non trouvé'
 A_SRV, '17-Avatar : données de comptabilité absentes'
@@ -1786,6 +1819,7 @@ async function acceptRencontre (cfg, args) {
 
   // Abonnements du compte
   session.plusCouples([args.idc])
+  if (args.sec) session.plusCouples2([args.idc])
   session.plusCvs([args.idc])
   return result
 }
@@ -1802,10 +1836,6 @@ function acceptRencontreTr (cfg, args, rowItems) {
   if (!couple) throw new AppExc(A_SRV, '17-Couple non trouvé')
 
   const compteurs = new Compteurs(compta.data)
-  let ok = compteurs.setV1(couple.v1)
-  if (!ok) throw new AppExc(X_SRV, '17-Forfait V1 insuffisant pour les volumes V1 des secrets actuels du couple')
-  ok = compteurs.setV2(couple.v2)
-  if (!ok) throw new AppExc(X_SRV, '17-Forfait V2 insuffisant pour les volumes V2 des secrets actuels du couple')
   compta.v = args.vav
   compta.data = compteurs.calculauj().serial
   stmt(cfg, updcompta).run(compta)
@@ -1822,9 +1852,65 @@ function acceptRencontreTr (cfg, args, rowItems) {
   couple.v = args.vc
   couple.ardc = args.ardc
   couple.datac = args.datac
-  couple.st = 3011
+  decorCouple(couple)
+  couple.stp = 4
+  couple.st1 = args.sec ? 1 : 0
+  setSt(couple)
   couple.mx11 = args.vmax[0]
   couple.mx21 = args.vmax[1]
+  stmt(cfg, upd3couple).run(couple)
+  rowItems.push(newItem('couple', couple))
+}
+
+/************************************************************
+Refus d'une rencontre / parrainage
+args :
+  - sessionid
+  - idc: id du couple
+  - phch: id du contact
+  - ardc : du contact
+Retour:
+A_SRV, '17-Couple non trouvé'
+*/
+async function refusRencontre (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const dh = getdhc()
+  const result = { sessionId: args.sessionId, dh: dh }
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.idc)
+  versions[j]++
+  args.vc = versions[j] // version du couple
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(refusRencontreTr)(cfg, args, rowItems)
+
+  result.rowItems = rowItems
+  syncListQueue.push({ sessionId: args.sessionId, dh, rowItems}) // à synchroniser
+  setImmediate(() => { processQueue() })
+
+  // Abonnements du compte
+  session.plusCouples([args.idc])
+  if (args.sec) session.moinsCouples2([args.idc])
+  return result
+}
+m1fonctions.refusRencontre = refusRencontre
+
+function refusRencontreTr (cfg, args, rowItems) {
+  if (args.phch) stmt(cfg, delcontact).run({ phch: args.phch }) // suppression du contact
+
+  const couple = stmt(cfg, selcoupleId).get({ id: args.idc })
+  if (!couple) throw new AppExc(A_SRV, '17-Couple non trouvé')
+
+  couple.v = args.vc
+  couple.ardc = args.ardc
+  decorCouple(couple)
+  couple.stp = 2
+  couple.st1 = 0
+  setSt(couple)
+  couple.mx11 = 0
+  couple.mx21 = 0
   stmt(cfg, upd3couple).run(couple)
   rowItems.push(newItem('couple', couple))
 }
@@ -1845,6 +1931,7 @@ Acceptation d'un parrainage
     mc0: arg.estPar ? MC.FILLEUL : MC.INTRODUIT, // mot clé à ajouter dans le couple
     mc1: arg.estPar ? MC.PARRAIN : MC.INTRODUCTEUR,
     ardc // ardoise du couple
+    sec : le filleul accède aux secrets du couple
 Refus
     sessionId: data.sessionId,
     phch: arg.phch, // hash de la phrase de contact
@@ -1853,7 +1940,8 @@ Refus
 Retour : sessionId, dh, si ok : rowItems : compte, compta, prefs, avatar, contactf
 X_SRV, '03-Phrase secrète probablement déjà utilisée. Vérifier que le compte n\'existe pas déjà en essayant de s\'y connecter avec la phrase secrète')
 X_SRV, '04-Une phrase secrète semblable est déjà utilisée. Changer a minima la première ligne de la phrase secrète pour ce nouveau compte')
-X_SRV, '18-Réserves de volume insuffisantes du parrain pour les forfaits attribués compte'
+X_SRV, '18-Réserves de volume insuffisantes du parrain pour les forfaits attribués au compte filleul'
+X_SRV, '18-Réserves de volume insuffisantes du parrain pour les réserves attribuées au compte filleul'
 A_SRV, '17-Avatar parrain : données de comptabilité absentes'
 A_SRV, '24-Couple non trouvé'
 */
@@ -1921,6 +2009,7 @@ async function acceptParrainage (cfg, args) {
   session.compteId = compte.id
   session.plusAvatars([avatar.id])
   session.plusCouples([args.idCouple])
+  if (args.sec) session.plusCouples2([args.idCouple])
   session.plusCvs([args.idavp])
   return result
 }
@@ -1942,9 +2031,10 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
   if (!comptaP) throw new AppExc(A_SRV, '17-Avatar parrain : données de comptabilité absentes')
 
   const compteurs = new Compteurs(comptaP.data)
-  const ok = compteurs.setFF(args.dr1, args.dr2)
-  if (!ok) throw new AppExc(X_SRV, '18-Réserves de volume insuffisantes du parrain pour les forfaits attribués compte')
-  compteurs.setRes([-args.dr1, -args.dr2])
+  let ok = compteurs.setFF(args.dr1, args.dr2)
+  if (!ok) throw new AppExc(X_SRV, '18-Réserves de volume insuffisantes du parrain pour les forfaits attribués au compte filleul')
+  ok = compteurs.setRes([-args.dr1, -args.dr2])
+  if (!ok) throw new AppExc(X_SRV, '18-Réserves de volume insuffisantes du parrain pour les réserves attribuées au compte filleul lui-même parrain')
   comptaP.v = args.vcp
   comptaP.data = compteurs.calculauj().serial
   stmt(cfg, updcompta).run(comptaP)
@@ -1970,7 +2060,10 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
   const cp = stmt(cfg, selcoupleId).get({ id: args.idCouple })
   if (!cp) throw new AppExc(A_SRV, '24-Couple non trouvé')
   cp.v = args.vcouple
-  cp.st = 3011 // Phase en couple, les deux actifs
+  decorCouple(cp)
+  cp.stp = 4
+  cp.st1 = args.sec ? 1 : 0
+  setSt(cp)
   cp.mc1 = new Uint8Array(args.mc1)
   const s = cp.mc0 ? new Set(cp.mc0) : new Set()
   args.mc0.forEach(m => { s.add(m) })
@@ -1980,48 +2073,8 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
   items.couple = cp
 }
 
-const upd2parrain = 'UPDATE parrain SET v = @v,  datax = null, datak = null, data2k = null WHERE pph = @pph'
-const upd3parrain = 'UPDATE parrain SET v = @v, dlv = @dlv WHERE pph = @pph'
 /******************************************************************
-Refus d'un parrainage
-  sessionId: data.sessionId,
-  pph: parrain.pph,
-  ardc: await crypt.crypter(parrain.data.cc, serial([new Date().getTime(), arg.ard]))
- Retour : sessionId, dh
-*/
-
-async function refusParrainage (cfg, args) {
-  checkSession(args.sessionId)
-  const dh = getdhc()
-  const result = { sessionId: args.sessionId, dh: dh }
-
-  const parrain = stmt(cfg, selcontactPhch).get({ phch: args.phch })
-  if (!parrain) throw new AppExc(X_SRV, '15-Phrase de parrainage inconnue')
-
-  if (parrain.st !== 0) throw new AppExc(X_SRV, '16-Ce parrainage a déjà fait l\'objet ' + (parrain.st !== 1 ? 'd\'une acceptation.' : 'd\'un refus'))
-
-  const versions = getValue(cfg, VERSIONS)
-  const j = idx(parrain.id)
-  versions[j]++
-  parrain.v = versions[j] // version du compte parrain
-  parrain.st = 1
-  parrain.ardc = args.ardc
-  setValue(cfg, VERSIONS)
-
-  cfg.db.transaction(refusParrainageTr)(cfg, parrain)
-
-  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: [newItem('parrain', parrain)] }) // à synchroniser
-  setImmediate(() => { processQueue() })
-  return result
-}
-m1fonctions.refusParrainage = refusParrainage
-  
-function refusParrainageTr (/* cfg, parrain */) {
-  // stmt(cfg, upd1parrain).run(parrain)
-}
-
-/******************************************************************
-Suppression / prolongation parrainage
+Suppression parrainage
   sessionId: data.sessionId,
   pph: parrain.pph,
   ardc: await crypt.crypter(parrain.data.cc, serial([new Date().getTime(), arg.ard]))
@@ -2058,8 +2111,8 @@ async function supprParrainage (cfg, args) {
 }
 m1fonctions.supprParrainage = supprParrainage
   
-function supprParrainageTr (cfg, parrain) {
-  stmt(cfg, parrain.st < 0 ? upd2parrain : upd3parrain).run(parrain)
+function supprParrainageTr () {
+  // **TODO**
 }
 
 /* row contact depuis la phrase de contact */
