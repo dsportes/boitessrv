@@ -890,7 +890,7 @@ const selmembre = 'SELECT * FROM membre WHERE id = @id AND v > @v'
 const updstmembre = 'UPDATE membre SET v = @v, st = @st WHERE id = @id AND im = @im'
 const updstcouple = 'UPDATE couple SET v = @v, st = @st WHERE id = @id'
 const updstvcouple = 'UPDATE couple SET v = @v, st = @st, v1 = @v1, v2 = @v2 WHERE id = @id'
-const updstmxcouple = 'UPDATE couple SET v = @v, st = @st, mx10 = @mx10, mx20 = @mx20, mx11 = @ mx11, mx21 = @mx21 WHERE id = @id'
+const updstmxcouple = 'UPDATE couple SET v = @v, st = @st, mx10 = @mx10, mx20 = @mx20, mx11 = @mx11, mx21 = @mx21 WHERE id = @id'
 
 /* Régularisation Groupe / Couple ****************************************
 Mise à jour de lgrk / lcck dans l'avatar et suppression du row invitgr / invitcp
@@ -1742,7 +1742,7 @@ function decorCouple (c, jourj) {
 }
 
 function setSt (c) {
-  c.st = c.st0 + (10 * c.st1) + (100 * c.sto) + (1000 * c.stp)
+  c.st = c.st1 + (10 * c.st0) + (100 * c.sto) + (1000 * c.stp)
   return c
 }
 
@@ -1817,7 +1817,7 @@ function suspendreCoupleTr (cfg, args, rowItems) {
     stmt(cfg, delsecret).run({ id: args.idc })
   }
   couple.v = args.vc
-  stmt(cfg, updstvcouple).run(setSt(couple))
+  stmt(cfg, updstvcouple).run(couple)
   rowItems.push(newItem('couple', couple))
 }
 
@@ -1874,7 +1874,7 @@ function reactiverCoupleTr (cfg, args, rowItems) {
   const compteurs = new Compteurs(compta.data)
   let ok = compteurs.setV1(couple.v1)
   if (!ok) throw new AppExc(X_SRV, '20-Forfait v1 insuffisant pour supporter les secrets du couple.')
-  ok = compteurs.setV2(-couple.v2)
+  ok = compteurs.setV2(couple.v2)
   if (!ok) throw new AppExc(X_SRV, '20-Forfait v2 insuffisant pour supporter les secrets du couple.')
   compta.v = args.vav
   compta.data = compteurs.calculauj().serial
@@ -1893,7 +1893,7 @@ function reactiverCoupleTr (cfg, args, rowItems) {
   }
   setSt(couple)
   couple.v = args.vc
-  stmt(cfg, updstmxcouple).run(setSt(couple))
+  stmt(cfg, updstmxcouple).run(couple)
   rowItems.push(newItem('couple', couple))
 }
 
