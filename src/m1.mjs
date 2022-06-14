@@ -1428,7 +1428,6 @@ Accepter couple
 /* args :
   - sessionid
   - idc: id du couple
-  - id: id de l'avatar
   - ard: ardoise
   - vmax : [mx10 mx20] ou [mx11 mx21]
 A_SRV, '23-Avatar non trouvé.'
@@ -1439,12 +1438,9 @@ async function accepterCouple (cfg, args) {
   const dh = getdhc()
 
   const versions = getValue(cfg, VERSIONS)
-  let j = idx(args.idc)
+  const j = idx(args.idc)
   versions[j]++
   args.vc = versions[j] // version du row couple
-  j = idx(args.id)
-  versions[j]++
-  args.va = versions[j] // version de l'avatar / compta
   setValue(cfg, VERSIONS)
 
   const rowItems = []
@@ -1461,10 +1457,8 @@ m1fonctions.accepterCouple = accepterCouple
 const upd4couple = 'UPDATE couple SET v = @v, st = @st, dlv = 0, mx11 = @mx11, mx21 = @mx21, mx10 = @mx10, mx20 = @mx20, ardc = @ardc WHERE id = @id'
 
 function accepterCoupleTr (cfg, args, rowItems) {
-  const c = stmt(cfg, selcoupleId).get({ id: args.id }) 
+  const c = stmt(cfg, selcoupleId).get({ id: args.idc }) 
   if (!c) throw new AppExc(A_SRV, '13-Couple non trouvé')
-  const compta = stmt(cfg, selcomptaId).get({ id: args.id }) 
-  if (!compta) throw new AppExc(A_SRV, '13-Comptabilité de l\'avatar non trouvé')
 
   c.v = args.vc
   decorCouple(c)
@@ -1476,22 +1470,6 @@ function accepterCoupleTr (cfg, args, rowItems) {
   c.ardc = args.ardc
   stmt(cfg, upd4couple).run(c)
   rowItems.push(newItem('couple', c))
-
-  const compteurs = new Compteurs(compta.data)
-  let ok = compteurs.setV1(c.v1)
-  if (!ok) {
-    const m = ervol[ervol.c51] + ` [demande: ${compteurs.v1 + c.v1} / forfait: ${compteurs.f1 * UNITEV1}]`
-    throw new AppExc(X_SRV, m)
-  }
-  ok = compteurs.setV2(c.v2)
-  if (!ok) {
-    const m = ervol[ervol.c52] + ` [demande: ${compteurs.v2 + c.v2} / forfait: ${compteurs.f2 * UNITEV2}]`
-    throw new AppExc(X_SRV, m)
-  }
-  compta.v = args.va
-  compta.data = compteurs.calculauj().serial
-  stmt(cfg, updcompta).run(compta)
-  rowItems.push(newItem('compta', compta))
 }
 
 /******************************************************************
@@ -1532,7 +1510,7 @@ async function declinerCouple (cfg, args) {
 m1fonctions.declinerCouple = declinerCouple
 
 function declinerCoupleTr (cfg, args, rowItems) {
-  const c = stmt(cfg, selcoupleId).get({ id: args.id }) 
+  const c = stmt(cfg, selcoupleId).get({ id: args.idc }) 
   if (!c) throw new AppExc(A_SRV, '13-Couple non trouvé')
 
   c.v = args.vc
@@ -1764,7 +1742,7 @@ function decorCouple (c, jourj) {
 }
 
 function setSt (c) {
-  c.st = c.st0 + (10 * c.st1) + (100 * c.ste) + (1000 * c.stp)
+  c.st = c.st0 + (10 * c.st1) + (100 * c.sto) + (1000 * c.stp)
   return c
 }
 
