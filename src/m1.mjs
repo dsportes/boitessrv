@@ -3354,14 +3354,18 @@ function volumes (cfg, args) {
 
 function volumesTr (cfg, args, rowItems, simul) {
   // simul : si true n'enregistre PAS les volumes mais les exceptions sont levées comme si
+  if (args.ts === 1 && args.idc === 0) throw new AppExc(A_SRV, '40-Contact sans partage de secret')
+  if (args.ts === 2 && args.idc === 0) throw new AppExc(A_SRV, '40-Groupe non hébergé')
+
   const c = stmt(cfg, selcomptaId).get({ id: args.idc })
   if (!c) throw new AppExc(A_SRV, '40-Comptabilité de l\'avatar principal non trouvée')
   const c2 = args.idc2 ? stmt(cfg, selcomptaId).get({ id: args.idc2 }) : null
   if (args.idc2 && !c2) throw new AppExc(A_SRV, '41-Comptabilité de l\'avatar conjoint non trouvée')
   const cp = args.ts === 1 ? stmt(cfg, selcoupleId).get({ id: args.id }) : null
-  if (args.ts === 1 && !cp) throw new AppExc(A_SRV, '42-Couple non trouvée')
+  if (args.ts === 1 && !cp) throw new AppExc(A_SRV, '42-Couple non trouvé')
+  if (cp) decorCouple(cp)
   const gr = args.ts === 2 ? stmt(cfg, selgroupeId).get({ id: args.id }) : null
-  if (args.ts === 2 && !gr) throw new AppExc(A_SRV, '43-Groupe non trouvée')
+  if (args.ts === 2 && !gr) throw new AppExc(A_SRV, '43-Groupe non trouvé')
 
   const info = []
 
@@ -3390,11 +3394,13 @@ function volumesTr (cfg, args, rowItems, simul) {
   function f2 (simul) {
     {
       const dm = cp.v1 + args.dv1
-      let mx
-      if (args.idc2) {
+      let mx = 0
+      if (cp.st0 === 1 && cp.st1 === 1) {
         mx = min(cp.mx10, cp.mx11) * UNITEV1
-      } else { // im: 1 ou 2
-        mx = (args.im === 1 ? cp.mx10 : cp.mx11) * UNITEV1
+      } else if (cp.st0 === 1) {
+        mx = cp.mx10 * UNITEV1
+      } else if (cp.st1 === 1) {
+        mx = cp.mx11 * UNITEV1
       }
       if (dm > mx) {
         const m = ervol.c61 + ` [demande: ${dm} / maximum: ${mx}]`
@@ -3403,11 +3409,13 @@ function volumesTr (cfg, args, rowItems, simul) {
     }
     {
       const dm = cp.v2 + args.dv2
-      let mx
-      if (args.idc2) {
-        mx = min(cp.mx20, cp.mx21) * UNITEV2
-      } else { // im: 1 ou 2
-        mx = (args.im === 1 ? cp.mx20 : cp.mx21) * UNITEV2
+      let mx = 0
+      if (cp.st0 === 1 && cp.st1 === 1) {
+        mx = min(cp.mx20, cp.mx21) * UNITEV1
+      } else if (cp.st0 === 1) {
+        mx = cp.mx20 * UNITEV1
+      } else if (cp.st1 === 1) {
+        mx = cp.mx21 * UNITEV1
       }
       if (dm > mx) {
         const m = ervol.c62 + ` [demande: ${dm} / maximum: ${mx}]`
