@@ -1656,8 +1656,17 @@ args:
 - ni : numéro d'invitation du couple pour l'avatar avid
 - ni1 : numéro d'invitation du couple pour l'avatar 1
 - avid : id de l'avatar demandeur
+- avid1 : id de l'avatar 1
 - phch : id du contact rencontre / parrain  à supprimer
 - avc : l'avatar demandeur est le 0 ou le 1
+Traitements :
+- (a) supression de l'entrée ni de lcck sur l'avatar avid : tous
+- (b) suppression de l'entréé ni1 lcck sur l'avatar avid1 : (stp 1 2, orig 0)
+- (c) récupération des volumes sur l'avatar avid : stp = 5
+- (d) suppression du couple : tous
+- (e) suppression des secrets : stp = 5
+- (f) suppression du contact (parrainage / rencontre) : phch (stp === 1 et orig 1 ou 2)
+- (g) suppression invitcp : stp === 1 et orig 0
 Retour:
 A_SRV, '17-Avatar non trouvé'
 A_SRV, '17-Avatar : données de comptabilité absentes'
@@ -1670,11 +1679,13 @@ async function supprimerCouple (cfg, args) {
   const versions = getValue(cfg, VERSIONS)
   let j = idx(args.avid)
   versions[j]++
-  args.vav = versions[j] // version de l'avatar
+  args.vav = versions[j] // version de l'avatar (pour compta et lcck)
 
-  j = idx(args.idc)
-  versions[j]++
-  args.vc = versions[j] // version du couple
+  if (args.avid2) { // version de avid2 (dans ce cas avid est av0)
+    j = idx(args.avid1)
+    versions[j]++
+    args.vav1 = versions[j] // version du couple
+  }
   setValue(cfg, VERSIONS)
 
   const rowItems = []
@@ -1696,22 +1707,14 @@ m1fonctions.supprimerCouple = supprimerCouple
 const delcouple = 'DELETE FROM couple WHERE id = @id'
 
 function supprimerCoupleTr (cfg, args, rowItems) {
-  const a = stmt(cfg, selavatarId).get({ id: args.avid })
-  if (!a) throw new AppExc(A_SRV, '17-Avatar non trouvé')
-  const compta = stmt(cfg, selcomptaId).get({ id: args.avid })
-  if (!compta) throw new AppExc(A_SRV, '17-Avatar : données de comptabilité absentes')
   const couple = stmt(cfg, selcoupleId).get({ id: args.idc })
   if (!couple) throw new AppExc(A_SRV, '17-Couple non trouvé')
-
-  const compteurs = new Compteurs(compta.data)
-  compteurs.setV1(-couple.v1)
-  compteurs.setV2(-couple.v2)
+  decorCouple(couple)
   args.purgefic = couple.v1 || couple.v2
-  compta.v = args.vav
-  compta.data = compteurs.calculauj().serial
-  stmt(cfg, updcompta).run(compta)
-  rowItems.push(newItem('compta', compta))
 
+  // (a)
+  const a = stmt(cfg, selavatarId).get({ id: args.avid })
+  if (!a) throw new AppExc(A_SRV, '17-Avatar non trouvé')
   const m = a.lcck ? deserial(a.lcck) : null
   const map = m || {}
   delete map[args.ni]
@@ -1720,10 +1723,35 @@ function supprimerCoupleTr (cfg, args, rowItems) {
   stmt(cfg, upd2avatar).run(a)
   rowItems.push(newItem('avatar', a))
 
-  stmt(cfg, delcouple).run(couple.id)
-  if (args.purgefic) stmt(cfg, delsecret).run({ id: couple.id })
-  if (args.phch) stmt(cfg, delcontact).run({ phch: args.phch }) // suppression du contact
-  if (args.ni1) stmt(cfg, delinvitcp).run({ id: couple.id1, ni : args.ni1 }) // suppression de linvitcp
+  if (couple.orig === 0 && couple.stp <= 2) { // (b)
+    const a = stmt(cfg, selavatarId).get({ id: args.avid2 })
+    if (!a) throw new AppExc(A_SRV, '17-Avatar non trouvé')
+    const m = a.lcck ? deserial(a.lcck) : null
+    const map = m || {}
+    delete map[args.ni1]
+    a.v = args.vav1
+    a.lcck = serial(map)
+    stmt(cfg, upd2avatar).run(a)
+    rowItems.push(newItem('avatar', a))
+  }
+
+  if (couple.stp === 5) { // (c)
+    const compta = stmt(cfg, selcomptaId).get({ id: args.avid })
+    if (!compta) throw new AppExc(A_SRV, '17-Avatar : données de comptabilité absentes')
+    const compteurs = new Compteurs(compta.data)
+    compteurs.setV1(-couple.v1)
+    compteurs.setV2(-couple.v2)
+    compta.v = args.vav
+    compta.data = compteurs.calculauj().serial
+    stmt(cfg, updcompta).run(compta)
+    rowItems.push(newItem('compta', compta))
+  }
+
+  stmt(cfg, delcouple).run(couple.id) // (d)
+  if (args.purgefic) stmt(cfg, delsecret).run({ id: couple.id }) // (e)
+  if (args.phch) stmt(cfg, delcontact).run({ phch: args.phch }) // (f)
+  if (couple.stp === 1 && couple.orig === 0) 
+    stmt(cfg, delinvitcp).run({ id: args.avid1, ni : args.ni1 }) // (g)
 }
 
 function decorCouple (c, jourj) {
