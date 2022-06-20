@@ -1723,8 +1723,8 @@ function supprimerCoupleTr (cfg, args, rowItems) {
   stmt(cfg, upd2avatar).run(a)
   rowItems.push(newItem('avatar', a))
 
-  if (couple.orig === 0 && couple.stp <= 2) { // (b)
-    const a = stmt(cfg, selavatarId).get({ id: args.avid2 })
+  if (couple.sto === 0 && couple.stp <= 2) { // (b)
+    const a = stmt(cfg, selavatarId).get({ id: args.avid1 })
     if (!a) throw new AppExc(A_SRV, '17-Avatar non trouvé')
     const m = a.lcck ? deserial(a.lcck) : null
     const map = m || {}
@@ -1747,10 +1747,10 @@ function supprimerCoupleTr (cfg, args, rowItems) {
     rowItems.push(newItem('compta', compta))
   }
 
-  stmt(cfg, delcouple).run(couple.id) // (d)
+  stmt(cfg, delcouple).run(couple) // (d)
   if (args.purgefic) stmt(cfg, delsecret).run({ id: couple.id }) // (e)
   if (args.phch) stmt(cfg, delcontact).run({ phch: args.phch }) // (f)
-  if (couple.stp === 1 && couple.orig === 0) 
+  if (couple.stp === 1 && couple.sto === 0) 
     stmt(cfg, delinvitcp).run({ id: args.avid1, ni : args.ni1 }) // (g)
 }
 
