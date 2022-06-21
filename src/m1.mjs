@@ -560,7 +560,7 @@ async function chargerSc (cfg, args) {
   rows.forEach((row) => {
     result.rowItems.push(newItem('secret', row))
   })
-  if (args.cpl) session.plusCouples2(args.id)
+  if (args.cpl) session.plusCouples2([args.id])
   return result
 }
 m1fonctions.chargerSc = chargerSc
@@ -1681,7 +1681,7 @@ async function supprimerCouple (cfg, args) {
   versions[j]++
   args.vav = versions[j] // version de l'avatar (pour compta et lcck)
 
-  if (args.avid2) { // version de avid2 (dans ce cas avid est av0)
+  if (args.avid1) { // version de avid1 (dans ce cas avid est av0)
     j = idx(args.avid1)
     versions[j]++
     args.vav1 = versions[j] // version du couple
