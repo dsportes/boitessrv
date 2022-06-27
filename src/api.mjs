@@ -179,6 +179,7 @@ schemas.forSchema({
   - `r3` : ratio des transferts cumulés du mois / volume du forfait v2
 - `res1 res2` : pour un parrain, réserve de forfaits v1 et v2.
 - `t1 t2` : pour un parrain, total des forfaits 1 et 2 attribués aux filleuls.
+- `s1 s2` : pour un avatar primaire, total des forfaits attribués aux secondaires.
 */
 
 const lch1 = ['j', 'v1', 'v1m', 'v2', 'v2m', 'trm', 'f1', 'f2', 'rtr', 'res1', 'res2', 't1', 't2']
@@ -213,6 +214,8 @@ export class Compteurs {
     this.res2 = src ? src.res2 : 0
     this.t1 = src ? src.t1 : 0
     this.t2 = src ? src.t2 : 0
+    this.s1 = src ? src.s1 : 0
+    this.s2 = src ? src.s2 : 0
     this.maj = false
   }
 
@@ -300,6 +303,16 @@ export class Compteurs {
     this.t2 = this.t2 + delta2
     this.res1 = this.res1 - delta1
     this.res2 = this.res2 - delta2
+    this.maj = true
+    return true
+  }
+
+  setAS (delta1, delta2) { // maj forfaits attribués à un avatar secondaire
+    if ((this.v1 > (this.f1 - delta1) * UNITEV1) || (this.v2 > (this.f2 - delta2) * UNITEV2)) return false
+    this.f1 = this.f1 - delta1
+    this.f2 = this.f2 - delta2
+    this.s1 = this.s1 + delta1
+    this.s2 = this.s2 + delta2
     this.maj = true
     return true
   }
