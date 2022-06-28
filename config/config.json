@@ -3,8 +3,8 @@
   "https": true,
   "origins2": ["localhost", "localhost:8443", "https://localhost", "https://test.sportes.fr", "https://192.168.1.2:8080"],
   "orgs": {
-    "doda": { "comptables": [5983374920213029] },
-    "super": { "comptables": [5983374920213029] }
+    "doda": { "comptables": [5983374920213028] },
+    "super": { "comptables": [5983374920213028] }
   },
   "s3config": {
     "s3" : {

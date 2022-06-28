@@ -95,12 +95,12 @@ function stmt (cfg, sql) {
 }
 
 /******************************************
-Si la dds actuelle de l'avatar ou du groupe ou du couple n'a pas plus de 14 jours, elle convient encore.
+Si la dds actuelle de l'avatar ou du groupe ou du contact n'a pas plus de 14 jours, elle convient encore.
 Sinon il faut en réattribuer une qui ait entre 0 et 14 d'âge.
 */
-function ddsAvatarGroupeCouple (dds) {
+function ddsAvatarGroupeCouple () {
   const j = new DateJour().nbj
-  return ((j - dds) > 14) ? j - Math.floor(Math.random() * 14) : dds
+  return j - Math.floor(Math.random() * 14)
 }
 /******************************************/
 const selvalues = 'SELECT v FROM versions WHERE id = @id'
@@ -149,8 +149,8 @@ function newItem (table, row) {
 /******************************************/
 const inscompte = 'INSERT INTO compte (id, v, dpbh, pcbh, kx, mack, vsh) '
   + 'VALUES (@id, @v, @dpbh, @pcbh, @kx, @mack, @vsh)'
-const inscompta = 'INSERT INTO compta (id, idp, v, st, dst, data, dh, ard, flag, vsh) '
-  + 'VALUES (@id, @idp, @v, @st, @dst, @data, @dh, @ard, @flag, @vsh)'
+const inscompta = 'INSERT INTO compta (id, t, v, st, rb, dst, dstc, data, vsh) '
+  + 'VALUES (@id, @t, @v, @st, @rb, @dst, @dstc, @data, @vsh)'
 const insprefs = 'INSERT INTO prefs (id, v, mapk, vsh) '
   + 'VALUES (@id, @v, @mapk, @vsh)'
 const insavatar = 'INSERT INTO avatar (id, v, lgrk, lcck, vsh) '
@@ -163,8 +163,8 @@ const inssecret = 'INSERT INTO secret (id, ns, x, v, st, xp, v1, v2, mc, txts, m
 const inscontact = 'INSERT INTO contact (phch, dlv, ccx, vsh) '
   + 'VALUES (@phch, @dlv, @ccx, @vsh)'
 // eslint-disable-next-line no-unused-vars
-const inscouple = 'INSERT INTO couple (id, v, st, v1, v2, mx10, mx20, mx11, mx21, dlv, datac, infok0, infok1, mc0, mc1, ardc, vsh) '
- + 'VALUES (@id, @v, @st, @v1, @v2, @mx10, @mx20, @mx11, @mx21, @dlv, @datac, @infok0, @infok1, @mc0, @mc1, @ardc, @vsh)'
+const inscouple = 'INSERT INTO couple (id, v, st, tp, autp, v1, v2, mx10, mx20, mx11, mx21, dlv, datac, infok0, infok1, mc0, mc1, ardc, vsh) '
+ + 'VALUES (@id, @v, @st, @tp, @autp, @v1, @v2, @mx10, @mx20, @mx11, @mx21, @dlv, @datac, @infok0, @infok1, @mc0, @mc1, @ardc, @vsh)'
 const insgroupe = 'INSERT INTO groupe (id, v, dfh, st, mxim, imh, v1, v2, f1, f2, mcg, vsh)'
  + 'VALUES (@id, @v, @dfh, @st, @mxim, @imh, @v1, @v2, @f1, @f2, @mcg, @vsh)'
 const insmembre = 'INSERT INTO membre (id, im, v, st, vote, mc, infok, datag, ardg, vsh)'
@@ -217,13 +217,10 @@ function creationCompte (cfg, args) {
   const cv = { id: avatar.id, v: 0, x: 0, dds: 0, cv: null, vsh: 0 }
 
   const versions = getValue(cfg, VERSIONS)
-  let j = idx(compte.id)
+  const j = idx(compte.id)
   versions[j]++
   compte.v = versions[j]
   prefs.v = versions[j]
-
-  j = idx(avatar.id)
-  versions[j]++
   avatar.v = versions[j]
   compta.v = versions[j]
 
@@ -231,8 +228,7 @@ function creationCompte (cfg, args) {
   cv.v = versions[0]
   setValue(cfg, VERSIONS)
 
-  compte.dds = new DateJour().nbj
-  cv.dds = ddsAvatarGroupeCouple(0)
+  cv.dds = new DateJour().nbj - 14
   const avrsa = { id: avatar.id, clepub: args.clePubAv, vsh: 0 }
 
   cfg.db.transaction(creationCompteTr)(cfg, session, compte, compta, prefs, avatar, cv, avrsa)
@@ -275,6 +271,7 @@ args
 Retour
 - rowCompte, rowPrefs (null si pas plus récent)
 - estComtable si la phrase du compte est enregistrée comme comptable dans la configuration
+- dds : dernière signature du compte
 */
 async function connexionCompte (cfg, args) {
   const session = checkSession(args.sessionId)
@@ -296,9 +293,11 @@ function connexionCompteTr(cfg, args, result) {
   }
   args.id = compte.id
   const prefs = stmt(cfg, selprefs).get({ id: compte.id, v: args.vprefs })
+  const cv = stmt(cfg, selcvId).get({ id:compte.id })
   result.rowCompte = compte.v > args.vcompte ? newItem('compte', compte) : null
   result.rowPrefs = prefs ? newItem('prefs', prefs) : null
   result.estComptable = cfg.comptables.indexOf(compte.pcbh) !== -1
+  result.dds = cv.dds
 }
 
 /*********************************************/
@@ -458,8 +457,19 @@ async function desabonnements (cfg, args) {
 m1fonctions.desabonnements = desabonnements
 
 /********************************************************
+Abonnements aux secrets des couples
+*/
+async function aboCpSec (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  session.plusCouples2(args.lids)
+  return result
+}
+m1fonctions.aboCpSec = aboCpSec
+
+/********************************************************
 Chargement des groupes et couples des avatars d'un compte
-Abonneents à ceux-ci
+Abonnements et signatures
 Vérifie que les avatars du compte et le compte n'ont pas changé de version
 args :
 - sessionId
@@ -517,25 +527,17 @@ function chargerGrCpTr(cfg, args, grIds, cpIds, rowItems) {
   args.ok = true
 }
 
-const updddscompte = 'UPDATE compte SET dds = @dds WHERE id = @id'
 const updddscv= 'UPDATE cv SET dds = @dds WHERE id = @id'
-const ddscompte = 'SELECT dds FROM compte WHERE id = @id'
 const ddscv = 'SELECT dds FROM cv WHERE id = @id'
 
 function signatures (cfg, idc, lagc) {
-  if (idc) {
-    const a = stmt(cfg, ddscompte).get({ id: idc })
-    if (a) {
-      const j = new DateJour().nbj
-      if (a.dds < j) stmt(cfg, updddscompte).run({ id: idc, dds:j })
-    }
-  }
+  const c = stmt(cfg, ddscv).get({ id: idc })
+  let j = new DateJour().nbj
+  if (c.dds > j - 28) return
+  j -= 14
+  stmt(cfg, updddscv).run({ id: idc, dds: j })
   lagc.forEach((id) => {
-    const a = stmt(cfg, ddscv).get({ id: id })
-    if (a) {
-      const j = ddsAvatarGroupeCouple(a.dds)
-      if (a.dds < j) stmt(cfg, updddscv).run({ id: id, dds: j })
-    }
+    if (id !== idc) stmt(cfg, updddscv).run({ id: id, dds: j + Math.floor(Math.random() * 14) })
   })
 }
 
@@ -650,7 +652,7 @@ function creationAvatar (cfg, args) {
   const avatar = schemas.deserialize('rowavatar', args.rowAvatar)
   const compta = schemas.deserialize('rowcompta', args.rowCompta)
   const avrsa = { id: avatar.id, clepub: args.clePub, vsh: 0 }
-  const cv = { id: avatar.id, v: 0, x: 0, dds: ddsAvatarGroupeCouple(0), cv: null, vsh: 0 }
+  const cv = { id: avatar.id, v: 0, x: 0, dds: ddsAvatarGroupeCouple(), cv: null, vsh: 0 }
 
   const versions = getValue(cfg, VERSIONS)
   let j = idx(args.idc)
@@ -680,6 +682,8 @@ function creationAvatar (cfg, args) {
 
   syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
+  session.plusAvatars([avatar.id])
+  session.plusCvss([avatar.id])
   result.statut = 0
   return result
 }
@@ -729,7 +733,6 @@ function creationAvatarTr (cfg, session, args, avatar, compta, avrsa, cv, rowIte
 
   stmt(cfg, inscv).run(cv)
   rowItems.push(newItem('cv', cv))
-  session.plusAvatars([avatar.id])
 }
 
 /***************************************
@@ -1384,7 +1387,7 @@ async function nouveauCouple (cfg, args) {
   versions[j]++
   invitcp.v = versions[j] // version du row avatar 1
 
-  const cv = { id: couple.id, v: 0, x: 0, dds: ddsAvatarGroupeCouple(0), cv: null, vsh: 0 }
+  const cv = { id: couple.id, v: 0, x: 0, dds: ddsAvatarGroupeCouple(), cv: null, vsh: 0 }
   j = idx(0)
   versions[j]++
   cv.v = versions[j] // version de la cv du couple
@@ -1564,10 +1567,10 @@ async function nouveauParrainage (cfg, args) {
   versions[j]++
   args.v = versions[j] // version du row avatar
 
-  const cv = { id: couple.id, v: 0, x: 0, dds: ddsAvatarGroupeCouple(0), cv: null, vsh: 0 }
+  const cv = { id: couple.id, v: 0, x: 0, dds: ddsAvatarGroupeCouple(), cv: null, vsh: 0 }
   j = idx(0)
   versions[j]++
-  cv.v = versions[j] // version de la cv du groupe
+  cv.v = versions[j] // version de la cv du contact
 
   setValue(cfg, VERSIONS)
 
@@ -1576,6 +1579,7 @@ async function nouveauParrainage (cfg, args) {
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems })
   setImmediate(() => { processQueue() })
   session.plusCouples([couple.id])
+  session.plusCvs([couple.id])
   if (args.sec) session.plusCouples2([couple.id])
   return { sessionId: args.sessionId, dh: dh }
 }
@@ -2052,6 +2056,7 @@ function refusRencontreTr (cfg, args, rowItems) {
 
   couple.v = args.vc
   couple.ardc = args.ardc
+  couple.tp = 0
   decorCouple(couple)
   couple.stp = 2
   couple.st1 = 0
@@ -2075,10 +2080,9 @@ Acceptation d'un parrainage
     idavp: couple.idE, // id de l'avatar parrain
     dr1: arg.estPar ? d.r1 + d.f1 : d.f1, // montant à réduire de sa réserve
     dr2: arg.estPar ? d.r2 + d.f2 : d.f2,
-    mc0: arg.estPar ? MC.FILLEUL : MC.INTRODUIT, // mot clé à ajouter dans le couple
-    mc1: arg.estPar ? MC.PARRAIN : MC.INTRODUCTEUR,
     ardc // ardoise du couple
     sec : le filleul accède aux secrets du couple
+    estPar: le filleul est parrain lui-même
 Refus
     sessionId: data.sessionId,
     phch: arg.phch, // hash de la phrase de contact
@@ -2095,8 +2099,8 @@ A_SRV, '24-Couple non trouvé'
 
 const delcontact = 'DELETE FROM contact WHERE phch = @phch'
 const updcompta = 'UPDATE compta SET v = @v, data = @data WHERE id = @id'
-const upd2couple = 'UPDATE couple SET v = @v, st = @st, dlv = 0, ardc = @ardc, mc0 = @mc0, mc1 = @mc1 WHERE id = @id'
-const upd3couple = 'UPDATE couple SET v = @v, st = @st, dlv = 0, mx11 = @mx11, mx21 = @mx21, ardc = @ardc, datac = @datac WHERE id = @id'
+const upd2couple = 'UPDATE couple SET v = @v, tp = @tp, st = @st, dlv = 0, ardc = @ardc WHERE id = @id'
+const upd3couple = 'UPDATE couple SET v = @v, tp = @tp, st = @st, dlv = 0, mx11 = @mx11, mx21 = @mx21, ardc = @ardc, datac = @datac WHERE id = @id'
 const updv1v2couple = 'UPDATE couple SET v = @v, v1 = @v1, v2 = @v2 WHERE id = @id'
 const updv1v2groupe = 'UPDATE groupe SET v = @v, v1 = @v1, v2 = @v2 WHERE id = @id'
 
@@ -2109,7 +2113,7 @@ async function acceptParrainage (cfg, args) {
   const avatar = schemas.deserialize('rowavatar', args.rowAvatar)
   const compta = schemas.deserialize('rowcompta', args.rowCompta)
   const prefs = schemas.deserialize('rowprefs', args.rowPrefs)
-  const cv = { id: avatar.id, v: 0, x: 0, dds: ddsAvatarGroupeCouple(0), cv: null, vsh: 0 }
+  const cv = { id: avatar.id, v: 0, x: 0, dds: new DateJour().nbj - 14, cv: null, vsh: 0 }
 
   const versions = getValue(cfg, VERSIONS)
 
@@ -2158,6 +2162,8 @@ async function acceptParrainage (cfg, args) {
   session.plusCouples([args.idCouple])
   if (args.sec) session.plusCouples2([args.idCouple])
   session.plusCvs([args.idavp])
+  session.plusCvs([args.idCouple])
+  session.plusCvs([avatar.id])
   return result
 }
 m1fonctions.acceptParrainage = acceptParrainage
@@ -2178,27 +2184,20 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
   if (!comptaP) throw new AppExc(A_SRV, '17-Avatar parrain : données de comptabilité absentes')
 
   const compteurs = new Compteurs(comptaP.data)
-  let ok = compteurs.setFF(args.dr1, args.dr2)
-  if (!ok) throw new AppExc(X_SRV, '18-Réserves de volume insuffisantes du parrain pour les forfaits attribués au compte filleul')
-  ok = compteurs.setRes([-args.dr1, -args.dr2])
-  if (!ok) throw new AppExc(X_SRV, '18-Réserves de volume insuffisantes du parrain pour les réserves attribuées au compte filleul lui-même parrain')
+  const ok = compteurs.setRes([-args.dr1, -args.dr2])
+  if (!ok) throw new AppExc(X_SRV, '18-Réserves de volume insuffisantes du parrain pour les forfaits / réserves attribuées au compte filleul lui-même parrain')
   comptaP.v = args.vcp
   comptaP.data = compteurs.calculauj().serial
   stmt(cfg, updcompta).run(comptaP)
   items.comptaP = comptaP
 
   // Insertion des nouveaux compte, avatar, prefs du filleul
-  compte.dds = new DateJour().nbj
   stmt(cfg, inscompte).run(compte)
-
   stmt(cfg, insprefs).run(prefs)
-
   stmt(cfg, inscompta).run(compta)
-
   stmt(cfg, insavatar).run(avatar)
-
   stmt(cfg, inscv).run(cv)
-
+  
   // Clé RSA du filleul
   const avrsaAv = { id: avatar.id, clepub: args.clePubAv, vsh: 0 }
   stmt(cfg, insavrsa).run(avrsaAv)
@@ -2207,17 +2206,16 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
   const cp = stmt(cfg, selcoupleId).get({ id: args.idCouple })
   if (!cp) throw new AppExc(A_SRV, '24-Couple non trouvé')
   cp.v = args.vcouple
+  cp.tp = args.estPar ? 0 : 1 // dans le couple, A0 N'EST PAS parrain si le "filleul" est parrain lui-même
   decorCouple(cp)
   cp.stp = 4
   cp.st1 = args.sec ? 1 : 0
   setSt(cp)
-  cp.mc1 = new Uint8Array(args.mc1)
-  const s = cp.mc0 ? new Set(cp.mc0) : new Set()
-  args.mc0.forEach(m => { s.add(m) })
-  cp.mc0 = new Uint8Array(Array.from(s))
   cp.ardc = args.ardc
   stmt(cfg, upd2couple).run(cp)
   items.couple = cp
+  // signature du couple
+  stmt(cfg, updddscv).run({ id: args.idCouple, dds: ddsAvatarGroupeCouple() })
 }
 
 /***************************************
@@ -2284,7 +2282,7 @@ async function creationGroupe (cfg, args) {
   versions[j]++
   args.v = versions[j] // version de l'avatar
 
-  const cv = { id: groupe.id, v: 0, x: 0, dds: ddsAvatarGroupeCouple(0), cv: null, vsh: 0 }
+  const cv = { id: groupe.id, v: 0, x: 0, dds: ddsAvatarGroupeCouple(), cv: null, vsh: 0 }
   j = idx(0)
   versions[j]++
   cv.v = versions[j] // version de la cv du groupe
@@ -2295,6 +2293,8 @@ async function creationGroupe (cfg, args) {
 
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: rowItems }) // à synchroniser
   setImmediate(() => { processQueue() })
+  session.plusGroupes([groupe.id])
+  session.plusCvs([groupe.id])
   return result
 }
 m1fonctions.creationGroupe = creationGroupe
@@ -2320,8 +2320,6 @@ function creationGroupeTr (cfg, session, args, groupe, membre, cv, rowItems) {
 
   stmt(cfg, insmembre).run(membre)
   rowItems.push(newItem('membre', membre))
-
-  session.plusGroupes([groupe.id])
 }
 
 /* Maj CV d'un groupe ****************************************

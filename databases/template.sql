@@ -10,36 +10,34 @@ CREATE INDEX "id_v_avatar" ON "avatar" (
 	"id",
 	"v"
 );
+
 CREATE TABLE IF NOT EXISTS "avrsa" (
 	"id"	INTEGER,
 	"clepub"	BLOB,
 	"vsh"	INTEGER,
 	PRIMARY KEY("id")
 ) WITHOUT ROWID;
-CREATE TABLE IF NOT EXISTS "compta" (
-	"id"	INTEGER,
-	"idp"	INTEGER,
-	"v"	INTEGER,
-	"st"	INTEGER,
-	"dst"	INTEGER,
-	"data"	BLOB,
-  "dh" INTEGER,
-  "ard" BLOB,
-	"vsh"	INTEGER,
-	PRIMARY KEY("id")
+
+CREATE TABLE "compta" (
+"id"	INTEGER,
+"t"	INTEGER,
+"v"	INTEGER,
+"st"	INTEGER,
+"rb"  INTEGER,
+"dst" INTEGER,
+"dstc" INTEGER,
+"data"	BLOB,
+"vsh"	INTEGER,
+PRIMARY KEY("id")
 ) WITHOUT ROWID;
-CREATE INDEX "idp_compta" ON "compta" (
-	"idp"
-);
-CREATE INDEX "st_compta" ON "compta" (
-	"st"
-) WHERE "st" > 0;
+CREATE INDEX "t_compta" ON "compta" ( "t" ) WHERE "t" > 0;
+CREATE INDEX "st_compta" ON "compta" ( "st" ) WHERE "st" > 0;
+
 CREATE TABLE IF NOT EXISTS "compte" (
   "id"	INTEGER,
   "v"		INTEGER,
   "dpbh"	INTEGER,
   "pcbh"	INTEGER,
-  "dds" INTEGER,
   "kx"   BLOB,
   "mack"  BLOB,
   "vsh"	INTEGER,
@@ -48,9 +46,7 @@ CREATE TABLE IF NOT EXISTS "compte" (
 CREATE UNIQUE INDEX "dpbh_compte" ON "compte" (
 	"dpbh"
 );
-CREATE INDEX "dds_compte" ON "compte" (
-    "dds"
-);
+
 CREATE TABLE IF NOT EXISTS "contact" (
   "phch"   INTEGER,
   "dlv"	INTEGER,
@@ -59,10 +55,13 @@ CREATE TABLE IF NOT EXISTS "contact" (
   PRIMARY KEY("phch")
 );
 CREATE INDEX "dlv_contact" ON "contact" ( "dlv" );
+
 CREATE TABLE IF NOT EXISTS "couple" (
   "id"   INTEGER,
   "v"  	INTEGER,
   "st" INTEGER,
+  "tp"  INTEGER,
+  "autp"  INTEGER,
   "v1"  INTEGER,
   "v2"  INTEGER,
   "mx10"  INTEGER,
@@ -80,6 +79,7 @@ CREATE TABLE IF NOT EXISTS "couple" (
   PRIMARY KEY("id")
 ) WITHOUT ROWID;
 CREATE INDEX "id_v_couple" ON "couple" ( "id", "v" );
+
 CREATE TABLE IF NOT EXISTS "groupe" (
 	"id"	INTEGER,
 	"v"	INTEGER,
@@ -100,12 +100,14 @@ CREATE INDEX "id_v_groupe" ON "groupe" (
 	"v"
 );
 CREATE INDEX "dfh_groupe" ON "groupe" ( "dfh" ) WHERE "dfh" > 0;
+
 CREATE TABLE IF NOT EXISTS "invitgr" (
 	"id"	INTEGER,
 	"ni"	INTEGER,
 	"datap"	BLOB,
 	PRIMARY KEY("id","ni")
 );
+
 CREATE TABLE IF NOT EXISTS "membre" (
 	"id"	INTEGER,
 	"im"	INTEGER,
@@ -123,6 +125,7 @@ CREATE INDEX "id_v_membre" ON "membre" (
 	"id",
 	"v"
 );
+
 CREATE TABLE IF NOT EXISTS "prefs" (
 	"id"	INTEGER,
 	"v"	INTEGER,
@@ -130,6 +133,7 @@ CREATE TABLE IF NOT EXISTS "prefs" (
 	"vsh"	INTEGER,
 	PRIMARY KEY("id")
 ) WITHOUT ROWID;
+
 CREATE TABLE IF NOT EXISTS "secret" (
 	"id"	INTEGER,
 	"ns"	INTEGER,
@@ -149,6 +153,7 @@ CREATE INDEX "id_v_secret" ON "secret" (
 	"id",
 	"v"
 );
+
 CREATE TABLE IF NOT EXISTS "trec" (
   "id"	INTEGER,
   "idf" INTEGER,
@@ -156,11 +161,13 @@ CREATE TABLE IF NOT EXISTS "trec" (
   PRIMARY KEY("id", "idf")
 );
 CREATE INDEX "dlv_trec" ON "trec" ( "dlv" );
+
 CREATE TABLE IF NOT EXISTS "versions" (
   "id"  INTEGER,
   "v"  BLOB,
   PRIMARY KEY("id")
 ) WITHOUT ROWID;
+
 CREATE TABLE IF NOT EXISTS "cv" (
   "id"	INTEGER,
   "v" INTEGER,
@@ -173,9 +180,19 @@ CREATE TABLE IF NOT EXISTS "cv" (
 CREATE INDEX "id_v_cv" ON "cv" ( "id", "v");
 CREATE INDEX "dds_cv" ON "cv" ( "dds" ) WHERE "dds" > 0;
 CREATE INDEX "x_cv" ON "cv" ( "x" ) WHERE "x" = 1;
+
 CREATE TABLE IF NOT EXISTS "invitcp" (
 	"id"	INTEGER,
 	"ni"	INTEGER,
 	"datap"	BLOB,
 	PRIMARY KEY("id","ni")
 );
+
+CREATE TABLE IF NOT EXISTS "chat" (
+  "id"	INTEGER,
+  "dh"  INTEGER,
+  "txt" BLOB,
+  "vsh" INTEGER,
+  PRIMARY KEY("id", "dh")
+);
+CREATE INDEX "dh_chat" ON "chat" ( "dh" );

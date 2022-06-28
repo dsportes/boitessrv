@@ -12,3 +12,4 @@ DROP TABLE prefs;
 DROP TABLE secret;
 DROP TABLE trec;
 DROP TABLE versions;
+DROP TABLE chat;

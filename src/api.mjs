@@ -45,28 +45,30 @@ export const MC = {
   ATRAITER: 245
 }
 
-export const t0n = new Set(['compte', 'prefs']) // singletons
+export const t0n = new Set(['compte', 'prefs', 'chat']) // singletons
 export const t1n = new Set(['avatar', 'compta', 'couple', 'groupe', 'fetat', 'avsecret']) // clé à 1 niveau
 export const t2n = new Set(['membre', 'secret']) // clé à 2 niveaux
 
 /*
-- `versions` (id) : table des prochains numéros de versions (actuel et dernière sauvegarde) et autres singletons clé / valeur
+- `versions` (id) : table des prochains numéros de versions (actuel et dernière sauvegarde) et autres singletons (id value)
 - `avrsa` (id) : clé publique d'un avatar
+- `trec` (id) : transfert de fichier en cours (uploadé mais pas encore enregistré comme fichier d'un secret)
 
-__**Tables transmises au client**_
+_**Tables transmises au client**_
 
 - `compte` (id) : authentification et liste des avatars d'un compte
 - `prefs` (id) : données et préférences d'un compte
 - `compta` (id) : ligne comptable du compte
-- `cv` (id) : staut d'existence, signature et carte de visite des avatars, couples et groupes.
-- `avatar` (id) : données d'un avatar et liste de ses contacts
-- `couple` (id) : données d'un couple de contacts entre deux avatars
+- `cv` (id) : statut d'existence, signature et carte de visite des avatars, contacts et groupes.
+- `avatar` (id) : données d'un avatar et liste de ses contacts et groupes
+- `couple` (id) : données d'un contact entre deux avatars
 - `groupe` (id) : données du groupe
 - `membre` (id, im) : données d'un membre du groupe
 - `secret` (id, ns) : données d'un secret d'un avatar, couple ou groupe
 - `contact` (phch) : parrainage ou rencontre de A0 vers un A1 à créer ou inconnu par une phrase de contact
 - `invitgr` (id, ni) : **NON persistante en IDB**. invitation reçue par un avatar à devenir membre d'un groupe
 - `invitcp` (id, ni) : **NON persistante en IDB**. invitation reçue par un avatar à devenir membre d'un couple
+- `chat` (id, dh) : chat d'un avatar primaire (compte) avec les comptables.
 */
 
 schemas.forSchema({
@@ -81,7 +83,7 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowcompte',
-  cols: ['id', 'v', 'dds', 'dpbh', 'pcbh', 'kx', 'mack', 'vsh']
+  cols: ['id', 'v', 'dpbh', 'pcbh', 'kx', 'mack', 'vsh']
 })
 
 schemas.forSchema({
@@ -91,12 +93,12 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowcompta',
-  cols: ['id', 'idp', 'v', 'st', 'dst', 'data', 'dh', 'flag', 'ard', 'vsh']
+  cols: ['id', 't', 'v', 'st', 'rb', 'dst', 'dstc', 'data', 'vsh']
 })
 
 schemas.forSchema({
   name: 'rowcouple',
-  cols: ['id', 'v', 'st', 'v1', 'v2', 'mx10', 'mx20', 'mx11', 'mx21', 'dlv', 'datac', 'infok0', 'infok1', 'mc0', 'mc1', 'ardc', 'vsh']
+  cols: ['id', 'v', 'st', 'tp', 'autp', 'v1', 'v2', 'mx10', 'mx20', 'mx11', 'mx21', 'dlv', 'datac', 'infok0', 'infok1', 'mc0', 'mc1', 'ardc', 'vsh']
 })
 
 schemas.forSchema({
@@ -157,6 +159,11 @@ schemas.forSchema({
 schemas.forSchema({
   name: 'rowtrec',
   cols: ['id', 'idf', 'dlv']
+})
+
+schemas.forSchema({
+  name: 'rowchat',
+  cols: ['id', 'dh', 'txt', 'vsh']
 })
 
 schemas.forSchema({

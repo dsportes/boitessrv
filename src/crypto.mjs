@@ -38,9 +38,9 @@ function hash (str, big = false, b64 = false, seed = 0) {
   return b64 ? int2base64(r) : r
 }
 
-function hashBin (str, big = false, b64 = false, seed = 0) {
+function hashBin (str) {
   // https://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript
-  let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57
   for (let i = 0, ch; i < str.length; i++) {
     ch = str[i]
     h1 = Math.imul(h1 ^ ch, 2654435761)
@@ -48,8 +48,7 @@ function hashBin (str, big = false, b64 = false, seed = 0) {
   }
   h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909)
   h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909)
-  const r = big ? 4294967296n * BigInt(h2) + BigInt(h1) : 4294967296 * (2097151 & h2) + (h1 >>> 0)
-  return b64 ? int2base64(r) : r
+  return 4294967296 * (2097151 & h2) + ((h1 >> 2) << 2)
 }
 
 const c64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'

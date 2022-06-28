@@ -12,3 +12,4 @@ DELETE FROM prefs;
 DELETE FROM secret;
 DELETE FROM trec;
 DELETE FROM versions;
+DELETE FROM chat;
