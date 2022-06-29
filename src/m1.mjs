@@ -630,13 +630,12 @@ function chargerCVsTr (cfg, session, args, rowItems) {
 /* Creation nouvel avatar ****************************************
 - sessionId,
 - clePub,
-- idc: numéro du compte
+- idc: id du compte
 - vcav: version du compte avant (ne doit pas avoir changé),
 - mack: map des avatars dans le compte
 - rowAvatar: du nouvel avatar
 - rowCompta: du nouvel avatar
 - forfaits: prélevés sur l'avatar primitif
-- idPrimitif: id de l'avatar primitif du compte sur lequel les forfaits sont prélevés
 Retour :
 - sessionId
 - dh
@@ -664,10 +663,6 @@ function creationAvatar (cfg, args) {
   avatar.v = versions[j]
   compta.v = versions[j]
 
-  j = idx(args.idPrimitif)
-  versions[j]++
-  args.vprim = versions[j]
-
   versions[0]++ // version des CVs
   cv.v = versions[0]
   setValue(cfg, VERSIONS)
@@ -683,7 +678,7 @@ function creationAvatar (cfg, args) {
   syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
   setImmediate(() => { processQueue() })
   session.plusAvatars([avatar.id])
-  session.plusCvss([avatar.id])
+  session.plusCvs([avatar.id])
   result.statut = 0
   return result
 }
@@ -703,16 +698,14 @@ function creationAvatarTr (cfg, session, args, avatar, compta, avrsa, cv, rowIte
   stmt(cfg, upd1compte).run(c)
   rowItems.push(newItem('compte', c))
 
-  const cprim = stmt(cfg, selcomptaId).get({ id: args.idPrimitif })
-  if (!cprim) throw new AppExc(A_SRV, '06-Compte non trouvé')
+  const cprim = stmt(cfg, selcomptaId).get({ id: args.idc })
+  if (!cprim) throw new AppExc(A_SRV, '06-Compta non trouvé')
 
   {
-    cprim.v = args.vprim
+    cprim.v = args.vc2
     const compteurs = new Compteurs(cprim.data)
-    let ok = compteurs.setF1(compteurs.f1 - args.forfaits[0])
+    const ok = compteurs.setAS(args.forfaits)
     if (!ok) throw new AppExc(X_SRV, '26-Forfait V1 insuffisant pour l\'attribution souhaitée au nouvel avatar')
-    ok = compteurs.setF2(compteurs.f2 - args.forfaits[1])
-    if (!ok) throw new AppExc(X_SRV, '27-Forfait V2 insuffisant pour l\'attribution souhaitée au nouvel avatar')
     cprim.data = compteurs.serial
     stmt(cfg, updcompta).run(cprim)
     rowItems.push(newItem('compta', cprim))
@@ -799,10 +792,9 @@ function majCV (cfg, args) {
   const dh = getdhc()
 
   const versions = getValue(cfg, VERSIONS)
-  const j = idx(0)
-  versions[j]++
+  versions[0]++
   setValue(cfg, VERSIONS)
-  const v = versions[j]
+  const v = versions[0]
 
   const rowItems = []
 
@@ -1388,9 +1380,8 @@ async function nouveauCouple (cfg, args) {
   invitcp.v = versions[j] // version du row avatar 1
 
   const cv = { id: couple.id, v: 0, x: 0, dds: ddsAvatarGroupeCouple(), cv: null, vsh: 0 }
-  j = idx(0)
-  versions[j]++
-  cv.v = versions[j] // version de la cv du couple
+  versions[0]++
+  cv.v = versions[0] // version de la cv du couple
 
   setValue(cfg, VERSIONS)
   const rowItems = []
@@ -1568,9 +1559,8 @@ async function nouveauParrainage (cfg, args) {
   args.v = versions[j] // version du row avatar
 
   const cv = { id: couple.id, v: 0, x: 0, dds: ddsAvatarGroupeCouple(), cv: null, vsh: 0 }
-  j = idx(0)
-  versions[j]++
-  cv.v = versions[j] // version de la cv du contact
+  versions[0]++
+  cv.v = versions[0] // version de la cv du contact
 
   setValue(cfg, VERSIONS)
 
@@ -2018,7 +2008,7 @@ Refus d'une rencontre / parrainage
 args :
   - sessionid
   - idc: id du couple
-  - phch: id du contact
+  - phch: id de phrase de contact
   - ardc : du contact
 Retour:
 A_SRV, '17-Couple non trouvé'
@@ -2042,8 +2032,8 @@ async function refusRencontre (cfg, args) {
   setImmediate(() => { processQueue() })
 
   // Abonnements du compte
-  session.plusCouples([args.idc])
-  if (args.sec) session.moinsCouples2([args.idc])
+  session.moinsCouples([args.idc])
+  session.moinsCouples2([args.idc])
   return result
 }
 m1fonctions.refusRencontre = refusRencontre
@@ -2058,7 +2048,7 @@ function refusRencontreTr (cfg, args, rowItems) {
   couple.ardc = args.ardc
   couple.tp = 0
   decorCouple(couple)
-  couple.stp = 2
+  couple.stp = 3
   couple.st1 = 0
   setSt(couple)
   couple.mx11 = 0
@@ -2078,8 +2068,10 @@ Acceptation d'un parrainage
     idCouple: couple.id, // id du couple
     phch: arg.phch, // hash de la phrase de contact
     idavp: couple.idE, // id de l'avatar parrain
-    dr1: arg.estPar ? d.r1 + d.f1 : d.f1, // montant à réduire de sa réserve
-    dr2: arg.estPar ? d.r2 + d.f2 : d.f2,
+    r1: arg.estpar ? d.r1 : 0, // montant à réduire de sa réserve
+    r2: arg.estpar ? d.r2 : 0,
+    f1: d.f1,
+    f2: d.f2,
     ardc // ardoise du couple
     sec : le filleul accède aux secrets du couple
     estPar: le filleul est parrain lui-même
@@ -2125,9 +2117,6 @@ async function acceptParrainage (cfg, args) {
   versions[j]++
   compte.v = versions[j] // version du compte filleul (MOI)
   prefs.v = versions[j] // version de prefs filleul (MOI)
-
-  j = idx(avatar.id)
-  versions[j]++
   avatar.v = versions[j] // version de l'avatar filleul (MOI)
   compta.v = versions[j] // version de compta filleul (MOI)
 
@@ -2135,9 +2124,8 @@ async function acceptParrainage (cfg, args) {
   versions[j]++
   args.vcouple = versions[j] // version du couple
 
-  j = idx(0)
-  versions[j]++
-  cv.v = versions[j] // version de la carte de visite
+  versions[0]++
+  cv.v = versions[0] // version de la carte de visite
 
   setValue(cfg, VERSIONS)
 
@@ -2184,8 +2172,10 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
   if (!comptaP) throw new AppExc(A_SRV, '17-Avatar parrain : données de comptabilité absentes')
 
   const compteurs = new Compteurs(comptaP.data)
-  const ok = compteurs.setRes([-args.dr1, -args.dr2])
-  if (!ok) throw new AppExc(X_SRV, '18-Réserves de volume insuffisantes du parrain pour les forfaits / réserves attribuées au compte filleul lui-même parrain')
+  let ok = compteurs.setRes([-args.r1, -args.r2])
+  if (!ok) throw new AppExc(X_SRV, '18-Réserves de volume insuffisantes du parrain pour les réserves attribuées au compte filleul lui-même parrain')
+  ok = compteurs.setFF([args.f1, args.f2])
+  if (!ok) throw new AppExc(X_SRV, '18-Réserves de volume insuffisantes du parrain pour les forfaits attribués au compte filleul')
   comptaP.v = args.vcp
   comptaP.data = compteurs.calculauj().serial
   stmt(cfg, updcompta).run(comptaP)
@@ -2283,9 +2273,8 @@ async function creationGroupe (cfg, args) {
   args.v = versions[j] // version de l'avatar
 
   const cv = { id: groupe.id, v: 0, x: 0, dds: ddsAvatarGroupeCouple(), cv: null, vsh: 0 }
-  j = idx(0)
-  versions[j]++
-  cv.v = versions[j] // version de la cv du groupe
+  versions[0]++
+  cv.v = versions[0] // version de la cv du groupe
   setValue(cfg, VERSIONS)
 
   const rowItems = []

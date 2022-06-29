@@ -221,14 +221,14 @@ export class Compteurs {
     this.res2 = src ? src.res2 : 0
     this.t1 = src ? src.t1 : 0
     this.t2 = src ? src.t2 : 0
-    this.s1 = src ? src.s1 : 0
-    this.s2 = src ? src.s2 : 0
+    this.s1 = src ? (src.s1 || 0) : 0
+    this.s2 = src ? (src.s2 || 0) : 0
     this.maj = false
   }
 
   setRtr () {
     let s = 0; this.tr.forEach(n => { s += n })
-    this.rtr = mx255(s / (this.f2 * UNITEV2))
+    this.rtr = s === 0 ? 0 : (this.f2 ? mx255(s / (this.f2 * UNITEV2)) : 255)
   }
 
   get copie () { // retourne un {...} contenant les champs (ce N'EST PAS un OBJET Compteurs)
@@ -304,22 +304,22 @@ export class Compteurs {
     return true
   }
 
-  setFF (delta1, delta2) { // maj forfaits attribués à un filleul
-    if ((this.t1 + delta1 > this.res1) || (this.t1 + delta1 > this.res1)) return false
-    this.t1 = this.t1 + delta1
-    this.t2 = this.t2 + delta2
-    this.res1 = this.res1 - delta1
-    this.res2 = this.res2 - delta2
+  setFF (delta) { // maj forfaits attribués à un filleul
+    if ((this.t1 + delta[0] > this.res1) || (this.t2 + delta[1] > this.res2)) return false
+    this.t1 = this.t1 + delta[0]
+    this.t2 = this.t2 + delta[1]
+    this.res1 = this.res1 - delta[0]
+    this.res2 = this.res2 - delta[1]
     this.maj = true
     return true
   }
 
-  setAS (delta1, delta2) { // maj forfaits attribués à un avatar secondaire
-    if ((this.v1 > (this.f1 - delta1) * UNITEV1) || (this.v2 > (this.f2 - delta2) * UNITEV2)) return false
-    this.f1 = this.f1 - delta1
-    this.f2 = this.f2 - delta2
-    this.s1 = this.s1 + delta1
-    this.s2 = this.s2 + delta2
+  setAS (delta) { // maj forfaits attribués à un avatar secondaire
+    if ((this.v1 > (this.f1 - delta[0]) * UNITEV1) || (this.v2 > (this.f2 - delta[1]) * UNITEV2)) return false
+    this.f1 = this.f1 - delta[0]
+    this.f2 = this.f2 - delta[1]
+    this.s1 = this.s1 + delta[0]
+    this.s2 = this.s2 + delta[1]
     this.maj = true
     return true
   }
