@@ -1,7 +1,7 @@
 import { crypt } from './crypto.mjs'
 import { getdhc, sleep } from './util.mjs'
 import { getSession, syncListQueue, processQueue } from './session.mjs'
-import { AppExc, X_SRV, E_WS, A_SRV, DateJour, Compteurs, UNITEV1, UNITEV2 } from './api.mjs'
+import { AppExc, X_SRV, E_WS, A_SRV, DateJour, Compteurs, UNITEV1, UNITEV2, IDCOMPTABLE } from './api.mjs'
 import { schemas, deserial, serial } from './schemas.mjs'
 
 export const m1fonctions = { }
@@ -202,12 +202,15 @@ Retour :
 - sessionId
 - dh
 */
-function creationCompte (cfg, args) {
+function creationCompteComptable (cfg, args) {
   const session = checkSession(args.sessionId)
   const compte = schemas.deserialize('rowcompte', args.rowCompte)
 
-  if (cfg.comptables.indexOf(compte.pcbh) === -1) {
-    throw new AppExc(X_SRV, '02-Cette phrase secrète n\'est pas reconnue comme étant l\'une des comptables de l\'organisation')
+  if (cfg.comptable === compte.pcbh) {
+    throw new AppExc(X_SRV, '02-Cette phrase secrète n\'est pas reconnue comme étant celle du comptable de l\'organisation')
+  }
+  if (compte.id !== IDCOMPTABLE) {
+    throw new AppExc(X_SRV, '02-Erreur d\'ID pour le compte Comptable')
   }
 
   const result = { sessionId: args.sessionId, dh: getdhc() }
@@ -231,22 +234,18 @@ function creationCompte (cfg, args) {
   cv.dds = new DateJour().nbj - 14
   const avrsa = { id: avatar.id, clepub: args.clePubAv, vsh: 0 }
 
-  cfg.db.transaction(creationCompteTr)(cfg, session, compte, compta, prefs, avatar, cv, avrsa)
+  cfg.db.transaction(creationCompteComptableTr)(cfg, session, compte, compta, prefs, avatar, cv, avrsa)
 
   result.rowItems = [newItem('compte', compte), newItem('compta', compta), newItem('prefs', prefs), newItem('avatar', avatar)]    
   result.estComptable = 1
   return result
 }
-m1fonctions.creationCompte = creationCompte
+m1fonctions.creationCompteComptable = creationCompteComptable
 
-function creationCompteTr (cfg, session, compte, compta, prefs, avatar, cv, avrsa) {
-  const c = stmt(cfg, selcomptedpbh).get({ dpbh: compte.dpbh })
+function creationCompteComptableTr (cfg, session, compte, compta, prefs, avatar, cv, avrsa) {
+  const c = stmt(cfg, selcompteId).get({ id: compte.id })
   if (c) {
-    if (c.pcbh === compte.pcbh) {
-      throw new AppExc(X_SRV, '03-Phrase secrète probablement déjà utilisée. Vérifier que le compte n\'existe pas déjà en essayant de s\'y connecter avec la phrase secrète')
-    } else {
-      throw new AppExc(X_SRV, '04-Une phrase secrète semblable est déjà utilisée. Changer a minima la première ligne de la phrase secrète pour ce nouveau compte')
-    }
+    throw new AppExc(X_SRV, '03-Compte Comptable déjà créé')
   }
 
   stmt(cfg, inscompte).run(compte)
