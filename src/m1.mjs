@@ -147,53 +147,104 @@ function newItem (table, row) {
 }
 
 /******************************************/
-const inscompte = 'INSERT INTO compte (id, v, dpbh, pcbh, kx, mack, vsh) '
-  + 'VALUES (@id, @v, @dpbh, @pcbh, @kx, @mack, @vsh)'
-const inscompta = 'INSERT INTO compta (id, t, v, st, rb, dst, dstc, data, vsh) '
-  + 'VALUES (@id, @t, @v, @st, @rb, @dst, @dstc, @data, @vsh)'
+// eslint-disable-next-line no-unused-vars
+const instribu = 'INSERT INTO tribu (id, v, datak, datat, vsh) '
+  + 'VALUES (@id, @v, @datak, @datat, @vsh)'
+// eslint-disable-next-line no-unused-vars
+const inschat = 'INSERT INTO chat (id, dh, v, txtt, vsh) '
+  + 'VALUES (@id, @dh, @v, @txtt, @vsh)'
+// eslint-disable-next-line no-unused-vars
+const insgcvol = 'INSERT INTO gcvol (id, idt, f1, f2, vsh) '
+  + 'VALUES (@id, @idt, @f1, @f2, @vsh)'
+const instrec = 'INSERT INTO trec (id, idf, dlv) '
+  + 'VALUES (@id, @idf, @dlv)'
+const inscompte = 'INSERT INTO compte (id, v, dpbh, pcbh, kx, stp, nctk, idtpc, mack, vsh) '
+  + 'VALUES (@id, @v, @dpbh, @pcbh, @kx, @stp, @nctk, @idtpc, @mack, @vsh)'
 const insprefs = 'INSERT INTO prefs (id, v, mapk, vsh) '
   + 'VALUES (@id, @v, @mapk, @vsh)'
-const insavatar = 'INSERT INTO avatar (id, v, lgrk, lcck, vsh) '
-  + 'VALUES (@id, @v, @lgrk, @lcck, @vsh)'
 const insavrsa = 'INSERT INTO avrsa (id, clepub, vsh) '
   + 'VALUES (@id, @clepub, @vsh)'
-const inssecret = 'INSERT INTO secret (id, ns, x, v, st, xp, v1, v2, mc, txts, mfas, refs, vsh) ' +
-  'VALUES (@id, @ns, @x, @v, @st, @xp, @v1, @v2, @mc, @txts, @mfas, @refs, @vsh)'
-// eslint-disable-next-line no-unused-vars
-const inscontact = 'INSERT INTO contact (phch, dlv, ccx, vsh) '
-  + 'VALUES (@phch, @dlv, @ccx, @vsh)'
-// eslint-disable-next-line no-unused-vars
-const inscouple = 'INSERT INTO couple (id, v, st, tp, autp, v1, v2, mx10, mx20, mx11, mx21, dlv, datac, infok0, infok1, mc0, mc1, ardc, vsh) '
- + 'VALUES (@id, @v, @st, @tp, @autp, @v1, @v2, @mx10, @mx20, @mx11, @mx21, @dlv, @datac, @infok0, @infok1, @mc0, @mc1, @ardc, @vsh)'
-const insgroupe = 'INSERT INTO groupe (id, v, dfh, st, mxim, imh, v1, v2, f1, f2, mcg, vsh)'
- + 'VALUES (@id, @v, @dfh, @st, @mxim, @imh, @v1, @v2, @f1, @f2, @mcg, @vsh)'
-const insmembre = 'INSERT INTO membre (id, im, v, st, vote, mc, infok, datag, ardg, vsh)'
- + 'VALUES (@id, @im, @v, @st, @vote, @mc, @infok, @datag, @ardg, @vsh)'
-const insinvitgr = 'INSERT INTO invitgr (id, ni, datap) '
-  + 'VALUES (@id, @ni, @datap)'
-// eslint-disable-next-line no-unused-vars
-const insinvitcp = 'INSERT INTO invitcp (id, ni, datap) '
-  + 'VALUES (@id, @ni, @datap)'
 const inscv = 'INSERT INTO cv (id, v, x, dds, cv, vsh) '
   + 'VALUES (@id, @v, @x, @dds, @cv, @vsh)'
-const instrec = 'INSERT INTO trec (id, idf, dlv) VALUES (@id, @idf, @dlv)'
+const insavatar = 'INSERT INTO avatar (id, v, lgrk, lcck, vsh) '
+  + 'VALUES (@id, @v, @lgrk, @lcck, @vsh)'
+const inscompta = 'INSERT INTO compta (id, t, v, st, txtt, dh, data, vsh) '
+  + 'VALUES (@id, @t, @v, @st, @txtt, @dh, @data, @vsh)'
+const inscouple = 'INSERT INTO couple (id, v, st, v1, v2, mx10, mx20, mx11, mx21, dlv, datac, phk0, infok0, infok1, mc0, mc1, ardc, vsh) '
+  + 'VALUES (@id, @v, @st, @v1, @v2, @mx10, @mx20, @mx11, @mx21, @dlv, @datac, @phk0, @infok0, @infok1, @mc0, @mc1, @ardc, @vsh)'
+const inscontact = 'INSERT INTO contact (phch, dlv, datax, vsh) '
+  + 'VALUES (@phch, @dlv, @datax, @vsh)'
+const insgroupe = 'INSERT INTO groupe (id, v, dfh, st, mxim, imh, v1, v2, f1, f2, mcg, vsh)'
+  + 'VALUES (@id, @v, @dfh, @st, @mxim, @imh, @v1, @v2, @f1, @f2, @mcg, @vsh)'
+const insmembre = 'INSERT INTO membre (id, im, v, st, vote, mc, infok, datag, ardg, vsh)'
+  + 'VALUES (@id, @im, @v, @st, @vote, @mc, @infok, @datag, @ardg, @vsh)'
+const insinvitgr = 'INSERT INTO invitgr (id, ni, datap) '
+   + 'VALUES (@id, @ni, @datap)'
+const insinvitcp = 'INSERT INTO invitcp (id, ni, datap) '
+   + 'VALUES (@id, @ni, @datap)'  
+const inssecret = 'INSERT INTO secret (id, ns, x, v, st, xp, v1, v2, mc, txts, mfas, refs, vsh) ' +
+  'VALUES (@id, @ns, @x, @v, @st, @xp, @v1, @v2, @mc, @txts, @mfas, @refs, @vsh)'
+
+// eslint-disable-next-line no-unused-vars
+const seltribu = 'SELECT * FROM tribu'
+// eslint-disable-next-line no-unused-vars
+const seltribuId = 'SELECT * FROM tribu WHERE id = @id'
+// eslint-disable-next-line no-unused-vars
+const selchatId = 'SELECT * FROM chat WHERE id = @id'
+// eslint-disable-next-line no-unused-vars
+const selchatDh = 'SELECT * FROM chat WHERE dh >= @dh'
+// eslint-disable-next-line no-unused-vars
+const selgcvol = 'SELECT * FROM gcvol'
+
+const selavrsapub = 'SELECT clepub FROM avrsa WHERE id = @id'
 
 const selcompteId = 'SELECT * FROM compte WHERE id = @id'
+const selcompteIdv = 'SELECT v FROM compte WHERE id = @id'
+const selcompteDpbh = 'SELECT * FROM compte WHERE dpbh = @dpbh'
+
+const selprefs = 'SELECT * FROM prefs WHERE id = @id AND v > @v'
 const selprefsId = 'SELECT * FROM prefs WHERE id = @id'
+
+const selcompta = 'SELECT * FROM compta WHERE id = @id AND v > @v'
 const selcomptaId = 'SELECT * FROM compta WHERE id = @id'
+
+const selavatar = 'SELECT * FROM avatar WHERE id = @id AND v > @v'
 const selavatarId = 'SELECT * FROM avatar WHERE id = @id'
-const selgroupeId = 'SELECT * FROM groupe WHERE id = @id'
+const selavatarIdv = 'SELECT v FROM avatar WHERE id = @id'
+
+const selcouple = 'SELECT * FROM couple WHERE id = @id AND v > @v'
 const selcoupleId = 'SELECT * FROM couple WHERE id = @id'
+
+const selgroupe = 'SELECT * FROM groupe WHERE id = @id AND v > @v'
+const selgroupeId = 'SELECT * FROM groupe WHERE id = @id'
+
 const selcontactPhch = 'SELECT * FROM contact WHERE phch = @phch'
 const selcvId = 'SELECT * FROM cv WHERE id = @id'
+
+const selsecret = 'SELECT * FROM secret WHERE id = @id AND v > @v'
 const selsecretIdNs = 'SELECT * FROM secret WHERE id = @id AND ns = @ns'
+
+const selmembre = 'SELECT * FROM membre WHERE id = @id AND v > @v'
 const selmembreIdIm = 'SELECT * FROM membre WHERE id = @id AND im = @im'
+const selactifsmembre = 'SELECT COUNT(im) FROM membre WHERE id = @id AND st >= 10 AND st < 30'
+
 const selinvitgrId = 'SELECT * FROM invitgr WHERE id = @id'
+
 const selinvitcpId = 'SELECT * FROM invitcp WHERE id = @id'
-const deltrecIdIdf = 'DELETE FROM trec WHERE id = @id AND idf = @idf'
 
 function idx (id) {
   return (id % (nbVersions - 1)) + 1
+}
+
+let clepubC = null
+
+function clepubComptable (cfg) {
+  if (!clepubC) {
+    const c = stmt(cfg, selavrsapub).get({ id: crypt.sidToId(crypt.idToSid(IDCOMPTABLE)) })
+    if (!c) throw new AppExc(A_SRV, '01-Clé publique du comptable inconnue')
+    clepubC = c.clepub
+  }
+  return clepubC
 }
 
 /* Creation du compte d'un comptable ****************************************
@@ -269,7 +320,7 @@ args
 - vcompte vprefs
 Retour
 - rowCompte, rowPrefs (null si pas plus récent)
-- estComtable si la phrase du compte est enregistrée comme comptable dans la configuration
+- clepubc : clé publique du comptable
 - dds : dernière signature du compte
 */
 async function connexionCompte (cfg, args) {
@@ -277,16 +328,13 @@ async function connexionCompte (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
   cfg.db.transaction(connexionCompteTr)(cfg, args, result)
   session.setCompte(args.id) // RAZ des abonnements et abonnement au compte
+  result.clepuc = clepubComptable(cfg)
   return result
 }
 m1fonctions.connexionCompte = connexionCompte
 
-const selcomptedpbh = 'SELECT * FROM compte WHERE dpbh = @dpbh'
-const selprefs = 'SELECT * FROM prefs WHERE id = @id AND v > @v'
-const selcompta = 'SELECT * FROM compta WHERE id = @id AND v > @v'
-
 function connexionCompteTr(cfg, args, result) {
-  const compte = stmt(cfg, selcomptedpbh).get({ dpbh: args.dpbh })
+  const compte = stmt(cfg, selcompteDpbh).get({ dpbh: args.dpbh })
   if (!compte || (compte.pcbh !== args.pcbh)) {
     throw new AppExc(X_SRV, '08-Compte non authentifié : aucun compte n\'est déclaré avec cette phrase secrète')
   }
@@ -295,13 +343,9 @@ function connexionCompteTr(cfg, args, result) {
   const cv = stmt(cfg, selcvId).get({ id:compte.id })
   result.rowCompte = compte.v > args.vcompte ? newItem('compte', compte) : null
   result.rowPrefs = prefs ? newItem('prefs', prefs) : null
-  result.estComptable = cfg.comptables.indexOf(compte.pcbh) !== -1
   result.dds = cv.dds
 }
 
-/*********************************************/
-const selavataridv = 'SELECT v FROM avatar WHERE id = @id'
-const selcompteidv = 'SELECT v FROM compte WHERE id = @id'
 /*****************************************
 Chargement les avatars d'un compte dont la version est plus récente que celle détenue en session
 Abonnemnts aux avatars
@@ -327,10 +371,8 @@ async function chargerAvatars (cfg, args) {
 }
 m1fonctions.chargerAvatars = chargerAvatars
 
-const selavatar = 'SELECT * FROM avatar WHERE id = @id AND v > @v'
-
 function chargerAvatarsTr(cfg, args, rowItems) {
-  const c = stmt(cfg, selcompteidv).get({ id : args.idc })
+  const c = stmt(cfg, selcompteIdv).get({ id : args.idc })
   if (!c || c.v > args.vc) { args.ok = false; return }
   args.ok = true
   args.ids = []
@@ -495,17 +537,14 @@ async function chargerGrCp (cfg, args) {
 }
 m1fonctions.chargerGrCp = chargerGrCp
 
-const selgroupe = 'SELECT * FROM groupe WHERE id = @id AND v > @v'
-const selcouple = 'SELECT * FROM couple WHERE id = @id AND v > @v'
-
 function chargerGrCpTr(cfg, args, grIds, cpIds, rowItems) {
-  const c = stmt(cfg, selcompteidv).get({ id : args.idc })
+  const c = stmt(cfg, selcompteIdv).get({ id : args.idc })
   if (!c || c.v > args.vc) { args.ok = false; return }
   const ids = []
   for (const idx in args.avidsVers) {
     const id = parseInt(idx)
     ids.push(id)
-    const a = stmt(cfg, selavataridv).get({ id })
+    const a = stmt(cfg, selavatarIdv).get({ id })
     if (!a || a.v > args.avidsVers[id]) { args.ok = false; return }  
   }
   for(const idx in args.gridsVers) {
@@ -878,9 +917,6 @@ function majCoupleTr (cfg, args, rowItems) {
 
 /**************************************** */
 
-const selsecret = 'SELECT * FROM secret WHERE id = @id AND v > @v'
-const selmembre = 'SELECT * FROM membre WHERE id = @id AND v > @v'
-
 const updstmembre = 'UPDATE membre SET v = @v, st = @st WHERE id = @id AND im = @im'
 const updstcouple = 'UPDATE couple SET v = @v, st = @st WHERE id = @id'
 const updstvcouple = 'UPDATE couple SET v = @v, st = @st, v1 = @v1, v2 = @v2 WHERE id = @id'
@@ -971,6 +1007,7 @@ function regulCpTr (cfg, args, rowItems) {
   rowItems.push(newItem('avatar', a))
   stmt(cfg, delinvitcp).run({ id: args.id, ni: args.ni })
 }
+
 /* Suppression d'accès à un groupe pour un avatar ****************************************
 Suppression de l'entrée de lgrk d'un avatar correspondant à un groupe
 - (1) détecté zombi par une session (expiration d'une période post fin d'hébergement)
@@ -982,7 +1019,6 @@ args
 - id: id de l'avatar
 - ni: numéro d'invitation
 */
-
 async function supprAccesGrAv (cfg, args) {
   checkSession(args.sessionId)
   const dh = getdhc()
@@ -1021,7 +1057,6 @@ args:
 retour
 - sessionId, dh
 */
-
 async function membreDisparu (cfg, args) {
   checkSession(args.sessionId)
   const dh = getdhc()
@@ -1102,7 +1137,6 @@ function coupleDisparuTr (cfg, args, rowItems) {
 Chargement des invitGr des avatars d'un compte
 - sessionId, ids (array des ids des avatars)
 */
-
 async function chargerInvitGr (cfg, args) {
   checkSession(args.sessionId)
   const result = { sessionId: args.sessionId, dh: getdhc(), rowItems: [] }
@@ -1120,7 +1154,6 @@ m1fonctions.chargerInvitGr = chargerInvitGr
 Chargement des invitCp des avatars d'un compte
 - sessionId, ids (array des ids des avatars)
 */
-
 async function chargerInvitCp (cfg, args) {
   checkSession(args.sessionId)
   const result = { sessionId: args.sessionId, dh: getdhc(), rowItems: [] }
@@ -1162,8 +1195,6 @@ args :
 -sessionId
 -sid de l'avatar
 */
-const selavrsapub = 'SELECT clepub FROM avrsa WHERE id = @id'
-
 async function getclepub (cfg, args) {
   checkSession(args.sessionId)
   try {
@@ -1189,7 +1220,6 @@ Args :
 - info : array des lignes d'information
 Exception : dépassement des quotas 
 */
-
 async function nouveauSecret (cfg, args) {
   checkSession(args.sessionId)
   const dh = getdhc()
@@ -2156,7 +2186,7 @@ async function acceptParrainage (cfg, args) {
 m1fonctions.acceptParrainage = acceptParrainage
   
 function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, cv, items) {
-  const c = stmt(cfg, selcomptedpbh).get({ dpbh: compte.dpbh })
+  const c = stmt(cfg, selcompteDpbh).get({ dpbh: compte.dpbh })
   if (c) {
     if (c.pcbh === compte.pcbh) {
       throw new AppExc(X_SRV, '03-Phrase secrète probablement déjà utilisée. Vérifier que le compte n\'existe pas déjà en essayant de s\'y connecter avec la phrase secrète')
@@ -2622,7 +2652,6 @@ args :
 Retour: sessionId, dh
 A_SRV, '19-Membre non trouvé'
 */
-
 async function majinfoMembre (cfg, args) {
   const session = checkSession(args.sessionId)
   const dh = getdhc()
@@ -2665,7 +2694,6 @@ A_SRV, '10-Données de comptabilité absentes'
 A_SRV, '18-Groupe non trouvé'
 X_SRV, '22-Cet avatar n\'est pas l\'hébergeur actuel du groupe'
 */
-
 async function finhebGroupe (cfg, args) {
   checkSession(args.sessionId)
   const dh = getdhc()
@@ -2727,7 +2755,6 @@ A_SRV, '18-Groupe non trouvé'
 X_SRV, '20-Groupe encore hébergé : un nouvel hébergeur ne peut se proposer que si le groupe n\'a plus d'avatar hébergeur'
 X_SRV, '21-Limite de volume (' + f + ') insuffisante pour héberger le volume actuel groupe.'
 */
-
 async function debhebGroupe (cfg, args) {
   checkSession(args.sessionId)
   const dh = getdhc()
@@ -2790,7 +2817,6 @@ A_SRV, '18-Groupe non trouvé'
 A_SRV, '22-Groupe hébergé par un autre avatar'
 X_SRV, '21-Limite de volume (' + f + ') insuffisante pour héberger le groupe avec son volume actuel.'
 */
-
 async function majvmaxGroupe (cfg, args) {
   checkSession(args.sessionId)
   const dh = getdhc()
@@ -2844,7 +2870,6 @@ Retour: sessionId, dh
 A_SRV, '18-Groupe non trouvé'
 A_SRV, '19-Membre non trouvé'
 */
-
 async function majLAAMembre (cfg, args) {
   checkSession(args.sessionId)
   const dh = getdhc()
@@ -2884,8 +2909,6 @@ args :
 Retour: sessionId, dh
 A_SRV, '18-Groupe non trouvé'
 */
-const updmximgroupe = 'UPDATE groupe SET mxim = @mxim WHERE id = @id'
-
 async function contactGroupe (cfg, args) {
   checkSession(args.sessionId)
   const dh = getdhc()
@@ -2912,6 +2935,8 @@ async function contactGroupe (cfg, args) {
   return result
 }
 m1fonctions.contactGroupe = contactGroupe
+
+const updmximgroupe = 'UPDATE groupe SET mxim = @mxim WHERE id = @id'
 
 function contactGroupeTr (cfg, args, membre, rowItems) {
   const groupe = stmt(cfg, selgroupeId).get({ id: membre.id })
@@ -2940,7 +2965,6 @@ args :
 Retour: sessionId, dh
 A_SRV, '19-Membre non trouvé
 */
-
 async function inviterGroupe (cfg, args) {
   checkSession(args.sessionId)
   const dh = getdhc()
@@ -2983,7 +3007,6 @@ args :
 Retour: sessionId, dh
 A_SRV, '19-Membre non trouvé
 */
-
 async function acceptInvitGroupe (cfg, args) {
   checkSession(args.sessionId)
   const dh = getdhc()
@@ -3025,7 +3048,6 @@ Retour: sessionId, dh
 A_SRV, '19-Membre non trouvé
 A_SRV, '17-Avatar non trouvé'
 */
-
 async function refusInvitGroupe (cfg, args) {
   checkSession(args.sessionId)
   const dh = getdhc()
@@ -3091,7 +3113,6 @@ Retour: sessionId, dh
 A_SRV, '19-Membre non trouvé
 A_SRV, '17-Avatar non trouvé'
 */
-
 async function resilierMembreGroupe (cfg, args) {
   checkSession(args.sessionId)
   const dh = getdhc()
@@ -3162,7 +3183,6 @@ Retour: sessionId, dh
 - url : url à passer sur le PUT de son contenu
 Exceptions : volume en excédent
 */
-
 async function putUrl (cfg, args) {
   checkSession(args.sessionId)
   const dh = getdhc()
@@ -3194,8 +3214,6 @@ Exceptions :
 - A_SRV, '25-Secret non trouvé'
 - volume en excédent
 */
-const updmfassecret = 'UPDATE secret SET v = @v, v2 = @v2, mfas = @mfas WHERE id = @id AND ns = @ns'
-
 async function validerUpload (cfg, args) {
   checkSession(args.sessionId)
   const dh = getdhc()
@@ -3208,6 +3226,9 @@ async function validerUpload (cfg, args) {
   return result
 }
 m1fonctions.validerUpload = validerUpload
+
+const updmfassecret = 'UPDATE secret SET v = @v, v2 = @v2, mfas = @mfas WHERE id = @id AND ns = @ns'
+const deltrecIdIdf = 'DELETE FROM trec WHERE id = @id AND idf = @idf'
 
 function validerUploadTr (cfg, args, rowItems) {
   const secret = stmt(cfg, selsecretIdNs).get({ id: args.id, ns: args.ns })
@@ -3485,8 +3506,6 @@ function volumesTr (cfg, args, rowItems, simul) {
   }
   if (!simul) return info
 }
-
-const selactifsmembre = 'SELECT COUNT(im) FROM membre WHERE id = @id AND st >= 10 AND st < 30'
 
 function nbmembresactifsinvitesTr (cfg, idg) {
   const r = stmt(cfg, selactifsmembre).get({ id: idg })

@@ -7,6 +7,11 @@ CREATE TABLE IF NOT EXISTS "versions" (
 CREATE TABLE IF NOT EXISTS "tribu" (
   "id"	INTEGER,
   "v"		INTEGER,
+  "nbc" INTEGER,
+  "f1"  INTEGER,
+  "f2"  INTEGER,
+  "r1"  INTEGER,
+  "r2"  INTEGER,
   "datak"	BLOB,
   "datat"	BLOB,
   "vsh"	INTEGER,

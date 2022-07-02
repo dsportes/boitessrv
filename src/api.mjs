@@ -48,7 +48,7 @@ export const MC = {
 }
 
 export const t0n = new Set(['compte', 'prefs', 'chat']) // singletons
-export const t1n = new Set(['avatar', 'compta', 'couple', 'groupe', 'fetat', 'avsecret']) // clé à 1 niveau
+export const t1n = new Set(['tribu', 'avatar', 'compta', 'couple', 'groupe', 'fetat', 'avsecret']) // clé à 1 niveau
 export const t2n = new Set(['membre', 'secret']) // clé à 2 niveaux
 
 /*
@@ -82,7 +82,7 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowtribu',
-  cols: ['id', 'v', 'datak', 'datat', 'vsh']
+  cols: ['id', 'v', 'nbc', 'f1', 'f2', 'r1', 'r2', 'datak', 'datat', 'vsh']
 })
 
 schemas.forSchema({
@@ -92,7 +92,7 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowgcvol',
-  cols: ['id', 'idt', 'f1', 'f2', 'vsh', 'vsh']
+  cols: ['id', 'idt', 'f1', 'f2', 'vsh']
 })
 
 schemas.forSchema({

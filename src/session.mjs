@@ -1,4 +1,4 @@
-import { PINGTO } from './api.mjs'
+import { PINGTO, IDCOMPTABLE } from './api.mjs'
 import { schemas } from './schemas.mjs'
 import { getdhc } from './util.mjs'
 
@@ -155,6 +155,10 @@ export class Session {
     const msg = { sessionId: this.sessionId, dh: syncList.dh, rowItems: [] }
     syncList.rowItems.forEach((rowItem) => {
       switch (rowItem.table) {
+      case 'tribu' : {
+        if (IDCOMPTABLE === this.compteId) msg.rowItems.push(rowItem)
+        break
+      }
       case 'compte' : {
         if (rowItem.id === this.compteId) msg.rowItems.push(rowItem)
         break
