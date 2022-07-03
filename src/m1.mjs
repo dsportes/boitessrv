@@ -193,7 +193,6 @@ const seltribuId = 'SELECT * FROM tribu WHERE id = @id'
 const selchatId = 'SELECT * FROM chat WHERE id = @id'
 // eslint-disable-next-line no-unused-vars
 const selchatDh = 'SELECT * FROM chat WHERE dh >= @dh'
-// eslint-disable-next-line no-unused-vars
 const selgcvol = 'SELECT * FROM gcvol'
 
 const selavrsapub = 'SELECT clepub FROM avrsa WHERE id = @id'
@@ -257,7 +256,7 @@ function creationCompteComptable (cfg, args) {
   const session = checkSession(args.sessionId)
   const compte = schemas.deserialize('rowcompte', args.rowCompte)
 
-  if (cfg.comptable === compte.pcbh) {
+  if (cfg.comptable !== compte.pcbh) {
     throw new AppExc(X_SRV, '02-Cette phrase secrète n\'est pas reconnue comme étant celle du comptable de l\'organisation')
   }
   if (compte.id !== IDCOMPTABLE) {
@@ -287,8 +286,7 @@ function creationCompteComptable (cfg, args) {
 
   cfg.db.transaction(creationCompteComptableTr)(cfg, session, compte, compta, prefs, avatar, cv, avrsa)
 
-  result.rowItems = [newItem('compte', compte), newItem('compta', compta), newItem('prefs', prefs), newItem('avatar', avatar)]    
-  result.estComptable = 1
+  result.rowItems = [newItem('compte', compte), newItem('compta', compta), newItem('prefs', prefs), newItem('avatar', avatar)]
   return result
 }
 m1fonctions.creationCompteComptable = creationCompteComptable
@@ -328,7 +326,7 @@ async function connexionCompte (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
   cfg.db.transaction(connexionCompteTr)(cfg, args, result)
   session.setCompte(args.id) // RAZ des abonnements et abonnement au compte
-  result.clepuc = clepubComptable(cfg)
+  result.clepubc = clepubComptable(cfg)
   return result
 }
 m1fonctions.connexionCompte = connexionCompte
@@ -343,7 +341,90 @@ function connexionCompteTr(cfg, args, result) {
   const cv = stmt(cfg, selcvId).get({ id:compte.id })
   result.rowCompte = compte.v > args.vcompte ? newItem('compte', compte) : null
   result.rowPrefs = prefs ? newItem('prefs', prefs) : null
-  result.dds = cv.dds
+}
+
+/************************************************************
+GC des volumes
+Détermine si les hash de la phrase secrète en argument correspond à un compte.
+RAZ des abonnements en cours et abonnement au compte
+args
+- dpbh
+- pcbh
+- vcompte vprefs
+Retour
+- rowCompte, rowPrefs (null si pas plus récent)
+- clepubc : clé publique du comptable
+- dds : dernière signature du compte
+*/
+async function collecteVolumes (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const rowItems = []
+  const rows = stmt(cfg, selgcvol).all()
+  rows.forEach((row) => { 
+    rowItems.push(newItem('gcvol', row))
+  })
+  result.rowItems = rowItems
+  return result
+}
+m1fonctions.collecteVolumes = collecteVolumes
+
+/* Mise à jour des volumes récupérés par le GC - majVolumes
+- sessionId
+- maxdh : dh maximale desrécupération de volumes collectés
+- map :
+  - clé : id tribu
+  - valeur:
+    - v1 : volume v1 à restituer
+    - v2 : volume v2 à restituer
+Supprime les rows gcvol traités
+*/
+async function majVolumes (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const rowItems = []
+
+  const versions = getValue(cfg, VERSIONS)
+  for (const id of args.map) {
+    const j = idx(id)
+    versions[j]++
+    args.map[id].v = versions[j]
+  }
+  setValue(cfg, VERSIONS)
+
+  cfg.db.transaction(majVolumesTr)(cfg, args, rowItems)
+  syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  result.rowItems = rowItems
+  return result
+}
+m1fonctions.majVolumes = majVolumes
+
+const upd1tribu = 'UPDATE tribu SET v = @v, f1 = @f1, f2 = @f2, r1 = @r1, r2 = @r2 WHERE id = @id'
+const delgcvol = 'DELETE FROM gcvol WHERE id > @id'
+
+function majVolumesTr (cfg, args, rowItems) {
+  for (const idx of args.map) {
+    const id = parseInt(idx)
+    const x = args.map[idx]
+    const row = stmt(cfg, seltribuId).all({ id })
+    if (row) {
+      /*
+      - `nbc` : nombre de comptes actifs dans la tribu.
+      - `f1 f2` : sommes des volumes V1 et V2 déjà attribués comme forfaits aux comptes de la tribu.
+      - `r1 r2` : volumes V1 et V2 en réserve pour attribution aux comptes actuels et futurs de la tribu.
+      */
+      row.v = x.v
+      row.nbc -= 1
+      row.f1 -= x.f1
+      row.f2 -= x.f2
+      row.r1 += x.f1
+      row.r2 += x.f2
+      stmt(cfg, upd1tribu).run(row)
+      rowItems.push(newItem('tribu', row))
+    }
+  }
+  stmt(cfg, delgcvol).run({ id: args.maxdh })
 }
 
 /*****************************************
@@ -604,6 +685,32 @@ async function chargerSc (cfg, args) {
   return result
 }
 m1fonctions.chargerSc = chargerSc
+
+/********************************************************
+Chargement des tribus ou de celle dont l'id est donnée
+args :
+- sessionId
+- id : si id = 0, charger toutes
+Retour
+- rowItems : contient des rowItems des tribus
+*/
+async function chargerTribus (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const rowItems = []
+  result.rowItems = rowItems
+  if (args.id) {
+    const row = stmt(cfg, seltribuId).get({id: args.id })
+    result.rowItems.push(newItem('tribu', row))
+  } else {
+    const rows = stmt(cfg, seltribu).all()
+    rows.forEach((row) => {
+      result.rowItems.push(newItem('tribu', row))
+    })
+  }
+  return result
+}
+m1fonctions.chargerTribus = chargerTribus
 
 /********************************************************
 Chargement des membre d'un groupe
@@ -2170,6 +2277,7 @@ async function acceptParrainage (cfg, args) {
   const i6 = newItem('compta', items.comptaP)
 
   result.rowItems = [i1, i2, i3, i4, i5] // à retourner en résultat
+  result.clepubc = clepubComptable(cfg)
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: [i1, i2, i3, i4, i5, i6] }) // à synchroniser
   setImmediate(() => { processQueue() })
 
