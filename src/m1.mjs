@@ -148,8 +148,8 @@ function newItem (table, row) {
 
 /******************************************/
 // eslint-disable-next-line no-unused-vars
-const instribu = 'INSERT INTO tribu (id, v, datak, datat, vsh) '
-  + 'VALUES (@id, @v, @datak, @datat, @vsh)'
+const instribu = 'INSERT INTO tribu (id, v, nbc, f1, f2, r1, r2, datak, mncpt, datat, vsh) '
+  + 'VALUES (@id, @v, @nbc, @f1, @f2, @r1, @r2, @datak, @mncpt, @datat, @vsh)'
 // eslint-disable-next-line no-unused-vars
 const inschat = 'INSERT INTO chat (id, dh, v, txtt, vsh) '
   + 'VALUES (@id, @dh, @v, @txtt, @vsh)'
@@ -158,8 +158,8 @@ const insgcvol = 'INSERT INTO gcvol (id, idt, f1, f2, vsh) '
   + 'VALUES (@id, @idt, @f1, @f2, @vsh)'
 const instrec = 'INSERT INTO trec (id, idf, dlv) '
   + 'VALUES (@id, @idf, @dlv)'
-const inscompte = 'INSERT INTO compte (id, v, dpbh, pcbh, kx, stp, nctk, idtpc, mack, vsh) '
-  + 'VALUES (@id, @v, @dpbh, @pcbh, @kx, @stp, @nctk, @idtpc, @mack, @vsh)'
+const inscompte = 'INSERT INTO compte (id, v, dpbh, pcbh, kx, stp, nctk, nctpc, mack, vsh) '
+  + 'VALUES (@id, @v, @dpbh, @pcbh, @kx, @stp, @nctk, @nctpc, @mack, @vsh)'
 const insprefs = 'INSERT INTO prefs (id, v, mapk, vsh) '
   + 'VALUES (@id, @v, @mapk, @vsh)'
 const insavrsa = 'INSERT INTO avrsa (id, clepub, vsh) '
@@ -284,14 +284,15 @@ function creationCompteComptable (cfg, args) {
   cv.dds = new DateJour().nbj - 14
   const avrsa = { id: avatar.id, clepub: args.clePubAv, vsh: 0 }
 
-  cfg.db.transaction(creationCompteComptableTr)(cfg, session, compte, compta, prefs, avatar, cv, avrsa)
-
+  cfg.db.transaction(creationCompteComptableTr)(cfg, compte, compta, prefs, avatar, cv, avrsa)
+  session.compteId = compte.id
+  session.plusAvatars([avatar.id])
   result.rowItems = [newItem('compte', compte), newItem('compta', compta), newItem('prefs', prefs), newItem('avatar', avatar)]
   return result
 }
 m1fonctions.creationCompteComptable = creationCompteComptable
 
-function creationCompteComptableTr (cfg, session, compte, compta, prefs, avatar, cv, avrsa) {
+function creationCompteComptableTr (cfg, compte, compta, prefs, avatar, cv, avrsa) {
   const c = stmt(cfg, selcompteId).get({ id: compte.id })
   if (c) {
     throw new AppExc(X_SRV, '03-Compte Comptable déjà créé')
@@ -303,9 +304,37 @@ function creationCompteComptableTr (cfg, session, compte, compta, prefs, avatar,
   stmt(cfg, insprefs).run(prefs)
   stmt(cfg, inscv).run(cv)
   stmt(cfg, insavrsa).run(avrsa)
+}
 
-  session.compteId = compte.id
-  session.plusAvatars([avatar.id])
+/* Creation d'une tribu ****************************************
+- sessionId, rowTribu
+Retour :
+- sessionId
+- dh
+*/
+function nouvelleTribu (cfg, args) {
+  checkSession(args.sessionId)
+  const tribu = schemas.deserialize('rowtribu', args.rowTribu)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(tribu.id)
+  versions[j]++
+  tribu.v = versions[j]
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+
+  cfg.db.transaction(nouvelleTribuTr)(cfg, tribu, rowItems)
+  syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.nouvelleTribu = nouvelleTribu
+
+function nouvelleTribuTr (cfg, tribu, rowItems) {
+  stmt(cfg, instribu).run(tribu)
+  rowItems.push(newItem('tribu', tribu))
 }
 
 /************************************************************
@@ -317,9 +346,8 @@ args
 - pcbh
 - vcompte vprefs
 Retour
-- rowCompte, rowPrefs (null si pas plus récent)
+- rowCompte, rowPrefs
 - clepubc : clé publique du comptable
-- dds : dernière signature du compte
 */
 async function connexionCompte (cfg, args) {
   const session = checkSession(args.sessionId)
@@ -338,9 +366,30 @@ function connexionCompteTr(cfg, args, result) {
   }
   args.id = compte.id
   const prefs = stmt(cfg, selprefs).get({ id: compte.id, v: args.vprefs })
-  const cv = stmt(cfg, selcvId).get({ id:compte.id })
   result.rowCompte = compte.v > args.vcompte ? newItem('compte', compte) : null
   result.rowPrefs = prefs ? newItem('prefs', prefs) : null
+}
+
+/* Normalise nctk, crypté par la clé K au lieu du cryptage RSA par la clé publique du compte
+Pas de synchro, c'est inutile
+*/
+async function nctkCompte (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  cfg.db.transaction(nctkCompteTr)(cfg, args, result)
+  return result
+}
+m1fonctions.nctkCompte = nctkCompte
+
+const updtribucompte = 'UPDATE compte SET nctk = @nctk, chkt = @chkt, nctpc = @nctpc WHERE id = @id'
+
+function nctkCompteTr(cfg, args) {
+  const compte = stmt(cfg, selcompteId).get({ id: args.id })
+  if (!compte) {
+    throw new AppExc(A_SRV, '08-Compte non trouvé')
+  }
+  compte.nctk = args.nctk
+  stmt(cfg, updtribucompte).run(compte)
 }
 
 /************************************************************
@@ -352,9 +401,7 @@ args
 - pcbh
 - vcompte vprefs
 Retour
-- rowCompte, rowPrefs (null si pas plus récent)
-- clepubc : clé publique du comptable
-- dds : dernière signature du compte
+- rowItems : les rows gcvol
 */
 async function collecteVolumes (cfg, args) {
   checkSession(args.sessionId)
@@ -375,6 +422,7 @@ m1fonctions.collecteVolumes = collecteVolumes
 - map :
   - clé : id tribu
   - valeur:
+    - chkt : pour un parrain seulement, hash (integer) de (id avatar base64 + id tribu base64)
     - v1 : volume v1 à restituer
     - v2 : volume v2 à restituer
 Supprime les rows gcvol traités
@@ -400,7 +448,7 @@ async function majVolumes (cfg, args) {
 }
 m1fonctions.majVolumes = majVolumes
 
-const upd1tribu = 'UPDATE tribu SET v = @v, f1 = @f1, f2 = @f2, r1 = @r1, r2 = @r2 WHERE id = @id'
+const upd1tribu = 'UPDATE tribu SET v = @v, f1 = @f1, f2 = @f2, r1 = @r1, r2 = @r2, mncpt = @mncpt WHERE id = @id'
 const delgcvol = 'DELETE FROM gcvol WHERE id > @id'
 
 function majVolumesTr (cfg, args, rowItems) {
@@ -420,6 +468,13 @@ function majVolumesTr (cfg, args, rowItems) {
       row.f2 -= x.f2
       row.r1 += x.f1
       row.r2 += x.f2
+      if (x.chkt) { // c'était un parrain, on l'enlève de la map des parrains de la tribu
+        const m = row.mncpt ? deserial(row.mncpt) : null
+        if (m) {
+          delete m[x.chkt]
+          row.mncpt = serial(m)
+        }
+      }
       stmt(cfg, upd1tribu).run(row)
       rowItems.push(newItem('tribu', row))
     }

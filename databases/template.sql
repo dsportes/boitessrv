@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS "tribu" (
   "r1"  INTEGER,
   "r2"  INTEGER,
   "datak"	BLOB,
+  "mncpt" BLOB,
   "datat"	BLOB,
   "vsh"	INTEGER,
   PRIMARY KEY("id")
@@ -53,7 +54,8 @@ CREATE TABLE IF NOT EXISTS "compte" (
   "kx"  BLOB,
   "stp"  INTEGER,
   "nctk"  BLOB,
-  "idtpc"  BLOB,
+  "nctpc"  BLOB,
+  "chkt"  INTEGER,
   "mack"  BLOB,
   "vsh"	INTEGER,
   PRIMARY KEY("id")

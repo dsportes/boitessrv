@@ -82,7 +82,7 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowtribu',
-  cols: ['id', 'v', 'nbc', 'f1', 'f2', 'r1', 'r2', 'datak', 'datat', 'vsh']
+  cols: ['id', 'v', 'nbc', 'f1', 'f2', 'r1', 'r2', 'datak', 'mncpt', 'datat', 'vsh']
 })
 
 schemas.forSchema({
@@ -92,7 +92,7 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowgcvol',
-  cols: ['id', 'idt', 'f1', 'f2', 'vsh']
+  cols: ['id', 'nctpc', 'f1', 'f2', 'vsh']
 })
 
 schemas.forSchema({
@@ -102,7 +102,7 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowcompte',
-  cols: ['id', 'v', 'dpbh', 'pcbh', 'kx', 'stp', 'nctk', 'idtpc', 'mack', 'vsh']
+  cols: ['id', 'v', 'dpbh', 'pcbh', 'kx', 'stp', 'nctk', 'nctpc', 'chkt', 'mack', 'vsh']
 })
 
 schemas.forSchema({
