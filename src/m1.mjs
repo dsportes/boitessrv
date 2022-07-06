@@ -337,6 +337,49 @@ function nouvelleTribuTr (cfg, tribu, rowItems) {
   rowItems.push(newItem('tribu', tribu))
 }
 
+/* Maj info / reserves d'une tribu ****************************************
+- sessionId
+- idt: id de la tribu
+- datak: peut être null
+- reserves: peut être null
+Retour :
+- sessionId
+- dh
+*/
+function inforesTribu (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.idt)
+  versions[j]++
+  args.v = versions[j]
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+
+  cfg.db.transaction(inforesTribuTr)(cfg, args, rowItems)
+  syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  return result
+}
+m1fonctions.inforesTribu = inforesTribu
+
+const updinforestribu = 'UPDATE tribu SET datak = @datak, r1 = @r1, r2 = @r2 WHERE id = @id'
+
+function inforesTribuTr (cfg, args, rowItems) {
+  const tribu = stmt(cfg, seltribuId).get({ id: args.idt})
+  if (!tribu) throw new AppExc(A_SRV, '08-Tribu non trouvée')
+  tribu.v = args.v
+  if (args.datak) tribu.datak = args.datak
+  if (args.reserves) {
+    tribu.r1 = args.reserves[0]
+    tribu.r2 = args.reserves[1]
+  }
+  stmt(cfg, updinforestribu).run(tribu)
+  rowItems.push(newItem('tribu', tribu))
+}
+
 /************************************************************
 Connexion à un compte
 Détermine si les hash de la phrase secrète en argument correspond à un compte.
