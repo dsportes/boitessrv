@@ -231,8 +231,6 @@ export class Compteurs {
       for (let i = 0; i < 12; i++) this.hist[i] = new Uint8Array([0, 0, 0, 0, 0])
     }
     this.setRtr()
-    this.res1 = src ? src.res1 : 0
-    this.res2 = src ? src.res2 : 0
     this.t1 = src ? src.t1 : 0
     this.t2 = src ? src.t2 : 0
     this.s1 = src ? (src.s1 || 0) : 0
@@ -305,25 +303,6 @@ export class Compteurs {
     if (this.v2 > f * UNITEV2) return false
     this.f2 = f
     this.hist[this.dj.mm - 1][3] = mx255(this.v2m / this.f2 * UNITEV2)
-    this.maj = true
-    return true
-  }
-
-  setRes (delta) { // maj réserve de forfaits à attribués aux filleuls
-    this.calculauj()
-    if ((this.res1 + delta[0] < 0) || (this.res2 + delta[1]) < 0) return false
-    this.res1 = this.res1 + delta[0]
-    this.res2 = this.res2 + delta[1]
-    this.maj = true
-    return true
-  }
-
-  setFF (delta) { // maj forfaits attribués à un filleul
-    if ((this.t1 + delta[0] > this.res1) || (this.t2 + delta[1] > this.res2)) return false
-    this.t1 = this.t1 + delta[0]
-    this.t2 = this.t2 + delta[1]
-    this.res1 = this.res1 - delta[0]
-    this.res2 = this.res2 - delta[1]
     this.maj = true
     return true
   }

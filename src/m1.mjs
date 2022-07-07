@@ -2280,7 +2280,7 @@ function refusRencontreTr (cfg, args, rowItems) {
 
   couple.v = args.vc
   couple.ardc = args.ardc
-  couple.tp = 0
+  couple.phk0 = null
   decorCouple(couple)
   couple.stp = 3
   couple.st1 = 0
@@ -2302,13 +2302,14 @@ Acceptation d'un parrainage
     idCouple: couple.id, // id du couple
     phch: arg.phch, // hash de la phrase de contact
     idavp: couple.idE, // id de l'avatar parrain
-    r1: arg.estpar ? d.r1 : 0, // montant à réduire de sa réserve
-    r2: arg.estpar ? d.r2 : 0,
-    f1: d.f1,
-    f2: d.f2,
-    ardc // ardoise du couple
-    sec : le filleul accède aux secrets du couple
-    estPar: le filleul est parrain lui-même
+    idt: nat.id, // id de la tribu de A1
+    f1: datactc.f1,
+    f2: datactc.f2,
+    chkt,
+    nctc,
+    ardc,
+    estPar: arg.estpar,
+    sec: arg.max[0] !== 0 // le filleul accède aux secrets du couple
 Refus
     sessionId: data.sessionId,
     phch: arg.phch, // hash de la phrase de contact
@@ -2325,8 +2326,8 @@ A_SRV, '24-Couple non trouvé'
 
 const delcontact = 'DELETE FROM contact WHERE phch = @phch'
 const updcompta = 'UPDATE compta SET v = @v, data = @data WHERE id = @id'
-const upd2couple = 'UPDATE couple SET v = @v, tp = @tp, st = @st, dlv = 0, ardc = @ardc WHERE id = @id'
-const upd3couple = 'UPDATE couple SET v = @v, tp = @tp, st = @st, dlv = 0, mx11 = @mx11, mx21 = @mx21, ardc = @ardc, datac = @datac WHERE id = @id'
+const upd2couple = 'UPDATE couple SET v = @v, phk0 = @phk0, st = @st, dlv = 0, ardc = @ardc WHERE id = @id'
+const upd3couple = 'UPDATE couple SET v = @v, phk0 = @phk0, st = @st, dlv = 0, mx11 = @mx11, mx21 = @mx21, ardc = @ardc, datac = @datac WHERE id = @id'
 const updv1v2couple = 'UPDATE couple SET v = @v, v1 = @v1, v2 = @v2 WHERE id = @id'
 const updv1v2groupe = 'UPDATE groupe SET v = @v, v1 = @v1, v2 = @v2 WHERE id = @id'
 
@@ -2358,6 +2359,10 @@ async function acceptParrainage (cfg, args) {
   versions[j]++
   args.vcouple = versions[j] // version du couple
 
+  j = idx(args.idt)
+  versions[j]++
+  args.vtribu = versions[j] // version de la tribu
+
   versions[0]++
   cv.v = versions[0] // version de la carte de visite
 
@@ -2372,7 +2377,7 @@ async function acceptParrainage (cfg, args) {
   const i3 = newItem('prefs', prefs)
   const i4 = newItem('compta', compta)
   const i5 = newItem('couple', items.couple)
-  const i6 = newItem('compta', items.comptaP)
+  const i6 = newItem('compta', items.tribu)
 
   result.rowItems = [i1, i2, i3, i4, i5] // à retourner en résultat
   result.clepubc = clepubComptable(cfg)
@@ -2390,6 +2395,8 @@ async function acceptParrainage (cfg, args) {
   return result
 }
 m1fonctions.acceptParrainage = acceptParrainage
+
+const upd2tribu = 'UPDATE tribu SET v = @v, nbc = @ nbc, f1 = @f1, f2 = @f2, r1 = @r1, r2 = @r2, mncpt = @mncpt WHERE id = @id'
   
 function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, cv, items) {
   const c = stmt(cfg, selcompteDpbh).get({ dpbh: compte.dpbh })
@@ -2403,18 +2410,21 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
 
   stmt(cfg, delcontact).run({ phch: args.phch }) // suppression du contact
 
-  const comptaP = stmt(cfg, selcomptaId).get({ id: args.idavp })
-  if (!comptaP) throw new AppExc(A_SRV, '17-Avatar parrain : données de comptabilité absentes')
-
-  const compteurs = new Compteurs(comptaP.data)
-  let ok = compteurs.setRes([-args.r1, -args.r2])
-  if (!ok) throw new AppExc(X_SRV, '18-Réserves de volume insuffisantes du parrain pour les réserves attribuées au compte filleul lui-même parrain')
-  ok = compteurs.setFF([args.f1, args.f2])
-  if (!ok) throw new AppExc(X_SRV, '18-Réserves de volume insuffisantes du parrain pour les forfaits attribués au compte filleul')
-  comptaP.v = args.vcp
-  comptaP.data = compteurs.calculauj().serial
-  stmt(cfg, updcompta).run(comptaP)
-  items.comptaP = comptaP
+  const tribu = stmt(cfg, seltribuId).get({ id: args.idt })
+  if (!tribu) throw new AppExc(A_SRV, '17-Tribu non trouvéeabsentes')
+  if (tribu.r1 < args.f1) throw new AppExc(X_SRV, '18-Réserves de volume V1 insuffisantes de la tribu pour affectation au nouveau compte')
+  if (tribu.r2 < args.f2) throw new AppExc(X_SRV, '18-Réserves de volume V2 insuffisantes de la tribu pour affectation au nouveau compte')
+  tribu.r1 -= args.f1
+  tribu.r2 -= args.f2
+  tribu.f1 += args.f1
+  tribu.f2 += args.f2
+  tribu.nbc += 1
+  const m = (tribu.mncpt ? deserial(tribu.mncpt) : null) || {}
+  m[args.chkt] = args.nctc
+  tribu.mncpt = serial(m)
+  tribu.v = args.vtribu
+  stmt(cfg, upd2tribu).run(tribu)
+  items.tribu = tribu
 
   // Insertion des nouveaux compte, avatar, prefs du filleul
   stmt(cfg, inscompte).run(compte)
@@ -2431,7 +2441,7 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
   const cp = stmt(cfg, selcoupleId).get({ id: args.idCouple })
   if (!cp) throw new AppExc(A_SRV, '24-Couple non trouvé')
   cp.v = args.vcouple
-  cp.tp = args.estPar ? 0 : 1 // dans le couple, A0 N'EST PAS parrain si le "filleul" est parrain lui-même
+  cp.phk0 = null
   decorCouple(cp)
   cp.stp = 4
   cp.st1 = args.sec ? 1 : 0
@@ -2450,7 +2460,8 @@ async function getContact (cfg, args) {
   try {
     const c = stmt(cfg, selcontactPhch).get({ phch: parseInt(args.phch) })
     if (!c) return { bytes: bytes0 }
-    const b = serial(c)
+    const clepubc = clepubComptable(cfg)
+    const b = serial([c, clepubc])
     return { bytes: b }
   } catch (e) {
     console.log(e)
