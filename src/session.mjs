@@ -86,6 +86,10 @@ export class Session {
     this.compteId = id
   }
 
+  setTribu (id) {
+    this.tribuId = id
+  }
+
   plusAvatars (ar) {
     if (ar && ar.length) ar.forEach(id => { this.avatarsIds.add(id) })
   }
@@ -156,7 +160,7 @@ export class Session {
     syncList.rowItems.forEach((rowItem) => {
       switch (rowItem.table) {
       case 'tribu' : {
-        if (IDCOMPTABLE === this.compteId) msg.rowItems.push(rowItem)
+        if (IDCOMPTABLE === this.compteId || (rowItem.id === this.tribuId)) msg.rowItems.push(rowItem)
         break
       }
       case 'compte' : {

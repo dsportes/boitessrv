@@ -785,7 +785,7 @@ async function chargerSc (cfg, args) {
 m1fonctions.chargerSc = chargerSc
 
 /********************************************************
-Chargement des tribus ou de celle dont l'id est donnée
+Chargement des tribus ou de celle dont l'id est donnée (et dans ce cas abonnement)
 args :
 - sessionId
 - id : si id = 0, charger toutes
@@ -793,13 +793,14 @@ Retour
 - rowItems : contient des rowItems des tribus
 */
 async function chargerTribus (cfg, args) {
-  checkSession(args.sessionId)
+  const session = checkSession(args.sessionId)
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const rowItems = []
   result.rowItems = rowItems
   if (args.id) {
     const row = stmt(cfg, seltribuId).get({id: args.id })
     result.rowItems.push(newItem('tribu', row))
+    session.setTribu(args.id)
   } else {
     const rows = stmt(cfg, seltribu).all()
     rows.forEach((row) => {
