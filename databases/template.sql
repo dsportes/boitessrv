@@ -20,14 +20,19 @@ CREATE TABLE IF NOT EXISTS "tribu" (
 ) WITHOUT ROWID;
 
 CREATE TABLE IF NOT EXISTS "chat" (
-  "id"	INTEGER,
-  "dh"	INTEGER,
-  "v"  INTEGER
-  "txtt"	BLOB,
-  "vsh"	INTEGER,
-  PRIMARY KEY("id", "dh")
+"id"	INTEGER,
+"v" INTEGER,
+"dhde"	INTEGER,
+"lua" INTEGER,
+"luc" INTEGER,
+"st"  INTEGER,
+"nrc" BLOB,
+"ck"  BLOB,
+"items" BLOB,
+"vsh"	INTEGER,
+PRIMARY KEY("id")
 );
-CREATE INDEX "dh_chat" ON "chat" ( "dh" );
+CREATE INDEX "dhdest_chat" ON "chat" ( "dhde", "st" );
 
 CREATE TABLE IF NOT EXISTS "gcvol" (
   "id"	INTEGER,

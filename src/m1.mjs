@@ -151,8 +151,8 @@ function newItem (table, row) {
 const instribu = 'INSERT INTO tribu (id, v, nbc, f1, f2, r1, r2, datak, mncpt, datat, vsh) '
   + 'VALUES (@id, @v, @nbc, @f1, @f2, @r1, @r2, @datak, @mncpt, @datat, @vsh)'
 // eslint-disable-next-line no-unused-vars
-const inschat = 'INSERT INTO chat (id, dh, v, txtt, vsh) '
-  + 'VALUES (@id, @dh, @v, @txtt, @vsh)'
+const inschat = 'INSERT INTO chat (id, v, dhde, lua, luc, st, nrc, ck, items, vsh) '
+  + 'VALUES (@id, @v, @dhde, @lua, @luc, @st, @nrc, @ck, @items, @vsh)'
 // eslint-disable-next-line no-unused-vars
 const insgcvol = 'INSERT INTO gcvol (id, idt, f1, f2, vsh) '
   + 'VALUES (@id, @idt, @f1, @f2, @vsh)'
@@ -185,14 +185,11 @@ const insinvitcp = 'INSERT INTO invitcp (id, ni, datap) '
 const inssecret = 'INSERT INTO secret (id, ns, x, v, st, xp, v1, v2, mc, txts, mfas, refs, vsh) ' +
   'VALUES (@id, @ns, @x, @v, @st, @xp, @v1, @v2, @mc, @txts, @mfas, @refs, @vsh)'
 
-// eslint-disable-next-line no-unused-vars
 const seltribu = 'SELECT * FROM tribu'
-// eslint-disable-next-line no-unused-vars
 const seltribuId = 'SELECT * FROM tribu WHERE id = @id'
-// eslint-disable-next-line no-unused-vars
 const selchatId = 'SELECT * FROM chat WHERE id = @id'
 // eslint-disable-next-line no-unused-vars
-const selchatDh = 'SELECT * FROM chat WHERE dh >= @dh'
+const selchatDhst = 'SELECT * FROM chat WHERE dhde >= @dhde and st >= @st'
 const selgcvol = 'SELECT * FROM gcvol'
 
 const selavrsapub = 'SELECT clepub FROM avrsa WHERE id = @id'
@@ -201,7 +198,6 @@ const selcompteId = 'SELECT * FROM compte WHERE id = @id'
 const selcompteIdv = 'SELECT v FROM compte WHERE id = @id'
 const selcompteDpbh = 'SELECT * FROM compte WHERE dpbh = @dpbh'
 
-const selprefs = 'SELECT * FROM prefs WHERE id = @id AND v > @v'
 const selprefsId = 'SELECT * FROM prefs WHERE id = @id'
 
 const selcompta = 'SELECT * FROM compta WHERE id = @id AND v > @v'
@@ -387,9 +383,8 @@ RAZ des abonnements en cours et abonnement au compte
 args
 - dpbh
 - pcbh
-- vcompte vprefs
 Retour
-- rowCompte, rowPrefs
+- rowCompte, rowPrefs, rowChat
 - clepubc : clé publique du comptable
 */
 async function connexionCompte (cfg, args) {
@@ -408,9 +403,13 @@ function connexionCompteTr(cfg, args, result) {
     throw new AppExc(X_SRV, '08-Compte non authentifié : aucun compte n\'est déclaré avec cette phrase secrète')
   }
   args.id = compte.id
-  const prefs = stmt(cfg, selprefs).get({ id: compte.id, v: args.vprefs })
-  result.rowCompte = compte.v > args.vcompte ? newItem('compte', compte) : null
+  const prefs = stmt(cfg, selprefsId).get({ id: compte.id })
+  result.rowCompte = newItem('compte', compte)
   result.rowPrefs = prefs ? newItem('prefs', prefs) : null
+  if (compte.id !== IDCOMPTABLE) {
+    const chat = stmt(cfg, selchatId).get({ id: compte.id })
+    result.rowChat = chat ? newItem('chat', chat) : null
+  }
 }
 
 /* Normalise nctk, crypté par la clé K au lieu du cryptage RSA par la clé publique du compte
@@ -2310,7 +2309,9 @@ Acceptation d'un parrainage
     nctc,
     ardc,
     estPar: arg.estpar,
-    sec: arg.max[0] !== 0 // le filleul accède aux secrets du couple
+    sec: arg.max[0] !== 0, // le filleul accède aux secrets du couple
+    nrc, // [n, r, c] crypté par la clepubc
+    ck cle c cryptée par la clé K
 Refus
     sessionId: data.sessionId,
     phch: arg.phch, // hash de la phrase de contact
@@ -2378,11 +2379,12 @@ async function acceptParrainage (cfg, args) {
   const i3 = newItem('prefs', prefs)
   const i4 = newItem('compta', compta)
   const i5 = newItem('couple', items.couple)
-  const i6 = newItem('compta', items.tribu)
+  const i6 = newItem('chat', items.chat)
+  const i7 = newItem('tribu', items.tribu)
 
-  result.rowItems = [i1, i2, i3, i4, i5] // à retourner en résultat
+  result.rowItems = [i1, i2, i3, i4, i5, i6] // à retourner en résultat
   result.clepubc = clepubComptable(cfg)
-  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: [i1, i2, i3, i4, i5, i6] }) // à synchroniser
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: [i1, i2, i3, i4, i5, i6, i7] }) // à synchroniser
   setImmediate(() => { processQueue() })
 
   // Abonnements du nouveau compte
@@ -2397,7 +2399,7 @@ async function acceptParrainage (cfg, args) {
 }
 m1fonctions.acceptParrainage = acceptParrainage
 
-const upd2tribu = 'UPDATE tribu SET v = @v, nbc = @ nbc, f1 = @f1, f2 = @f2, r1 = @r1, r2 = @r2, mncpt = @mncpt WHERE id = @id'
+const upd2tribu = 'UPDATE tribu SET v = @v, nbc = @nbc, f1 = @f1, f2 = @f2, r1 = @r1, r2 = @r2, mncpt = @mncpt WHERE id = @id'
   
 function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, cv, items) {
   const c = stmt(cfg, selcompteDpbh).get({ dpbh: compte.dpbh })
@@ -2420,9 +2422,11 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
   tribu.f1 += args.f1
   tribu.f2 += args.f2
   tribu.nbc += 1
-  const m = (tribu.mncpt ? deserial(tribu.mncpt) : null) || {}
-  m[args.chkt] = args.nctc
-  tribu.mncpt = serial(m)
+  if (args.chkt) {
+    const m = (tribu.mncpt ? deserial(tribu.mncpt) : null) || {}
+    m[args.chkt] = args.nctc
+    tribu.mncpt = serial(m)
+  }
   tribu.v = args.vtribu
   stmt(cfg, upd2tribu).run(tribu)
   items.tribu = tribu
@@ -2434,6 +2438,10 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
   stmt(cfg, insavatar).run(avatar)
   stmt(cfg, inscv).run(cv)
   
+  const chat = { id: compte.id, v: compte.v, dhde: 0, lua: 0, luc: 0, st: 0, nrc: args.nrc, ck: args.ck, items: null, vsh: 0 }
+  stmt(cfg, inschat).run(chat)
+  items.chat = chat
+
   // Clé RSA du filleul
   const avrsaAv = { id: avatar.id, clepub: args.clePubAv, vsh: 0 }
   stmt(cfg, insavrsa).run(avrsaAv)

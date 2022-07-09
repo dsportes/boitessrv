@@ -87,7 +87,7 @@ schemas.forSchema({
 
 schemas.forSchema({
   name: 'rowchat',
-  cols: ['id', 'dh', 'v', 'txtt', 'vsh']
+  cols: ['id', 'v', 'dhde', 'lua', 'luc', 'st', 'nrc', 'ck', 'items', 'vsh']
 })
 
 schemas.forSchema({
