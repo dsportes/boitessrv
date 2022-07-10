@@ -191,6 +191,8 @@ try {
     const e = cfg.orgs[org]
     e.code = org
     e.isDev = dev
+    e.minItemsChat = cfg.minItemsChat || 4
+    e.nbjChat = cfg.nbjChat || 60
     e.storage = cfg.storage
     e.db = require('better-sqlite3')(path.resolve(dirs.dbdir, org + '.db3'), options);
   }

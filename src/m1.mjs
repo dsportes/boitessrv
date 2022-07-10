@@ -524,6 +524,98 @@ function majVolumesTr (cfg, args, rowItems) {
   stmt(cfg, delgcvol).run({ id: args.maxdh })
 }
 
+/***********************************
+Nouveau message chat
+args:
+- sessionId
+- id: du compte
+- c : true si émis par le comptable
+- st : statut du chat (0, 1, 2) après le message
+- it : {c, t, r} crypté par la clé C du chat
+*/
+async function nouveauChat (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const rowItems = []
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.id)
+  versions[j]++
+  args.v = versions[j]
+  setValue(cfg, VERSIONS)
+
+  cfg.db.transaction(nouveauChatTr)(cfg, args, rowItems)
+  syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  result.rowItems = rowItems
+  return result
+}
+m1fonctions.nouveauChat = nouveauChat
+
+const upd1chat = 'UPDATE chat SET v = @v, st = @st, dhde = @dhde, luc = @luc, lua = @lua, items = @items WHERE id = @id'
+
+function nouveauChatTr (cfg, args, rowItems) {
+  const c = stmt(cfg, selchatId).get({ id: args.id })
+  if (!c) throw new AppExc(A_SRV, '22-chat non trouvé')
+  c.v = args.v
+  c.st = args.st
+  const dh = new Date().getTime()
+  const lim = dh - (86400000 * (cfg.nbjChat || 60))
+  if (args.c) c.luc = dh; else { c.lua = dh; c.dhde = dh }
+  const items = []
+  const av = (c.items ? deserial(c.items) : null) || []
+  for (let i = 0; i < av.length; i++) {
+    const item = av[i]
+    if (i < cfg.minItemsChat) {
+      items.push(item)
+    } else {
+      if (item[0] > lim) items.push(item); else break
+    }
+  }
+  items.push([dh, args.it])
+  c.items = serial(items)
+  stmt(cfg, upd1chat).run(c)
+  rowItems.push(newItem('chat', c))
+}
+
+/***********************************
+Avis de lecture de chat
+args:
+- sessionId
+- id: du compte
+- c : true si émis par le comptable
+*/
+async function lectureChat (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const rowItems = []
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.id)
+  versions[j]++
+  args.v = versions[j]
+  setValue(cfg, VERSIONS)
+
+  cfg.db.transaction(lectureChatTr)(cfg, args, rowItems)
+  syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  result.rowItems = rowItems
+  return result
+}
+m1fonctions.lectureChat = lectureChat
+
+const upd2chat = 'UPDATE chat SET v = @v, luc = @ luc, lua = @lua WHERE id = @id'
+
+function lectureChatTr (cfg, args, rowItems) {
+  const c = stmt(cfg, selchatId).get({ id: args.id })
+  if (!c) throw new AppExc(A_SRV, '22-chat non trouvé')
+  c.v = args.v
+  const dh = new Date().getTime()
+  if (c.c) c.luc = dh; else c.lua = dh
+  stmt(cfg, upd2chat).run(c)
+  rowItems.push(newItem('chat', c))
+}
+
 /*****************************************
 Chargement les avatars d'un compte dont la version est plus récente que celle détenue en session
 Abonnemnts aux avatars

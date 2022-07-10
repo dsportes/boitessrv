@@ -171,6 +171,10 @@ export class Session {
         if (rowItem.id === this.compteId) msg.rowItems.push(rowItem)
         break
       }
+      case 'chat' : {
+        if (rowItem.id === this.compteId) msg.rowItems.push(rowItem)
+        break
+      }
       case 'compta' : {
         if (this.aavatar(rowItem)) msg.rowItems.push(rowItem)
         break

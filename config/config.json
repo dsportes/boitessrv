@@ -6,6 +6,8 @@
     "doda": { "comptable": 5983374920213028 },
     "super": { "comptable": 5983374920213028 }
   },
+  "minItemsChat": 4,
+  "nbjChat": 60,
   "s3config": {
     "s3" : {
       "credentials": {
