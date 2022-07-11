@@ -198,14 +198,10 @@ schemas.forSchema({
   - `r1` : ratio du v1 du mois par rapport à son forfait.
   - `r2` : ratio du v2 du mois par rapport à son forfait.
   - `r3` : ratio des transferts cumulés du mois / volume du forfait v2
-- `res1 res2` : pour un parrain, réserve de forfaits v1 et v2.
-- `t1 t2` : pour un parrain, total des forfaits 1 et 2 attribués aux filleuls.
 - `s1 s2` : pour un avatar primaire, total des forfaits attribués aux secondaires.
 */
 
-const lch1 = ['j', 'v1', 'v1m', 'v2', 'v2m', 'trm', 'f1', 'f2', 'rtr', 'res1', 'res2', 't1', 't2']
-// const MB1 = 1000000
-// const MB100 = 100000000
+const lch1 = ['j', 'v1', 'v1m', 'v2', 'v2m', 'trm', 'f1', 'f2', 'rtr', 's1', 's2']
 const NTRJ = 14
 
 function mx255 (x) { const n = Math.round(x * 100); return n > 255 ? 255 : n }
@@ -231,8 +227,6 @@ export class Compteurs {
       for (let i = 0; i < 12; i++) this.hist[i] = new Uint8Array([0, 0, 0, 0, 0])
     }
     this.setRtr()
-    this.t1 = src ? src.t1 : 0
-    this.t2 = src ? src.t2 : 0
     this.s1 = src ? (src.s1 || 0) : 0
     this.s2 = src ? (src.s2 || 0) : 0
     this.maj = false
@@ -329,9 +323,6 @@ export class Compteurs {
   }
 
   calculauj () { // recalcul à aujourd'hui en fonction du dernier jour de calcul
-    // Contournement
-    // if (isNaN(this.res1)) this.res1 = 64
-    // if (isNaN(this.res2)) this.res2 = 64
     const dj = new DateJour()
     this.dj = dj
     if (dj.nbj === this.j) return this // déjà normalisé, calculé aujourd'hui
