@@ -199,9 +199,10 @@ schemas.forSchema({
   - `r2` : ratio du v2 du mois par rapport à son forfait.
   - `r3` : ratio des transferts cumulés du mois / volume du forfait v2
 - `s1 s2` : pour un avatar primaire, total des forfaits attribués aux secondaires.
+- v1c v2c : total des v1 et v2 pour tous les avatars du compte constaté lors de la dernière connexion.
 */
 
-const lch1 = ['j', 'v1', 'v1m', 'v2', 'v2m', 'trm', 'f1', 'f2', 'rtr', 's1', 's2']
+const lch1 = ['j', 'v1', 'v1m', 'v2', 'v2m', 'trm', 'f1', 'f2', 'rtr', 's1', 's2', 'v1c', 'v2c']
 const NTRJ = 14
 
 function mx255 (x) { const n = Math.round(x * 100); return n > 255 ? 255 : n }
@@ -229,6 +230,8 @@ export class Compteurs {
     this.setRtr()
     this.s1 = src ? (src.s1 || 0) : 0
     this.s2 = src ? (src.s2 || 0) : 0
+    this.v1c = src ? (src.v1c || 0) : 0
+    this.v2c = src ? (src.v2c || 0) : 0
     this.maj = false
   }
 

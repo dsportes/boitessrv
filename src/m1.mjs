@@ -434,6 +434,46 @@ function nctkCompteTr(cfg, args) {
   stmt(cfg, updtribucompte).run(compte)
 }
 
+/* MAJ de la compta du compte primaire lors de la connexion
+Args:
+- sessionId
+- idc
+- v1c
+- v2c
+*/
+async function majComptaP (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const rowItems = []
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.idc)
+  versions[j]++
+  args.v = versions[j]
+  setValue(cfg, VERSIONS)
+
+  cfg.db.transaction(majComptaPTr)(cfg, args, rowItems)
+  syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  result.rowItems = rowItems
+  return result
+}
+m1fonctions.majComptaP = majComptaP
+
+function majComptaPTr(cfg, args, rowItems) {
+  const compta = stmt(cfg, selcomptaId).get({ id: args.idc })
+  if (!compta) throw new AppExc(A_SRV, '08-Compta non trouvé')
+  
+  compta.v = args.v
+  const compteurs = new Compteurs(compta.data)
+  compteurs.v1c = args.v1c
+  compteurs.v2c = args.v2c
+  compta.data = compteurs.serial
+
+  stmt(cfg, updcompta).run(compta)
+  rowItems.push(newItem('compta', compta))
+}
+
 /************************************************************
 GC des volumes
 Détermine si les hash de la phrase secrète en argument correspond à un compte.
