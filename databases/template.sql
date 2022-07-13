@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS "compta" (
   "t"	INTEGER,
   "v"	INTEGER,
   "st"	INTEGER,
-  "txtt"  INTEGER,
+  "txtt"  BLOB,
   "dh" INTEGER,
   "data"	BLOB,
   "vsh"	INTEGER,

@@ -476,8 +476,6 @@ function majComptaPTr(cfg, args, rowItems) {
 
 /************************************************************
 GC des volumes
-Détermine si les hash de la phrase secrète en argument correspond à un compte.
-RAZ des abonnements en cours et abonnement au compte
 args
 - dpbh
 - pcbh
@@ -655,6 +653,46 @@ function lectureChatTr (cfg, args, rowItems) {
   stmt(cfg, upd2chat).run(c)
   rowItems.push(newItem('chat', c))
 }
+
+/***********************************
+Sélection de chats
+args:
+- sessionId
+- dhde: min
+- st: min
+Retourne une liste de selchat : {id, dhde, st, nrc, cv, stp, nctpc}
+- `nrc` : `[nom, rnd, cle]` crypté par la clé publique du comptable. 
+  cle est la clé C de cryptage du chat (immuable, générée à la création).
+- stc : stp de son row compta
+- `nctpc` : nom complet `[nom, rnd]` de la tribu cryptée par la clé publique du comptable.
+*/
+async function selectChat (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const rowItems = []
+
+  const rows = stmt(cfg, selchat).all({ dhde: args.dhde, st: args.st })
+  rows.forEach((row) => { rowItems.push(newItem('selchat', row)) })
+
+  result.rowItems = rowItems
+  return result
+}
+m1fonctions.selectChat = selectChat
+
+const selchat = `SELECT
+chat.id AS id, 
+chat.dhde AS dhde,
+chat.st AS st,
+chat.nrc AS nrc,
+cv.cv AS cv,
+compte.stp AS stp,
+compte.nctpc AS nctpc
+FROM chat, cv, compte
+WHERE
+chat.dhde >= @dhde
+AND chat.st >= @st
+AND cv.id = chat.id
+AND compte.id = chat.id`
 
 /*****************************************
 Chargement les avatars d'un compte dont la version est plus récente que celle détenue en session

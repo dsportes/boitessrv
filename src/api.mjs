@@ -48,7 +48,7 @@ export const MC = {
 }
 
 export const t0n = new Set(['compte', 'prefs', 'chat']) // singletons
-export const t1n = new Set(['tribu', 'avatar', 'compta', 'couple', 'groupe', 'fetat', 'avsecret']) // clé à 1 niveau
+export const t1n = new Set(['tribu', 'avatar', 'compta', 'couple', 'groupe', 'fetat', 'avsecret', 'selchat']) // clé à 1 niveau
 export const t2n = new Set(['membre', 'secret']) // clé à 2 niveaux
 
 /*
@@ -88,6 +88,18 @@ schemas.forSchema({
 schemas.forSchema({
   name: 'rowchat',
   cols: ['id', 'v', 'dhde', 'lua', 'luc', 'st', 'nrc', 'ck', 'items', 'vsh']
+})
+
+/*
+- 'id', 'dhde', 'st', de chat
+- `nrc` : `[nom, rnd, cle]` crypté par la clé publique du comptable. 
+  cle est la clé C de cryptage du chat (immuable, générée à la création).
+- stc : stp de son row compta
+- `nctpc` : nom complet `[nom, rnd]` de la tribu cryptée par la clé publique du comptable.
+*/
+schemas.forSchema({
+  name: 'rowselchat',
+  cols: ['id', 'dhde', 'st', 'nrc', 'cv', 'stp', 'nctpc']
 })
 
 schemas.forSchema({
