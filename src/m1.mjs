@@ -642,14 +642,14 @@ async function lectureChat (cfg, args) {
 }
 m1fonctions.lectureChat = lectureChat
 
-const upd2chat = 'UPDATE chat SET v = @v, luc = @ luc, lua = @lua WHERE id = @id'
+const upd2chat = 'UPDATE chat SET v = @v, luc = @luc, lua = @lua WHERE id = @id'
 
 function lectureChatTr (cfg, args, rowItems) {
   const c = stmt(cfg, selchatId).get({ id: args.id })
   if (!c) throw new AppExc(A_SRV, '22-chat non trouvé')
   c.v = args.v
   const dh = new Date().getTime()
-  if (c.c) c.luc = dh; else c.lua = dh
+  if (args.c) c.luc = dh; else c.lua = dh
   stmt(cfg, upd2chat).run(c)
   rowItems.push(newItem('chat', c))
 }
