@@ -90,6 +90,10 @@ export class Session {
     this.tribuId = id
   }
 
+  setChat (id) {
+    this.chatId = id
+  }
+
   plusAvatars (ar) {
     if (ar && ar.length) ar.forEach(id => { this.avatarsIds.add(id) })
   }
@@ -172,7 +176,7 @@ export class Session {
         break
       }
       case 'chat' : {
-        if (rowItem.id === this.compteId) msg.rowItems.push(rowItem)
+        if (rowItem.id === this.compteId || rowItem.id === this.chatId) msg.rowItems.push(rowItem)
         break
       }
       case 'compta' : {

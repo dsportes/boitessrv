@@ -694,6 +694,49 @@ AND chat.st >= @st
 AND cv.id = chat.id
 AND compte.id = chat.id`
 
+/***********************************
+Get chat, pour le comptable seulement
+args:
+- sessionId
+- id
+Retourne le chat
+*/
+async function getChat (cfg, args) {
+  const session = checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const rowItems = []
+
+  const row = stmt(cfg, selchatId).get({ id: args.id })
+  if (!row) throw new AppExc(A_SRV, 'Chat non trouvé')
+  rowItems.push(newItem('chat', row))
+
+  result.rowItems = rowItems
+  session.setChat(args.id)
+  return result
+}
+m1fonctions.getChat = getChat
+
+/***********************************
+Get compta, pour le comptable seulement
+args:
+- sessionId
+- id
+Retourne le row compta
+*/
+async function getCompta (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const rowItems = []
+
+  const row = stmt(cfg, selcomptaId).get({ id: args.id })
+  if (!row) throw new AppExc(A_SRV, 'Compta non trouvé')
+  rowItems.push(newItem('compta', row))
+
+  result.rowItems = rowItems
+  return result
+}
+m1fonctions.getCompta = getCompta
+
 /*****************************************
 Chargement les avatars d'un compte dont la version est plus récente que celle détenue en session
 Abonnemnts aux avatars
