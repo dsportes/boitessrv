@@ -412,6 +412,45 @@ function connexionCompteTr(cfg, args, result) {
   }
 }
 
+/* Changement de phrase secrète
+Args:
+- id
+- dpbh
+- pcbh
+- kx
+*/
+async function changementPS (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.id)
+  versions[j]++
+  args.v = versions[j]
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(changementPSTr)(cfg, args, rowItems)
+  syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  result.rowItems = rowItems
+  return result
+}
+m1fonctions.changementPS = changementPS
+
+const updpscompte = 'UPDATE compte SET v = @v, dpbh = @dpbh, pcbh = @pcbh, kx = @kx WHERE id = @id'
+
+function changementPSTr(cfg, args, rowItems) {
+  const compte = stmt(cfg, selcompteId).get({ id: args.id })
+  if (!compte) throw new AppExc(A_SRV, '08-Compte non trouvé')
+  compte.v = args.v
+  compte.dpbh = args.dpbh
+  compte.pcbh = args.pcbh
+  compte.kx = args.kx
+  stmt(cfg, updpscompte).run(compte)
+  rowItems.push(newItem('compte', compte))
+}
+
 /* Normalise nctk, crypté par la clé K au lieu du cryptage RSA par la clé publique du compte
 Pas de synchro, c'est inutile
 */
