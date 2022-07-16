@@ -1655,7 +1655,8 @@ args :
 async function getclepub (cfg, args) {
   checkSession(args.sessionId)
   try {
-    const c = stmt(cfg, selavrsapub).get({ id: crypt.sidToId(args.sid) })
+    const id = crypt.sidToId(args.sid)
+    const c = stmt(cfg, selavrsapub).get({ id: id })
     if (!c) return { bytes0 }
     return { bytes: c.clepub }
   } catch (e) {
