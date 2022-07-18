@@ -158,8 +158,8 @@ const insgcvol = 'INSERT INTO gcvol (id, idt, f1, f2, vsh) '
   + 'VALUES (@id, @idt, @f1, @f2, @vsh)'
 const instrec = 'INSERT INTO trec (id, idf, dlv) '
   + 'VALUES (@id, @idf, @dlv)'
-const inscompte = 'INSERT INTO compte (id, v, dpbh, pcbh, kx, stp, nctk, nctpc, mack, vsh) '
-  + 'VALUES (@id, @v, @dpbh, @pcbh, @kx, @stp, @nctk, @nctpc, @mack, @vsh)'
+const inscompte = 'INSERT INTO compte (id, v, dpbh, pcbh, kx, stp, nctk, nctpc, chkt, mack, vsh) '
+  + 'VALUES (@id, @v, @dpbh, @pcbh, @kx, @stp, @nctk, @nctpc, @chkt, @mack, @vsh)'
 const insprefs = 'INSERT INTO prefs (id, v, mapk, vsh) '
   + 'VALUES (@id, @v, @mapk, @vsh)'
 const insavrsa = 'INSERT INTO avrsa (id, clepub, vsh) '
@@ -694,6 +694,45 @@ function lectureChatTr (cfg, args, rowItems) {
 }
 
 /***********************************
+Reset de chat
+args:
+- sessionId
+- id: du compte
+- `nrc` : `[nom, rnd, cle]` nom complet du _compte_,
+  crypté par la clé publique du comptable.
+  cle est la clé C de cryptage du chat (immuable, générée à la création).
+- `ck` : cle C cryptée par la clé K du compte.
+
+*/
+async function resetChat (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+  const rowItems = []
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.id)
+  versions[j]++
+  args.v = versions[j]
+  setValue(cfg, VERSIONS)
+
+  cfg.db.transaction(resetChatTr)(cfg, args, rowItems)
+  syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+  result.rowItems = rowItems
+  return result
+}
+m1fonctions.resetChat = resetChat
+
+const delchat = 'DELETE FROM chat WHERE id = @id'
+
+function resetChatTr (cfg, args, rowItems) {
+  stmt(cfg, delchat).run({ id: args.id })
+  const chat = { id: args.id, v: args.v, dhde: 0, lua: 0, luc: 0, st: 0, nrc: args.nrc, ck: args.ck, items: null, vsh: 0 }
+  stmt(cfg, inschat).run(chat)
+  rowItems.push(newItem('chat', chat))
+}
+
+/***********************************
 Sélection de chats
 args:
 - sessionId
@@ -766,7 +805,7 @@ async function getCompta (cfg, args) {
   checkSession(args.sessionId)
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const rowItems = []
-
+  result.parrain = true
   const row = stmt(cfg, selcomptaId).get({ id: args.id })
   if (!row) throw new AppExc(A_SRV, 'Compta non trouvé')
   rowItems.push(newItem('compta', row))
@@ -775,6 +814,59 @@ async function getCompta (cfg, args) {
   return result
 }
 m1fonctions.getCompta = getCompta
+
+/***********************************
+Get parrain / tribu d'uncompte, pour le comptable seulement
+args:
+- sessionId
+- id : id du compte
+Retourne:
+result.parrain : 1 si parrain
+result.nctpc : nom complet `[nom, rnd]` de la tribu cryptée par la clé publique du comptable.
+*/
+async function getTribuCompte (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+
+  const row = stmt(cfg, selcompteId).get({ id: args.id })
+  if (!row) throw new AppExc(A_SRV, 'Compte non trouvé')
+  result.parrain = row.stp
+  result.nctpc = row.nctpc
+
+  return result
+}
+m1fonctions.getTribuCompte = getTribuCompte
+
+/***********************************
+Est parrain de ma tribu ?
+args:
+- sessionId
+- id : id du compte testé
+- chkt: du compte testeur
+Retourne:
+result.statut :
+0 - id n'est pas primaire
+1 - id est primaire pas de la même tribu
+2 - id est primaire et de la même tribu
+3 - id est parrain de la même tribu
+*/
+async function estParrainTribu (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+
+  const row = stmt(cfg, selcompteId).get({ id: args.id })
+  if (!row) {
+    result.statut = 0
+  } else {
+    if (row.chkt !== args.chkt) {
+      result.statut = 1
+    } else {
+      result.statut = row.stp ? 3 : 2
+    }
+  }
+  return result
+}
+m1fonctions.estParrainTribu = estParrainTribu
 
 /*****************************************
 Chargement les avatars d'un compte dont la version est plus récente que celle détenue en session
