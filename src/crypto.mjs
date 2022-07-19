@@ -4,6 +4,24 @@ import { pbkfd, sha256, random, crypter, decrypter, cryptersoft, decryptersoft, 
 
 export const crypt = { pbkfd, sha256, random, crypter, decrypter, cryptersoft, decryptersoft, decrypterStr, genKeyPair, crypterRSA, decrypterRSA, concat, u8ToB64, b64ToU8, rnd6, hash, hashBin, int2base64, bigToU8, u8ToBig, u8ToInt, intToU8, sidToId, idToSid, test1, test2 }
 
+// function u8ToHex (u8) { return [...u8].map(b => b.toString(16).padStart(2, '0')).join('') }
+function u8ToHexS (u8) { return [...u8].map(b => b.toString(16).padStart(2, '0')).join(' ') }
+
+const TRACEU8 = true
+
+export function tru8 (info, u8) {
+  if (!TRACEU8 || !u8) return
+  const l = u8.length
+  if (!l) return
+  if (l > 32) {
+    const d = u8ToHexS(u8.slice(0, 16))
+    const f = u8ToHexS(u8.slice(l - 16, l))
+    console.log(info + ' [' + l + '] ' + d + ' ... ' + f)
+  } else {
+    console.log(info + ' [' + l + '] ' + u8ToHexS(u8))
+  }
+}
+
 export function u8ToB64 (u8, url) {
   const s = fromByteArray(u8)
   return !url ? s : s.replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
