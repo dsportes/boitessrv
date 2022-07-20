@@ -738,6 +738,8 @@ args:
 - sessionId
 - dhde: min
 - st: min
+- id : Si présent, par convention la liste ne contient que le seul
+chat ayant cet id sans tenir compte des autres critères
 Retourne une liste de selchat : {id, dhde, st, nrc, cv, stp, nctpc}
 - `nrc` : `[nom, rnd, cle]` crypté par la clé publique du comptable. 
   cle est la clé C de cryptage du chat (immuable, générée à la création).
@@ -749,8 +751,13 @@ async function selectChat (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
   const rowItems = []
 
-  const rows = stmt(cfg, selchat).all({ dhde: args.dhde, st: args.st })
-  rows.forEach((row) => { rowItems.push(newItem('selchat', row)) })
+  if (!args.id) {
+    const rows = stmt(cfg, selchat).all({ dhde: args.dhde, st: args.st })
+    rows.forEach((row) => { rowItems.push(newItem('selchat', row)) })
+  } else {
+    const row = stmt(cfg, selchat2).get({ id: args.id })
+    if (row) rowItems.push(newItem('selchat', row))
+  }
 
   result.rowItems = rowItems
   return result
@@ -769,6 +776,20 @@ FROM chat, cv, compte
 WHERE
 chat.dhde >= @dhde
 AND chat.st >= @st
+AND cv.id = chat.id
+AND compte.id = chat.id`
+
+const selchat2 = `SELECT
+chat.id AS id, 
+chat.dhde AS dhde,
+chat.st AS st,
+chat.nrc AS nrc,
+cv.cv AS cv,
+compte.stp AS stp,
+compte.nctpc AS nctpc
+FROM chat, cv, compte
+WHERE
+chat.id >= @id
 AND cv.id = chat.id
 AND compte.id = chat.id`
 
