@@ -231,15 +231,12 @@ function idx (id) {
   return (id % (nbVersions - 1)) + 1
 }
 
-let clepubC = null
-
-function clepubComptable (cfg) {
-  if (!clepubC) {
-    const c = stmt(cfg, selavrsapub).get({ id: crypt.sidToId(crypt.idToSid(IDCOMPTABLE)) })
-    if (!c) throw new AppExc(A_SRV, '01-Clé publique du comptable inconnue')
-    clepubC = c.clepub
-  }
-  return clepubC
+function clepubComptable (cfg, session) {
+  if (session && session.clepubC) return session.clepubC
+  const c = stmt(cfg, selavrsapub).get({ id: IDCOMPTABLE })
+  if (!c) throw new AppExc(A_SRV, '01-Clé publique du comptable inconnue')
+  if (session) session.clepubC = c.clepub
+  return c.clepub
 }
 
 /* Creation du compte d'un comptable ****************************************
@@ -392,7 +389,7 @@ async function connexionCompte (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
   cfg.db.transaction(connexionCompteTr)(cfg, args, result)
   session.setCompte(args.id) // RAZ des abonnements et abonnement au compte
-  result.clepubc = clepubComptable(cfg)
+  result.clepubc = clepubComptable(cfg, session)
   return result
 }
 m1fonctions.connexionCompte = connexionCompte
@@ -2750,7 +2747,7 @@ async function acceptParrainage (cfg, args) {
   const i7 = newItem('tribu', items.tribu)
   const tous = [i1, i2, i3, i4, i5, i6, i7]
   result.rowItems = tous // à retourner en résultat
-  result.clepubc = clepubComptable(cfg)
+  result.clepubc = clepubComptable(cfg, session)
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: tous }) // à synchroniser
   setImmediate(() => { processQueue() })
 
