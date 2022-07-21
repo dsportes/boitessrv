@@ -2669,15 +2669,16 @@ Acceptation d'un parrainage
     phch: arg.phch, // hash de la phrase de contact
     idavp: couple.idE, // id de l'avatar parrain
     idt: nat.id, // id de la tribu de A1
-    f1: datactc.f1,
-    f2: datactc.f2,
+    f1: datactc.forfaits[0],
+    f2: datactc.forfaits[1],
     chkt,
-    nctc,
+    // nom complet du compte s'il est parrain, crypté par la clé de la tribu
+    ncpart: arg.estPar ? ncpart : null, 
     ardc,
     estPar: arg.estpar,
     sec: arg.max[0] !== 0, // le filleul accède aux secrets du couple
-    nrc, // [n, r, c] crypté par la clepubc
-    ck cle c cryptée par la clé K
+    nrc: datactc.nrc,
+    ck
 Refus
     sessionId: data.sessionId,
     phch: arg.phch, // hash de la phrase de contact
@@ -2747,10 +2748,10 @@ async function acceptParrainage (cfg, args) {
   const i5 = newItem('couple', items.couple)
   const i6 = newItem('chat', items.chat)
   const i7 = newItem('tribu', items.tribu)
-
-  result.rowItems = [i1, i2, i3, i4, i5, i6] // à retourner en résultat
+  const tous = [i1, i2, i3, i4, i5, i6, i7]
+  result.rowItems = tous // à retourner en résultat
   result.clepubc = clepubComptable(cfg)
-  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: [i1, i2, i3, i4, i5, i6, i7] }) // à synchroniser
+  syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: tous }) // à synchroniser
   setImmediate(() => { processQueue() })
 
   // Abonnements du nouveau compte
@@ -2788,9 +2789,9 @@ function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, 
   tribu.f1 += args.f1
   tribu.f2 += args.f2
   tribu.nbc += 1
-  if (args.chkt) {
+  if (args.estPar) {
     const m = (tribu.mncpt ? deserial(tribu.mncpt) : null) || {}
-    m[args.chkt] = args.nctc
+    m[args.chkt] = args.ncpart
     tribu.mncpt = serial(m)
   }
   tribu.v = args.vtribu
