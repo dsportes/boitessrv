@@ -231,12 +231,49 @@ function idx (id) {
   return (id % (nbVersions - 1)) + 1
 }
 
-function clepubComptable (cfg, session) {
-  if (session && session.clepubC) return session.clepubC
-  const c = stmt(cfg, selavrsapub).get({ id: IDCOMPTABLE })
-  if (!c) throw new AppExc(A_SRV, '01-Clé publique du comptable inconnue')
-  if (session) session.clepubC = c.clepub
-  return c.clepub
+/* Template d'opération de MAJ ******************************
+args:
+  -sessionId
+Retour: result
+  -ok :
+*/
+
+async function templateMAJ (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+
+  const versions = getValue(cfg, VERSIONS)
+  const j = idx(args.id)
+  versions[j]++
+  args.v = versions[j]
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(templateMAJTr)(cfg, args, rowItems)
+  syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
+  setImmediate(() => { processQueue() })
+
+  result.rowItems = rowItems
+  result.ok = args.ok
+  return result
+}
+m1fonctions.templateMAJ = templateMAJ
+
+function templateMAJTr(cfg, args, rowItems) {
+  const c = stmt(cfg, selcompteIdv).get({ id : args.idc })
+  if (!c || c.v > args.vc) { args.ok = false; return }
+  rowItems.push(newItem('compte', c))
+  args.ok = true
+}
+
+/************************************************* */
+function clepubComptable (cfg) {
+  if (!cfg.clepubC) {
+    const c = stmt(cfg, selavrsapub).get({ id: IDCOMPTABLE })
+    if (!c) throw new AppExc(A_SRV, '01-Clé publique du comptable inconnue')
+    cfg.clepubC = c.clepub
+  }
+  return cfg.clepub
 }
 
 /* Creation du compte d'un comptable ****************************************
@@ -278,6 +315,7 @@ function creationCompteComptable (cfg, args) {
   const avrsa = { id: avatar.id, clepub: args.clePubAv, vsh: 0 }
 
   cfg.db.transaction(creationCompteComptableTr)(cfg, compte, compta, prefs, avatar, cv, avrsa)
+  cfg.clepubC = avrsa.clepub
   session.compteId = compte.id
   session.plusAvatars([avatar.id])
   result.rowItems = [newItem('compte', compte), newItem('compta', compta), newItem('prefs', prefs), newItem('avatar', avatar)]
@@ -373,6 +411,80 @@ function inforesTribuTr (cfg, args, rowItems) {
   rowItems.push(newItem('tribu', tribu))
 }
 
+/* Gérer les forfaits ******************************
+args:
+  - sessionId
+  - idt : id de la tribu
+  - idc : id du compte à gérer
+  - f1t, f2t : forfaits de la tribu avant l'opération
+  - f1c, f2c : forfaits du compte avant l'opération
+  - dv1, dv2 : variation des forfaits
+Retour: result
+  - ok : si false, situation de concurrence de mise à jour
+  - rowItems : compta, tribu
+*/
+
+async function gererForfaits (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+
+  const versions = getValue(cfg, VERSIONS)
+  let j = idx(args.idt)
+  versions[j]++
+  args.vt = versions[j]
+
+  j = idx(args.idc)
+  versions[j]++
+  args.vc = versions[j]
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(gererForfaitsTr)(cfg, args, rowItems)
+  if (args.ok) {
+    syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
+    setImmediate(() => { processQueue() })
+  }
+  result.rowItems = rowItems
+  result.ok = args.ok
+  return result
+}
+m1fonctions.gererForfaits = gererForfaits
+
+const updfrtribu = 'UPDATE tribu SET v = @v, f1 = @f1, f2 = @f2 , r1 = @r1, r2 = @r2 WHERE id = @id'
+
+function gererForfaitsTr(cfg, args, rowItems) {
+  const c = stmt(cfg, selcomptaId).get({ id : args.idc })
+  if (!c) throw new AppExc(A_SRV, '12-Compta not trouvée')
+  const compteurs = new Compteurs(c.data)
+
+  const t = stmt(cfg, seltribuId).get({ id : args.idt })
+  if (!t) throw new AppExc(A_SRV, '12-Tribu not trouvée')
+
+  if (args.f1t !== t.f1 || args.f2t !== t.f2 || args.f1c !== compteurs.f1 || args.f2c !== compteurs.f2) {
+    args.ok = false
+    rowItems.push(newItem('compta', c))
+    rowItems.push(newItem('tribu', t))
+    return
+  }
+
+  c.v = args.vc
+  compteurs.f1 += args.dv1
+  compteurs.f2 += args.dv2
+  c.data = compteurs.serial
+  stmt(cfg, updcompta).run(c)
+
+  t.f1 += args.dv1
+  t.f2 += args.dv2
+  t.r1 += -args.dv1
+  t.r2 += -args.dv2
+  t.v = args.vt
+  stmt(cfg, updfrtribu).run(t)
+
+  rowItems.push(newItem('compta', c))
+  rowItems.push(newItem('tribu', t))
+  args.ok = true
+}
+
 /************************************************************
 Connexion à un compte
 Détermine si les hash de la phrase secrète en argument correspond à un compte.
@@ -389,7 +501,7 @@ async function connexionCompte (cfg, args) {
   const result = { sessionId: args.sessionId, dh: getdhc() }
   cfg.db.transaction(connexionCompteTr)(cfg, args, result)
   session.setCompte(args.id) // RAZ des abonnements et abonnement au compte
-  result.clepubc = clepubComptable(cfg, session)
+  result.clepubc = clepubComptable(cfg)
   return result
 }
 m1fonctions.connexionCompte = connexionCompte
@@ -2736,7 +2848,7 @@ async function acceptParrainage (cfg, args) {
 
   const items = {} // contiendra après l'appel : comptaP (du parrain), couple
 
-  cfg.db.transaction(acceptParrainageTr)(cfg, session, args, compte, compta, prefs, avatar, cv, items)
+  cfg.db.transaction(acceptParrainageTr)(cfg, args, compte, compta, prefs, avatar, cv, items)
 
   const i1 = newItem('compte', compte)
   const i2 = newItem('avatar', avatar)
@@ -2747,7 +2859,7 @@ async function acceptParrainage (cfg, args) {
   const i7 = newItem('tribu', items.tribu)
   const tous = [i1, i2, i3, i4, i5, i6, i7]
   result.rowItems = tous // à retourner en résultat
-  result.clepubc = clepubComptable(cfg, session)
+  result.clepubc = clepubComptable(cfg)
   syncListQueue.push({ sessionId: args.sessionId, dh: dh, rowItems: tous }) // à synchroniser
   setImmediate(() => { processQueue() })
 
@@ -2765,7 +2877,7 @@ m1fonctions.acceptParrainage = acceptParrainage
 
 const upd2tribu = 'UPDATE tribu SET v = @v, nbc = @nbc, f1 = @f1, f2 = @f2, r1 = @r1, r2 = @r2, mncpt = @mncpt WHERE id = @id'
   
-function acceptParrainageTr (cfg, session, args, compte, compta, prefs, avatar, cv, items) {
+function acceptParrainageTr (cfg, args, compte, compta, prefs, avatar, cv, items) {
   const c = stmt(cfg, selcompteDpbh).get({ dpbh: compte.dpbh })
   if (c) {
     if (c.pcbh === compte.pcbh) {
