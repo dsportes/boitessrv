@@ -485,6 +485,72 @@ function gererForfaitsTr(cfg, args, rowItems) {
   args.ok = true
 }
 
+/***************************************************
+Répartir les forfait entre les avatars d'un compte
+args:
+  - sessionId
+  - map avec une entrée par avatar dont les forfaits changent
+    - clé: id
+    - valeur:
+      - f1 f2 f1n f2n valeurs du forfait avant et après
+      - t : 0:secondaire, 1:primaire (pour gérer s1 s2)
+Retour: result
+  - ok : si false, situation de concurrence de mise à jour
+*/
+
+async function repartirForfait (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+
+  const versions = getValue(cfg, VERSIONS)
+  for (const ids in args.map) {
+    const id = parseInt(ids)
+    const x = args.map[ids]
+    const j = idx(id)
+    versions[j]++
+    x.v = versions[j]
+  }
+  setValue(cfg, VERSIONS)
+
+  const rowItems = []
+  cfg.db.transaction(repartirForfaitTr)(cfg, args, rowItems)
+  if (args.ok) {
+    syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
+    setImmediate(() => { processQueue() })
+  }
+  result.ok = args.ok
+  return result
+}
+m1fonctions.repartirForfait = repartirForfait
+
+function repartirForfaitTr(cfg, args, rowItems) {
+  const lst = []
+  for (const idx in args.map) {
+    const id = parseInt(idx)
+    const x = args.map[idx]
+    const compta = stmt(cfg, selcomptaId).get({ id: id })
+    if (!compta) throw new AppExc(A_SRV, '12-Compta not trouvée')
+    const c = new Compteurs(compta.data)
+    if (c.f1 !== x.f1 || c.f2 !== x.f2) { args.ok = false; return }
+    if (x.t) {
+      c.s1 += x.f1 - x.f1n
+      c.s2 += x.f2 - x.f2n
+    }
+    c.f1 = x.f1n
+    c.f2 = x.f2n
+    compta.data = c.serial
+    compta.v = x.v
+    lst.push(compta)
+  }
+
+  lst.forEach(compta => {
+    stmt(cfg, updcompta).run(compta)
+    rowItems.push(newItem('compta', compta))
+  })
+
+  args.ok = true
+}
+
 /************************************************************
 Connexion à un compte
 Détermine si les hash de la phrase secrète en argument correspond à un compte.
