@@ -411,6 +411,114 @@ function inforesTribuTr (cfg, args, rowItems) {
   rowItems.push(newItem('tribu', tribu))
 }
 
+/* Changer un compte de tribu ***********************************
+args:
+  - sessionId
+  - Compte
+    - idc: id du compte
+    - stp: 1: parrain dans la nouvelle tribu
+    - chkta: hash de (sid compte @ sid tribu antérieure)
+    - chkt: hash de (sid compte @ sid nouvelle tribu)
+    - nctk: nom complet de la tribu crypté par la clé publique de idc
+    - nctpc: nom complet de la tribu crypté par la clé publique du comptable
+  - Tribu antérieure
+    - idta: id de l'ancienne tribu
+  - Tribu nouvelle
+    - idtn: id de la nouvelle tribu
+    - nrc: si le compte y est parrain, [nom, rnd] du compte crypté par la clé t de la tribu
+Retour:
+  - ok: true si OK (sinon la nouvelle tribu n'a pas assez d'espace pour accueillir le compte transféré)
+  - rowItems: si OK de ancienne tribu, nouvelle tribu, compte
+Remarque: fc1 et fc2 du compte sont tirés de sa compta: f1+s1 et f2+s2
+Contrainte: dans la nouvelle tribu: r1 >= fc1 et r2 >= fc2
+*/
+
+function changerTribu (cfg, args) {
+  checkSession(args.sessionId)
+  const result = { sessionId: args.sessionId, dh: getdhc() }
+
+  const versions = getValue(cfg, VERSIONS)
+  let j = idx(args.idta)
+  versions[j]++
+  args.vat = versions[j]
+  j = idx(args.idtn)
+  versions[j]++
+  args.vnt = versions[j]
+  setValue(cfg, VERSIONS)
+  j = idx(args.idc)
+  versions[j]++
+  args.vc = versions[j]
+
+  const rowItems = []
+
+  cfg.db.transaction(changerTribuTr)(cfg, args, rowItems)
+  if (args.ok) {
+    syncListQueue.push({ sessionId: args.sessionId, dh: result.dh, rowItems: rowItems })
+    setImmediate(() => { processQueue() })
+  }
+  result.ok = args.ok
+  return result
+}
+m1fonctions.changerTribu = changerTribu
+
+const updanttribu = 'UPDATE tribu SET v = @v, nbc = @nbc, mnctp = @mnctp, f1 = @f1, f2 = @f2, r1 = @r1, r2 = @r2 WHERE id = @id'
+const updtribcompte = 'UPDATE compte SET v = @v, stp = @stp, nctk = @nctk, nctpc = @nctpc, chkt = @chkt WHERE id = @id'
+
+function changerTribuTr (cfg, args, rowItems) {
+  const at = stmt(cfg, seltribuId).get({ id: args.idta})
+  if (!at) throw new AppExc(A_SRV, '08-Tribu d\'origine non trouvée')
+  const nt = stmt(cfg, seltribuId).get({ id: args.idtn})
+  if (!nt) throw new AppExc(A_SRV, '08-Tribu de destination non trouvée')
+  const compte = stmt(cfg, selcompteId).get({ id: args.idc})
+  if (!compte) throw new AppExc(A_SRV, '08-Compte non trouvé')
+  const compta = stmt(cfg, selcomptaId).get({ id: args.idc})
+  if (!compta) throw new AppExc(A_SRV, '08-Compte non trouvé')
+
+  const fc1 = compta.f1 + compta.s1
+  const fc2 = compta.f2 + compta.s2
+  if (fc1 > nt.r1 || fc2 > nt.r2) { args.ok = false; return }
+
+  {
+    at.v = args.vat
+    const m = (at.mnctp ? deserial(at.mnctp) : null) || {}
+    delete m[args.chkta]
+    at.mnctp = serial(m)
+    at.nbc -= 1
+    at.f1 -= fc1
+    at.f2 -= fc2
+    at.r1 += fc1
+    at.r2 += fc2
+    stmt(cfg, updanttribu).run(at)
+    rowItems.push(newItem('tribu', at))
+  }
+
+  {
+    nt.v = args.vnt
+    if (args.stp) {
+      const m = (nt.mnctp ? deserial(nt.mnctp) : null) || {}
+      m[args.chkt] = args.nrc
+      nt.mnctp = serial(m)
+    }
+    nt.nbc += 1
+    nt.f1 += fc1
+    nt.f2 += fc2
+    nt.r1 -= fc1
+    nt.r2 -= fc2
+    stmt(cfg, updanttribu).run(nt)
+    rowItems.push(newItem('tribu', nt))
+  }
+
+  compte.v = args.vc
+  compte.stp = args.stp
+  compte.nctk = args.nctk
+  compte.nctpc = args.nctpc
+  compte.chkt = args.chkt
+  stmt(cfg, updtribcompte).run(compte)
+  rowItems.push(newItem('compte', compte))
+
+  args.ok = true
+}
+
 /* Gérer les forfaits ******************************
 args:
   - sessionId
